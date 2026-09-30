@@ -2,26 +2,15 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthState
 import { ref, runTransaction, onValue, push, remove, serverTimestamp } from 'firebase/database';
 import { auth, database } from './firebase.js';
 import { makeRanking, validateCapture, profileRecord } from './ranking-model.js';
+import { explainError, localDate } from './ranking-errors.js';
 
 const $ = id => document.getElementById(id);
 let mode = 'login', profiles = {}, captures = {}, readyProfiles = false, readyCaptures = false;
 let profileReady = false;
 let signupInProgress = false;
-const today = () => new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const today = () => localDate();
 const message = (id, text, error = false) => { $(id).textContent = text; $(id).classList.toggle('is-error', error); };
-const errors = {
-  'auth/invalid-credential': 'E-mail ou senha incorretos.',
-  'auth/email-already-in-use': 'Este e-mail já tem uma conta. Use Entrar.',
-  'auth/weak-password': 'Use uma senha de pelo menos 6 caracteres.',
-  'auth/invalid-email': 'Informe um e-mail válido.',
-  'auth/operation-not-allowed': 'O cadastro por e-mail ainda precisa ser ativado no Firebase deste site.',
-  'auth/configuration-not-found': 'O Authentication ainda precisa ser configurado no Firebase deste site.',
-  'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco e tente novamente.',
-  'auth/network-request-failed': 'Verifique sua conexão e tente novamente.',
-  'PERMISSION_DENIED': 'O banco ainda não permite esta operação. As regras do Firebase precisam ser publicadas.',
-  'permission-denied': 'O banco ainda não permite esta operação. As regras do Firebase precisam ser publicadas.'
-};
-const explain = error => errors[error.code] || (error.message?.startsWith('Informe') || error.message?.startsWith('Escolha') || error.message?.startsWith('A quantidade') ? error.message : 'Não foi possível concluir. Tente novamente.');
+const explain = explainError;
 
 function selectTab(name) {
   for (const tab of ['forecast', 'ranking']) {
@@ -142,16 +131,25 @@ try { const local = JSON.parse(localStorage.getItem('mare-certa-location')); if 
 $('captureForm').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget, button = form.querySelector('button[type="submit"]');
-  if (!auth.currentUser) return openAccount();
+  const user = auth.currentUser;
+  if (!user) return openAccount();
   button.disabled = true; message('captureMessage', 'Salvando captura...');
+  let stage = 'Dados da captura';
   try {
-    if (!profileReady) await ensureProfile(auth.currentUser);
-    const capture = validateCapture(Object.fromEntries(new FormData(form)), auth.currentUser.uid, serverTimestamp(), today());
+    const fields = Object.fromEntries(['species', 'quantity', 'weight', 'date', 'location'].map(name => [name, form.elements.namedItem(name).value]));
+    const capture = validateCapture(fields, user.uid, serverTimestamp(), today());
+    stage = 'Perfil do pescador';
+    if (!profileReady) await ensureProfile(user);
+    stage = 'Gravação da captura';
     await push(ref(database, 'mareCerta/captures'), capture);
+  } catch (error) {
+    console.error('Falha ao salvar captura', { stage, code: error.code, name: error.name, message: error.message });
+    message('captureMessage', `${explain(error, stage)} Os campos foram mantidos; sua captura não foi confirmada.`, true);
+    return;
+  } finally { button.disabled = false; }
+  // Only clear the form after Firebase confirms the write, outside the save catch.
     form.elements.species.value = ''; form.elements.quantity.value = '1'; form.elements.weight.value = '';
     message('captureMessage', 'Captura salva! Seu ranking foi atualizado.');
-  } catch (error) { message('captureMessage', explain(error), true); }
-  finally { button.disabled = false; }
 });
 
 function addCell(row, value, className) {

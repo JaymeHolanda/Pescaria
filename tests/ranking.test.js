@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRanking, validateCapture, profileRecord } from '../src/ranking-model.js';
+import { explainError, localDate, CaptureValidationError } from '../src/ranking-errors.js';
+
+test('erros de captura mostram a etapa, permissões e validação sem mensagem genérica', () => {
+  for (const code of ['PERMISSION_DENIED', 'permission_denied', 'permission-denied', 'database/permission-denied']) {
+    assert.match(explainError({ code }, 'Gravação da captura'), /Gravação da captura: O Firebase recusou/);
+  }
+  assert.equal(explainError(new CaptureValidationError('Escolha uma data válida.')), 'Escolha uma data válida.');
+  assert.match(explainError(new TypeError('Falha de teste')), /TypeError.*Falha de teste/);
+  assert.match(explainError({ code: 'UNAVAILABLE' }), /temporariamente indisponível/);
+});
+
+test('data do formulário tem formato ISO independente do idioma', () => {
+  assert.equal(localDate(new Date(2026, 8, 3, 23, 59)), '2026-09-03');
+});
 test('recuperar perfil preserva createdAt e mantém o nome salvo', () => {
   assert.deepEqual(profileRecord({ displayName: 'Jayme', createdAt: 10 }, undefined, undefined, 30), { displayName: 'Jayme', createdAt: 10 });
   assert.deepEqual(profileRecord({ displayName: 'Jayme', createdAt: 10 }, 'Jayme Holanda', undefined, 30), { displayName: 'Jayme Holanda', createdAt: 10 });
