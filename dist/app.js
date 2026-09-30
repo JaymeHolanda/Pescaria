@@ -1,5 +1,5 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
-const DEFAULT_LOCATION = { name: "Fortaleza", admin1: "Ceará", country_code: "BR", latitude: -3.7172, longitude: -38.5433 };
+const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), weather: null, marine: null, selectedDay: 0, aborter: null };
 
 const $ = (selector) => document.querySelector(selector);
