@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/ranking.js --bundle --format=esm --minify --outfile=dist/ranking.js",
+    "build": "esbuild src/ranking.js --bundle --format=esm --minify --outfile=dist/ranking.js && node scripts/prepare-pages.mjs",
     "dev": "npm run build && vite dist --host localhost --port 4173 --strictPort",
     "test": "node --test tests/ranking.test.js",
     "deploy:rules": "firebase deploy --only database --project teste-b81e2"

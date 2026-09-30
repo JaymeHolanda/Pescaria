@@ -11,7 +11,11 @@ npm run dev
 
 Acesse http://localhost:4173/ no desenvolvimento. Para publicar arquivos estáticos: `npm run build` e sirva a pasta `dist`. `npm test` valida o cálculo do ranking e as capturas. Use Node.js 20 ou superior para as versões atuais do SDK Firebase.
 
-## Firebase
+## GitHub Pages
+
+Em **Settings → Pages**, escolha **Deploy from a branch → main → /(root)**. O arquivo `index.html` na raiz abre o site, com os arquivos estáticos em `dist`, e `.nojekyll` evita o processamento como site Jekyll. Execute `npm run build` após alterações para sincronizar a página e compilar o SDK. Não escolha a pasta `docs`.
+
+## Configurar o Firebase
 
 O SDK Firebase é instalado via npm e compilado com esbuild. O projeto configurado é `teste-b81e2`, usando Authentication (e-mail/senha) e Realtime Database. A configuração web é pública; não contém credenciais administrativas. Senhas são gerenciadas pelo Firebase Authentication e nunca gravadas no banco.
 
@@ -19,6 +23,8 @@ O SDK Firebase é instalado via npm e compilado com esbuild. O projeto configura
 2. Em Authentication → Configurações → Domínios autorizados, adicione os domínios usados pelo site, incluindo `localhost` para testes locais.
 3. Publique `database.rules.json` na aba Regras do Realtime Database. Estas regras são para os novos nós `mareCerta/profiles` e `mareCerta/captures`. Se o projeto já tiver outras aplicações, incorpore esses nós às regras existentes; não substitua regras de outros dados sem revisar.
 4. Alternativamente, usando Firebase CLI autenticado com permissão no projeto: `npx firebase-tools deploy --only database --project teste-b81e2`.
+
+No GitHub Pages, adicione `jaymeholanda.github.io` aos domínios autorizados do Authentication. Se a conta já foi criada e o banco recusou o perfil, não cadastre novamente: depois de publicar as regras, abra **Minha conta → Concluir perfil**. O site usa **Realtime Database**, não Cloud Firestore; publique as regras no serviço correto, na instância `teste-b81e2-default-rtdb`.
 
 Perfis públicos guardam apenas nome e data de criação. Capturas públicas guardam UID, espécie, quantidade, peso total opcional, data e local. Só o proprietário pode cadastrar/excluir suas capturas; o ranking é calculado a partir dos registros, sem contador editável pelo usuário. E-mails ficam no Authentication. A localização da previsão permanece como preferência local no aparelho.
 

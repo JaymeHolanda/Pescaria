@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeRanking, validateCapture } from '../src/ranking-model.js';
+import { makeRanking, validateCapture, profileRecord } from '../src/ranking-model.js';
+test('recuperar perfil preserva createdAt e mantém o nome salvo', () => {
+  assert.deepEqual(profileRecord({ displayName: 'Jayme', createdAt: 10 }, undefined, undefined, 30), { displayName: 'Jayme', createdAt: 10 });
+  assert.deepEqual(profileRecord({ displayName: 'Jayme', createdAt: 10 }, 'Jayme Holanda', undefined, 30), { displayName: 'Jayme Holanda', createdAt: 10 });
+  assert.deepEqual(profileRecord(null, 'Jayme', undefined, 30), { displayName: 'Jayme', createdAt: 30 });
+});
 test('ranking soma peixes, une espécies e compartilha posições em empates', () => {
   const rows = makeRanking({ a: { displayName: 'Ana' }, b: { displayName: 'Beto' }, c: { displayName: 'Caio' } }, {
     x: { uid: 'a', species: 'Robalo', quantity: 2 }, y: { uid: 'a', species: ' robalo ', quantity: 3 },

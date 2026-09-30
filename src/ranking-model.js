@@ -15,6 +15,13 @@ export function makeRanking(profiles, captures) {
   });
 }
 
+export function profileRecord(existing, requestedName, authName, timestamp) {
+  return {
+    displayName: requestedName || existing?.displayName || authName || 'Pescador',
+    createdAt: existing?.createdAt ?? timestamp
+  };
+}
+
 export function validateCapture(fields, uid, createdAt, today) {
   const species = String(fields.species || '').trim();
   const location = String(fields.location || '').trim();

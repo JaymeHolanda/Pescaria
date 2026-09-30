@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut, sendPasswordResetEmail } from 'firebase/auth';
-import { ref, set, get, onValue, push, remove, serverTimestamp } from 'firebase/database';
+import { ref, runTransaction, onValue, push, remove, serverTimestamp } from 'firebase/database';
 import { auth, database } from './firebase.js';
-import { makeRanking, validateCapture } from './ranking-model.js';
+import { makeRanking, validateCapture, profileRecord } from './ranking-model.js';
 
 const $ = id => document.getElementById(id);
 let mode = 'login', profiles = {}, captures = {}, readyProfiles = false, readyCaptures = false;
@@ -41,7 +41,7 @@ function selectTab(name) {
   });
 });
 
-function openAccount() { message('authMessage', ''); $('accountDialog').showModal(); }
+function openAccount() { message('authMessage', ''); renderAccount(auth.currentUser); $('accountDialog').showModal(); }
 $('accountButton').addEventListener('click', openAccount);
 $('captureLoginButton').addEventListener('click', openAccount);
 $('closeAccount').addEventListener('click', () => $('accountDialog').close());
@@ -60,11 +60,11 @@ $('signupMode').addEventListener('click', () => setMode('signup'));
 
 async function ensureProfile(user, requestedName) {
   const path = ref(database, `mareCerta/profiles/${user.uid}`);
-  const existing = await get(path);
-  if (!existing.exists()) {
-    await set(path, { displayName: requestedName || user.displayName || 'Pescador', createdAt: serverTimestamp() });
-  }
+  // Login and the auth observer can run together. Preserve createdAt atomically.
+  await runTransaction(path, existing => profileRecord(existing, requestedName, user.displayName, serverTimestamp()), { applyLocally: false });
   profileReady = true;
+  renderAccount(user);
+  message('profileStatus', 'Perfil salvo no ranking.');
 }
 
 $('authForm').addEventListener('submit', async event => {
@@ -79,8 +79,7 @@ $('authForm').addEventListener('submit', async event => {
       const { user } = await createUserWithEmailAndPassword(auth, form.elements.email.value.trim(), form.elements.password.value);
       await updateProfile(user, { displayName: name });
       // Auth may notify before updateProfile: use the chosen name for the public record.
-      await set(ref(database, `mareCerta/profiles/${user.uid}`), { displayName: name, createdAt: serverTimestamp() });
-      profileReady = true;
+      await ensureProfile(user, name);
     } else {
       const { user } = await signInWithEmailAndPassword(auth, form.elements.email.value.trim(), form.elements.password.value);
       await ensureProfile(user);
@@ -88,7 +87,8 @@ $('authForm').addEventListener('submit', async event => {
     form.reset(); renderAccount(auth.currentUser); $('accountDialog').close();
     message('captureMessage', 'Conta conectada. Você já pode registrar suas capturas.');
   } catch (error) {
-    message('authMessage', auth.currentUser ? 'Sua conta foi conectada, mas o perfil não foi salvo no banco. Confira as regras do Firebase e tente entrar novamente.' : explain(error), true);
+    renderAccount(auth.currentUser);
+    message('authMessage', auth.currentUser ? `Sua conta já existe. O perfil ainda não foi salvo: ${explain(error)} Depois de liberar o banco, use Concluir perfil acima.` : explain(error), true);
   } finally { signupInProgress = false; $('authSubmit').disabled = false; }
 });
 $('resetPassword').addEventListener('click', async () => {
@@ -106,14 +106,34 @@ function renderAccount(user) {
   $('accountButton').textContent = user ? user.displayName || 'Minha conta' : 'Entrar / cadastrar';
   $('authForms').hidden = !!user; $('accountProfile').hidden = !user;
   $('captureLogin').hidden = !!user; $('captureForm').hidden = !user;
-  if (user) { $('profileName').textContent = user.displayName || 'Minha conta'; $('profileEmail').textContent = user.email; }
+  $('profileForm').hidden = !user || profileReady;
+  if (user) {
+    $('profileName').textContent = user.displayName || 'Minha conta'; $('profileEmail').textContent = user.email;
+    if (document.activeElement !== $('profileForm').elements.displayName) $('profileForm').elements.displayName.value = user.displayName || '';
+    if (!profileReady) message('profileStatus', 'Seu cadastro está conectado; falta salvar o perfil no ranking.');
+  }
   renderCommunity();
 }
 onAuthStateChanged(auth, async user => {
   profileReady = false; renderAccount(user);
   if (!user || signupInProgress) return;
   try { await ensureProfile(user); }
-  catch (error) { message('captureMessage', explain(error), true); }
+  catch (error) { message('captureMessage', explain(error), true); message('profileStatus', explain(error), true); }
+});
+
+$('profileForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const user = auth.currentUser, form = event.currentTarget, button = form.querySelector('button');
+  if (!user) return;
+  const name = form.elements.displayName.value.trim();
+  if (name.length < 2 || name.length > 40) return message('profileStatus', 'Informe um nome entre 2 e 40 caracteres.', true);
+  button.disabled = true; message('profileStatus', 'Salvando perfil...');
+  try {
+    await updateProfile(user, { displayName: name });
+    await ensureProfile(user, name);
+    message('authMessage', 'Perfil salvo. Você já pode registrar suas capturas.');
+  } catch (error) { message('profileStatus', explain(error), true); }
+  finally { button.disabled = false; }
 });
 
 $('captureForm').elements.date.value = today();
