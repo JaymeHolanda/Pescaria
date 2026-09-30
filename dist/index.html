@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#061b2a" />
+    <meta name="description" content="Maré Certa reúne marés, vento e lua para você planejar a próxima pescaria." />
+    <link rel="preconnect" href="https://api.open-meteo.com" />
+    <link rel="preconnect" href="https://marine-api.open-meteo.com" />
+    <link rel="preconnect" href="https://geocoding-api.open-meteo.com" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>Maré Certa — planeje sua pescaria</title>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Maré Certa — início">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 44 44"><circle cx="31" cy="13" r="6"/><path d="M5 24c6-7 11-7 17 0s11 7 17 0v8c-6 7-11 7-17 0S11 25 5 32z"/></svg>
+          </span>
+          <span>MARÉ <b>CERTA</b></span>
+        </a>
+
+        <div class="location-wrap">
+          <button id="locationButton" class="location-button" type="button" aria-expanded="false" aria-controls="locationPanel">
+            <span class="pin" aria-hidden="true">⌖</span>
+            <span><small>LOCAL DE PESCA</small><strong id="locationName">Fortaleza, CE</strong></span>
+            <span aria-hidden="true">⌄</span>
+          </button>
+          <div id="locationPanel" class="location-panel" hidden>
+            <form id="searchForm" class="search-row">
+              <label class="sr-only" for="locationSearch">Busque cidade, praia ou CEP</label>
+              <input id="locationSearch" autocomplete="off" placeholder="Cidade, praia ou CEP" />
+              <button type="submit">Buscar</button>
+            </form>
+            <button id="useGps" class="gps-button" type="button">Usar minha localização atual</button>
+            <div id="searchResults" class="search-results" role="listbox" aria-label="Resultados de localização"></div>
+            <p class="location-note">O local escolhido fica salvo neste aparelho.</p>
+          </div>
+        </div>
+
+        <div class="live-pill"><span></span> Previsão atualizada</div>
+      </header>
+
+      <nav class="view-tabs" aria-label="Áreas do site" role="tablist">
+        <button id="forecastTab" role="tab" aria-controls="forecastPanel" aria-selected="true" type="button">Condições de pesca</button>
+        <button id="rankingTab" role="tab" aria-controls="rankingPanel" aria-selected="false" tabindex="-1" type="button">Ranking & capturas</button>
+        <button id="accountButton" class="account-button" type="button">Entrar / cadastrar</button>
+      </nav>
+      <main id="forecastPanel" role="tabpanel" aria-labelledby="forecastTab">
+        <section class="intro" aria-labelledby="pageTitle">
+          <div>
+            <p class="eyebrow">CONDIÇÕES PARA PESCA</p>
+            <h1 id="pageTitle">Quando o mar chama,<br/><em>a gente avisa.</em></h1>
+          </div>
+          <div class="intro-aside">
+            <p>Maré, vento e lua reunidos para você escolher a melhor janela e chegar preparado.</p>
+            <div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados...</span></div>
+          </div>
+        </section>
+
+        <section class="day-strip" aria-label="Previsão dos próximos sete dias" id="dayStrip">
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+          <div class="day-card skeleton"><span></span><b></b><small></small></div>
+        </section>
+
+        <section class="dashboard" aria-live="polite" aria-busy="true" id="dashboard">
+          <article class="tide-card card">
+            <div class="card-heading">
+              <div>
+                <p class="eyebrow">TÁBUA DA MARÉ</p>
+                <h2 id="selectedDate">Carregando previsão</h2>
+              </div>
+              <div class="legend"><span class="dot high"></span> Alta <span class="dot low"></span> Baixa</div>
+            </div>
+
+            <div class="chart-wrap">
+              <svg id="tideChart" viewBox="0 0 760 250" role="img" aria-label="Curva horária da maré"></svg>
+            </div>
+
+            <div class="tide-events" id="tideEvents"></div>
+            <p class="chart-note">Alturas em relação ao nível médio do mar. Use como apoio ao planejamento, nunca para navegação.</p>
+          </article>
+
+          <aside class="conditions">
+            <article class="condition-card card moon-card">
+              <div class="condition-icon moon-visual" id="moonVisual" aria-hidden="true"><span></span></div>
+              <div><p class="eyebrow">LUA</p><h3 id="moonName">—</h3><p><strong id="moonPercent">—</strong> iluminada</p></div>
+            </article>
+
+            <article class="condition-card card">
+              <div class="condition-icon compass" aria-hidden="true"><span id="windArrow">↑</span></div>
+              <div><p class="eyebrow">VENTO</p><h3><span id="windSpeed">—</span> km/h</h3><p id="windDirection">Direção —</p></div>
+            </article>
+
+            <article class="score-card card">
+              <div class="score-head"><div><p class="eyebrow">CONDIÇÃO DO DIA</p><h3 id="scoreLabel">Calculando</h3></div><strong id="scoreValue">—</strong></div>
+              <div class="score-track"><span id="scoreBar"></span></div>
+              <p id="scoreNote">Analisando maré, vento e luminosidade lunar.</p>
+            </article>
+          </aside>
+        </section>
+
+        <section class="window-section" aria-labelledby="windowTitle">
+          <div class="window-copy">
+            <p class="eyebrow">JANELAS DE PESCA</p>
+            <h2 id="windowTitle">Chegue antes da maré alta.</h2>
+            <p>Calculamos o início ideal três horas antes de cada pico de maré. Assim você vê o melhor intervalo sem fazer conta.</p>
+          </div>
+          <div id="fishingWindows" class="window-list">
+            <div class="window-card skeleton"></div><div class="window-card skeleton"></div>
+          </div>
+        </section>
+
+        <section id="errorBox" class="error-box" hidden>
+          <strong>Não conseguimos atualizar os dados agora.</strong>
+          <span id="errorMessage">Confira sua conexão e tente novamente.</span>
+          <button id="retryButton" type="button">Tentar novamente</button>
+        </section>
+      </main>
+
+      <main id="rankingPanel" role="tabpanel" aria-labelledby="rankingTab" hidden>
+        <section class="ranking-intro">
+          <div><p class="eyebrow">COMUNIDADE MARÉ CERTA</p><h1>Quem pesca,<br><em>faz história.</em></h1></div>
+          <p>Registre suas capturas e acompanhe o ranking da comunidade. A classificação considera a quantidade total de peixes registrados.</p>
+        </section>
+        <p id="communityMessage" class="community-message" role="status">Conectando à comunidade...</p>
+        <div class="ranking-layout">
+          <section class="card leaderboard" aria-labelledby="rankingTitle">
+            <div class="card-heading"><div><p class="eyebrow">TODAS AS CAPTURAS</p><h2 id="rankingTitle">Ranking de pescadores</h2></div><span id="rankingCount" class="ranking-count">0 participantes</span></div>
+            <div class="table-scroll"><table><thead><tr><th scope="col">Posição</th><th scope="col">Pescador</th><th scope="col">Peixes</th><th scope="col">Espécies</th></tr></thead><tbody id="rankingRows"></tbody></table></div>
+            <p id="rankingEmpty" class="empty-note">Nenhuma captura ainda. Seja a primeira pessoa a registrar uma pescaria.</p>
+            <p class="chart-note">Capturas informadas pelos participantes. Empates compartilham a mesma posição.</p>
+          </section>
+          <section class="card capture-card" aria-labelledby="captureTitle">
+            <p class="eyebrow">SEU DIÁRIO DE PESCA</p><h2 id="captureTitle">Registrar captura</h2>
+            <div id="captureLogin"><p>Entre ou crie uma conta para salvar suas capturas e participar do ranking.</p><button class="primary-button" id="captureLoginButton" type="button">Entrar / cadastrar</button></div>
+            <form id="captureForm" hidden>
+              <label>Peixe / espécie<input name="species" required maxlength="60" placeholder="Ex.: Robalo" /></label>
+              <div class="form-grid"><label>Quantidade<input name="quantity" type="number" min="1" max="1000" step="1" value="1" required /></label><label>Peso total (kg)<input name="weight" type="number" min="0" max="10000" step="0.01" placeholder="Opcional" /></label></div>
+              <label>Data da pescaria<input name="date" type="date" required /></label>
+              <label>Local<input name="location" maxlength="100" required placeholder="Praia, rio ou cidade" /></label>
+              <button class="primary-button" type="submit">Salvar captura</button>
+              <p class="chart-note">Seu nome, espécie, quantidade, peso, data e local ficam visíveis à comunidade.</p>
+            </form>
+            <p id="captureMessage" class="form-message" role="status"></p>
+          </section>
+        </div>
+        <section class="card catches-card" aria-labelledby="catchesTitle"><div class="card-heading"><div><p class="eyebrow">DIÁRIO DA COMUNIDADE</p><h2 id="catchesTitle">Capturas recentes</h2></div></div><div id="recentCatches" class="recent-catches"></div></section>
+      </main>
+
+      <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountTitle">
+        <button id="closeAccount" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div id="authForms"><p class="eyebrow">SUA CONTA</p><h2 id="accountTitle">Bem-vindo a bordo</h2><div class="auth-switch"><button id="loginMode" type="button" aria-pressed="true">Entrar</button><button id="signupMode" type="button" aria-pressed="false">Criar conta</button></div>
+          <form id="authForm"><label id="nameField" hidden>Nome público<input name="displayName" maxlength="40" minlength="2" autocomplete="nickname" /></label><label>E-mail<input name="email" type="email" required autocomplete="email" /></label><label>Senha<input name="password" type="password" minlength="6" required autocomplete="current-password" /></label><button id="authSubmit" class="primary-button" type="submit">Entrar</button></form>
+          <button id="resetPassword" class="text-button" type="button">Esqueci minha senha</button>
+        </div>
+        <div id="accountProfile" hidden><p class="eyebrow">SUA CONTA</p><h2 id="profileName"></h2><p id="profileEmail"></p><button id="logoutButton" class="primary-button" type="button">Sair da conta</button></div>
+        <p id="authMessage" class="form-message" role="status"></p>
+      </dialog>
+
+      <footer>
+        <div class="brand footer-brand">MARÉ <b>CERTA</b></div>
+        <p>Dados meteorológicos e marítimos por <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> e DWD.</p>
+        <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
+      </footer>
+    </div>
+    <script src="./app.js" defer></script>
+    <script type="module" src="./ranking.js"></script>
+  </body>
+</html>

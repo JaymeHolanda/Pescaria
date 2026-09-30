@@ -1,0 +1,272 @@
+const DEFAULT_LOCATION = { name: "Fortaleza", admin1: "Ceará", country_code: "BR", latitude: -3.7172, longitude: -38.5433 };
+const state = { location: loadLocation(), weather: null, marine: null, selectedDay: 0, aborter: null };
+
+const $ = (selector) => document.querySelector(selector);
+const els = {
+  locationButton: $("#locationButton"), locationPanel: $("#locationPanel"), locationName: $("#locationName"),
+  searchForm: $("#searchForm"), locationSearch: $("#locationSearch"), searchResults: $("#searchResults"), useGps: $("#useGps"),
+  dayStrip: $("#dayStrip"), dashboard: $("#dashboard"), selectedDate: $("#selectedDate"), tideChart: $("#tideChart"),
+  tideEvents: $("#tideEvents"), fishingWindows: $("#fishingWindows"), moonName: $("#moonName"), moonPercent: $("#moonPercent"),
+  moonVisual: $("#moonVisual"), windSpeed: $("#windSpeed"), windDirection: $("#windDirection"), windArrow: $("#windArrow"),
+  scoreLabel: $("#scoreLabel"), scoreValue: $("#scoreValue"), scoreBar: $("#scoreBar"), scoreNote: $("#scoreNote"),
+  dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton")
+};
+
+function loadLocation() {
+  try { return JSON.parse(localStorage.getItem("mare-certa-location")) || DEFAULT_LOCATION; }
+  catch { return DEFAULT_LOCATION; }
+}
+
+function saveLocation(location) {
+  state.location = location;
+  localStorage.setItem("mare-certa-location", JSON.stringify(location));
+  updateLocationLabel();
+}
+
+function updateLocationLabel() {
+  const l = state.location;
+  const region = l.admin1 || l.country_code || "";
+  els.locationName.textContent = [l.name, region].filter(Boolean).join(", ");
+}
+
+function formatDate(dateString, options = {}) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", ...options }).format(new Date(`${dateString}T12:00:00Z`));
+}
+
+function degreesToCompass(deg) {
+  const names = ["N", "NE", "L", "SE", "S", "SO", "O", "NO"];
+  return names[Math.round((Number(deg) || 0) / 45) % 8];
+}
+
+function subtractHours(time, hours) {
+  const [h, m] = time.split(":").map(Number);
+  const total = (h * 60 + m - hours * 60 + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function fallbackMoonPhase(dateString) {
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const days = (new Date(`${dateString}T12:00:00Z`).getTime() - knownNewMoon) / 86400000;
+  return ((days % 29.53058867) + 29.53058867) % 29.53058867 / 29.53058867;
+}
+
+function moonInfo(dateString, apiPhase) {
+  const phase = Number.isFinite(apiPhase) ? apiPhase : fallbackMoonPhase(dateString);
+  const illumination = Math.round((1 - Math.cos(2 * Math.PI * phase)) / 2 * 100);
+  let name = "Lua nova";
+  if (phase >= .0625 && phase < .1875) name = "Crescente côncava";
+  else if (phase < .3125) name = "Quarto crescente";
+  else if (phase < .4375) name = "Crescente gibosa";
+  else if (phase < .5625) name = "Lua cheia";
+  else if (phase < .6875) name = "Minguante gibosa";
+  else if (phase < .8125) name = "Quarto minguante";
+  else if (phase < .9375) name = "Minguante côncava";
+  return { phase, illumination, name };
+}
+
+async function fetchJson(url, signal) {
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error(`Serviço indisponível (${response.status})`);
+  return response.json();
+}
+
+async function loadForecast() {
+  if (state.aborter) state.aborter.abort();
+  state.aborter = new AbortController();
+  const { latitude, longitude } = state.location;
+  const common = `latitude=${latitude}&longitude=${longitude}&timezone=auto&forecast_days=7`;
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max`;
+  const marineUrl = `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=sea_level_height_msl,wave_height,wave_period&cell_selection=sea`;
+
+  setLoading(true);
+  try {
+    const [weather, marine] = await Promise.all([
+      fetchJson(weatherUrl, state.aborter.signal),
+      fetchJson(marineUrl, state.aborter.signal)
+    ]);
+    state.weather = weather;
+    state.marine = marine;
+    state.selectedDay = 0;
+    els.dataStatus.textContent = "Dados ao vivo";
+    els.errorBox.hidden = true;
+    renderAll();
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    state.weather = null; state.marine = null;
+    els.errorMessage.textContent = error.message || "Confira sua conexão e tente novamente.";
+    els.errorBox.hidden = false;
+    els.dataStatus.textContent = "Atualização pendente";
+    renderUnavailable();
+  } finally { setLoading(false); }
+}
+
+function setLoading(loading) {
+  els.dashboard.setAttribute("aria-busy", String(loading));
+  els.locationButton.disabled = loading;
+}
+
+function dayData(index) {
+  const date = state.weather.daily.time[index];
+  const hourly = state.marine.hourly;
+  const points = hourly.time.map((time, i) => ({
+    time, hour: time.slice(11, 16), level: hourly.sea_level_height_msl?.[i], wave: hourly.wave_height?.[i], period: hourly.wave_period?.[i]
+  })).filter(p => p.time.startsWith(date) && Number.isFinite(p.level));
+  return { date, points, events: findEvents(points) };
+}
+
+function findEvents(points) {
+  const events = [];
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1].level, value = points[i].level, next = points[i + 1].level;
+    if (value > prev && value >= next) events.push({ ...points[i], type: "high" });
+    if (value < prev && value <= next) events.push({ ...points[i], type: "low" });
+  }
+  return events;
+}
+
+function renderAll() {
+  updateLocationLabel();
+  const now = new Date();
+  els.todayLabel.textContent = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(now);
+  renderDays();
+  renderSelectedDay();
+}
+
+function renderDays() {
+  els.dayStrip.innerHTML = state.weather.daily.time.map((date, index) => {
+    const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
+    return `<button class="day-card ${index === state.selectedDay ? "active" : ""}" data-day="${index}" type="button" aria-pressed="${index === state.selectedDay}">
+      <span>${index === 0 ? "Hoje" : formatDate(date, { weekday: "short" }).replace(".", "")}</span>
+      <b>${formatDate(date, { day: "2-digit", month: "short" }).replace(" de ", " ")}</b>
+      <small>${moon.illumination}% de lua</small>
+    </button>`;
+  }).join("");
+  els.dayStrip.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
+    state.selectedDay = Number(button.dataset.day); renderDays(); renderSelectedDay();
+  }));
+}
+
+function renderSelectedDay() {
+  const index = state.selectedDay;
+  const { date, points, events } = dayData(index);
+  const windSpeed = Math.round(state.weather.daily.wind_speed_10m_max?.[index] ?? state.weather.current.wind_speed_10m);
+  const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index] ?? state.weather.current.wind_direction_10m;
+  const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
+
+  els.selectedDate.textContent = index === 0 ? "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
+  renderChart(points, events);
+  renderEvents(events);
+  renderWindows(events);
+  els.windSpeed.textContent = windSpeed;
+  els.windDirection.textContent = `Vento de ${degreesToCompass(windDeg)} · ${Math.round(windDeg)}°`;
+  els.windArrow.style.transform = `rotate(${windDeg}deg)`;
+  els.moonName.textContent = moon.name;
+  els.moonPercent.textContent = `${moon.illumination}%`;
+  els.moonVisual.querySelector("span").style.opacity = Math.max(.28, moon.illumination / 100);
+  renderScore(points, moon.illumination, windSpeed, state.weather.daily.precipitation_probability_max?.[index] || 0);
+}
+
+function renderChart(points, events) {
+  if (!points.length) { els.tideChart.innerHTML = `<text x="380" y="120" text-anchor="middle" class="axis-label">Sem dados marítimos para este local</text>`; return; }
+  const width = 760, height = 250, left = 42, right = 16, top = 25, bottom = 34;
+  const values = points.map(p => p.level), min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
+  const x = i => left + (i / Math.max(1, points.length - 1)) * (width - left - right);
+  const y = v => top + (max - v) / range * (height - top - bottom);
+  const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.level).toFixed(1)}`).join(" ");
+  const area = `${path} L${x(points.length - 1)},${height - bottom} L${x(0)},${height - bottom} Z`;
+  const grid = [0, 1, 2, 3].map(i => {
+    const yy = top + i * (height - top - bottom) / 3;
+    const val = max - i * range / 3;
+    return `<line x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}" class="grid-line"/><text x="4" y="${yy+4}" class="axis-label">${val.toFixed(2)}m</text>`;
+  }).join("");
+  const hours = points.filter((_, i) => i % 4 === 0).map(p => {
+    const i = points.indexOf(p); return `<text x="${x(i)}" y="${height-8}" text-anchor="middle" class="axis-label">${p.hour}</text>`;
+  }).join("");
+  const markers = events.map(event => {
+    const i = points.findIndex(p => p.time === event.time), yy = y(event.level);
+    return `<circle cx="${x(i)}" cy="${yy}" r="5" class="event-point ${event.type}"/><text x="${x(i)}" y="${event.type === "high" ? yy-12 : yy+20}" text-anchor="middle" class="event-label">${event.hour}</text>`;
+  }).join("");
+  els.tideChart.innerHTML = `<defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4de1c1" stop-opacity=".24"/><stop offset="1" stop-color="#4de1c1" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" class="tide-area"/><path d="${path}" class="tide-line"/>${markers}${hours}`;
+}
+
+function renderEvents(events) {
+  if (!events.length) { els.tideEvents.innerHTML = `<p class="chart-note">Os extremos de maré não foram identificados nesta previsão.</p>`; return; }
+  els.tideEvents.innerHTML = events.slice(0, 4).map(event => `<div class="tide-event ${event.type}"><span>${event.type === "high" ? "MARÉ ALTA" : "MARÉ BAIXA"}</span><strong>${event.hour}</strong><small>${event.level.toFixed(2)} m</small></div>`).join("");
+}
+
+function renderWindows(events) {
+  const highs = events.filter(e => e.type === "high").slice(0, 2);
+  if (!highs.length) { els.fishingWindows.innerHTML = `<div class="window-card"><span class="window-label">SEM JANELA CALCULADA</span><strong>Dados insuficientes</strong><small>Tente outro dia ou um ponto mais próximo da costa.</small></div>`; return; }
+  els.fishingWindows.innerHTML = highs.map((event, i) => `<div class="window-card"><span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"}</span><strong>${subtractHours(event.hour, 3)} — ${event.hour}</strong><small>Maré alta de ${event.level.toFixed(2)} m às ${event.hour}</small><span class="wave-lines" aria-hidden="true">≈≈</span></div>`).join("");
+}
+
+function renderScore(points, moon, wind, rain) {
+  const amplitude = points.length ? Math.max(...points.map(p => p.level)) - Math.min(...points.map(p => p.level)) : 0;
+  const tideScore = Math.min(35, amplitude * 28), windScore = Math.max(0, 30 - Math.max(0, wind - 10) * 1.4);
+  const moonScore = 15 + Math.abs(moon - 50) / 50 * 10, rainScore = Math.max(0, 10 - rain * .1);
+  const score = Math.round(Math.max(18, Math.min(96, tideScore + windScore + moonScore + rainScore)));
+  const label = score >= 78 ? "Excelente" : score >= 62 ? "Favorável" : score >= 46 ? "Razoável" : "Atenção";
+  els.scoreValue.textContent = score;
+  els.scoreLabel.textContent = label;
+  els.scoreBar.style.width = `${score}%`;
+  els.scoreNote.textContent = wind > 28 ? "Vento forte pode dificultar a pescaria." : amplitude > .8 ? "Boa movimentação de água nas viradas da maré." : "Maré com pouca amplitude prevista para o dia.";
+}
+
+function renderUnavailable() {
+  els.dayStrip.innerHTML = `<div class="day-card"><span>SEM DADOS</span><b>Previsão indisponível</b><small>Tente novamente</small></div>`;
+  els.tideChart.innerHTML = `<text x="380" y="120" text-anchor="middle" class="axis-label">Não foi possível carregar a curva de maré</text>`;
+  els.tideEvents.innerHTML = ""; els.fishingWindows.innerHTML = "";
+}
+
+async function searchLocations(term) {
+  els.searchResults.innerHTML = `<p class="location-note">Buscando...</p>`;
+  try {
+    const data = await fetchJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}&count=6&language=pt&format=json`);
+    const results = data.results || [];
+    els.searchResults.innerHTML = results.length ? results.map((item, index) => `<button type="button" class="result-button" data-result="${index}" role="option"><span><strong>${item.name}</strong><br><small>${[item.admin1, item.country].filter(Boolean).join(", ")}</small></span><span aria-hidden="true">＋</span></button>`).join("") : `<p class="location-note">Nenhum local encontrado. Tente uma cidade próxima.</p>`;
+    els.searchResults.querySelectorAll("button").forEach(button => button.addEventListener("click", () => selectLocation(results[Number(button.dataset.result)])));
+  } catch { els.searchResults.innerHTML = `<p class="location-note">A busca falhou. Tente novamente em instantes.</p>`; }
+}
+
+function selectLocation(location) {
+  saveLocation(location); closeLocationPanel(); els.searchResults.innerHTML = ""; els.locationSearch.value = ""; loadForecast();
+}
+
+function closeLocationPanel() { els.locationPanel.hidden = true; els.locationButton.setAttribute("aria-expanded", "false"); }
+
+els.locationButton.addEventListener("click", () => {
+  const willOpen = els.locationPanel.hidden; els.locationPanel.hidden = !willOpen; els.locationButton.setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) setTimeout(() => els.locationSearch.focus(), 0);
+});
+document.addEventListener("click", event => { if (!event.target.closest(".location-wrap")) closeLocationPanel(); });
+els.searchForm.addEventListener("submit", event => { event.preventDefault(); const term = els.locationSearch.value.trim(); if (term.length >= 2) searchLocations(term); });
+els.useGps.addEventListener("click", () => {
+  if (!navigator.geolocation) return;
+  els.useGps.textContent = "Localizando...";
+  navigator.geolocation.getCurrentPosition(
+    position => { els.useGps.textContent = "Usar minha localização atual"; selectLocation({ name: "Minha localização", admin1: "GPS", latitude: position.coords.latitude, longitude: position.coords.longitude, country_code: "BR" }); },
+    () => { els.useGps.textContent = "Não foi possível acessar sua localização"; setTimeout(() => els.useGps.textContent = "Usar minha localização atual", 2500); },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+});
+els.retryButton.addEventListener("click", loadForecast);
+
+function registerWebMcp() {
+  const context = document.modelContext;
+  if (!context?.registerTool) return;
+  const selectSchema = { type: "object", properties: { name: { type: "string" }, latitude: { type: "number" }, longitude: { type: "number" } }, required: ["name", "latitude", "longitude"], additionalProperties: false };
+  try {
+    context.registerTool({
+      name: "save_fishing_location", title: "Salvar local de pesca", description: "Salva uma localização por nome e coordenadas e atualiza a previsão visível.", inputSchema: selectSchema,
+      annotations: { readOnlyHint: false, untrustedContentHint: false },
+      async execute(input) { if (!input || typeof input.name !== "string" || !Number.isFinite(input.latitude) || !Number.isFinite(input.longitude)) throw new Error("Localização inválida"); saveLocation({ ...input, admin1: "Local salvo" }); await loadForecast(); return { saved: true, location: input.name }; }
+    });
+    context.registerTool({
+      name: "read_fishing_conditions", title: "Consultar condições de pesca", description: "Retorna um resumo das condições exibidas para o dia selecionado.", inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
+      execute() { return { location: els.locationName.textContent, date: els.selectedDate.textContent, wind: `${els.windSpeed.textContent} km/h`, moon: `${els.moonName.textContent} — ${els.moonPercent.textContent}`, condition: els.scoreLabel.textContent, score: els.scoreValue.textContent }; }
+    });
+  } catch { /* Navegadores sem suporte simplesmente ignoram WebMCP. */ }
+}
+
+updateLocationLabel(); registerWebMcp(); loadForecast();

@@ -9,7 +9,7 @@ npm ci
 npm run dev
 ```
 
-Acesse http://127.0.0.1:4173/dist/ no desenvolvimento. Para publicar arquivos estáticos: `npm run build` e sirva a pasta `dist`. `npm test` valida o cálculo do ranking e as capturas.
+Acesse http://localhost:4173/ no desenvolvimento. Para publicar arquivos estáticos: `npm run build` e sirva a pasta `dist`. `npm test` valida o cálculo do ranking e as capturas. Use Node.js 20 ou superior para as versões atuais do SDK Firebase.
 
 ## Firebase
 
@@ -27,4 +27,3 @@ O ranking inclui todos os registros disponíveis e atualiza em tempo real. Captu
 ## Dados ambientais
 
 Fontes: [Open-Meteo](https://open-meteo.com/) / DWD. A curva marítima usa nível do mar em relação ao nível médio, com extremos detectados em dados horários. O percentual lunar é calculado a partir da fase fornecida pela API. As janelas representam a regra escolhida pelo produto e não garantem produtividade de pesca.
-

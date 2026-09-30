@@ -1,0 +1,14 @@
+{
+  "name": "mare-certa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/ranking.js --bundle --format=esm --minify --outfile=dist/ranking.js",
+    "dev": "npm run build && vite dist --host localhost --port 4173 --strictPort",
+    "test": "node --test tests/ranking.test.js",
+    "deploy:rules": "firebase deploy --only database --project teste-b81e2"
+  },
+  "dependencies": { "firebase": "^12.0.0" },
+  "devDependencies": { "esbuild": "^0.25.0", "vite": "^6.0.0" }
+}
