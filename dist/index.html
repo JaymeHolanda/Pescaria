@@ -70,6 +70,12 @@
           <div class="day-card skeleton"><span></span><b></b><small></small></div>
         </section>
 
+        <section class="daily-summary card" aria-labelledby="summaryTitle" aria-live="polite">
+          <div class="summary-heading"><div><p class="eyebrow">RESUMO DAS CONDIÇÕES</p><h2 id="summaryTitle">Preparando o resumo…</h2></div><p id="summaryDate"></p></div>
+          <div id="summaryCards" class="summary-grid"></div>
+          <p class="summary-disclaimer">Apoio ao planejamento, não garantia de captura ou de segurança. Consulte avisos locais e considere sua modalidade de pesca.</p>
+        </section>
+
         <section class="dashboard" aria-live="polite" aria-busy="true" id="dashboard">
           <article class="tide-card card">
             <div class="card-heading">
@@ -103,6 +109,13 @@
               <div class="score-head"><div><p class="eyebrow">CONDIÇÃO DO DIA</p><h3 id="scoreLabel">Calculando</h3></div><strong id="scoreValue">—</strong></div>
               <div class="score-track"><span id="scoreBar"></span></div>
               <p id="scoreNote">Analisando maré, vento e luminosidade lunar.</p>
+              <details class="score-details"><summary>Como calculamos esta condição?</summary>
+                <p>Índice experimental do site, de 0 a 100. Não é uma classificação oficial nem uma previsão de sucesso na pesca.</p>
+                <p>Maré: até 35 pontos (variação em metros × 28). Vento: até 30 (30 − 1,4 por km/h acima de 10, mínimo zero). Lua: 15 a 25 (15 + distância de 50% de iluminação ÷ 5). Chuva: até 10 (10 − probabilidade em % ÷ 10).</p>
+                <p>Excelente: 78 ou mais; favorável: 62–77; razoável: 46–61; atenção: abaixo de 46. Vento acima de 28 km/h ou ondas a partir de 2 m tornam a classificação “Atenção”, independentemente da nota. São limites de destaque do site, não limites de segurança.</p>
+                <p>O resumo compara a média das ondas entre manhã (6h–12h) e tarde (12h–18h): diferença de 0,3 m ou mais indica aumento ou redução. Horários locais da previsão. Altura significativa não é a altura máxima de uma onda individual.</p>
+                <p id="scoreBreakdown">Aguardando previsão.</p>
+              </details>
             </article>
           </aside>
         </section>
@@ -174,7 +187,7 @@
         <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
       </footer>
     </div>
-    <script src="./app.js" defer></script>
+    <script type="module" src="./app.js"></script>
     <script type="module" src="./ranking.js"></script>
   </body>
 </html>

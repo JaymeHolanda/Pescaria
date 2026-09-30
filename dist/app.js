@@ -1,3 +1,4 @@
+import { conditionsSummary, hourlyDay } from './conditions.js';
 const DEFAULT_LOCATION = { name: "Fortaleza", admin1: "Ceará", country_code: "BR", latitude: -3.7172, longitude: -38.5433 };
 const state = { location: loadLocation(), weather: null, marine: null, selectedDay: 0, aborter: null };
 
@@ -9,6 +10,7 @@ const els = {
   tideEvents: $("#tideEvents"), fishingWindows: $("#fishingWindows"), moonName: $("#moonName"), moonPercent: $("#moonPercent"),
   moonVisual: $("#moonVisual"), windSpeed: $("#windSpeed"), windDirection: $("#windDirection"), windArrow: $("#windArrow"),
   scoreLabel: $("#scoreLabel"), scoreValue: $("#scoreValue"), scoreBar: $("#scoreBar"), scoreNote: $("#scoreNote"),
+  summaryTitle: $("#summaryTitle"), summaryDate: $("#summaryDate"), summaryCards: $("#summaryCards"), scoreBreakdown: $("#scoreBreakdown"),
   dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton")
 };
 
@@ -75,7 +77,7 @@ async function loadForecast() {
   state.aborter = new AbortController();
   const { latitude, longitude } = state.location;
   const common = `latitude=${latitude}&longitude=${longitude}&timezone=auto&forecast_days=7`;
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max`;
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&wind_speed_unit=kmh&hourly=wind_speed_10m&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max`;
   const marineUrl = `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=sea_level_height_msl,wave_height,wave_period&cell_selection=sea`;
 
   setLoading(true);
@@ -103,6 +105,14 @@ async function loadForecast() {
 function setLoading(loading) {
   els.dashboard.setAttribute("aria-busy", String(loading));
   els.locationButton.disabled = loading;
+  if (loading) {
+    els.summaryTitle.textContent = 'Atualizando o resumo…';
+    els.summaryCards.replaceChildren();
+    els.summaryDate.textContent = '';
+    els.scoreLabel.textContent = 'Calculando'; els.scoreValue.textContent = '—'; els.scoreBar.style.width = '0%';
+    els.scoreNote.textContent = 'Buscando as condições do local selecionado.';
+    els.scoreBreakdown.textContent = 'Aguardando previsão.';
+  }
 }
 
 function dayData(index) {
@@ -149,8 +159,9 @@ function renderDays() {
 function renderSelectedDay() {
   const index = state.selectedDay;
   const { date, points, events } = dayData(index);
-  const windSpeed = Math.round(state.weather.daily.wind_speed_10m_max?.[index] ?? state.weather.current.wind_speed_10m);
-  const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index] ?? state.weather.current.wind_direction_10m;
+  const wind = state.weather.daily.wind_speed_10m_max?.[index];
+  const windSpeed = Number.isFinite(wind) ? Math.round(wind) : '—';
+  const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index];
   const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
 
   els.selectedDate.textContent = index === 0 ? "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
@@ -158,12 +169,12 @@ function renderSelectedDay() {
   renderEvents(events);
   renderWindows(events);
   els.windSpeed.textContent = windSpeed;
-  els.windDirection.textContent = `Vento de ${degreesToCompass(windDeg)} · ${Math.round(windDeg)}°`;
-  els.windArrow.style.transform = `rotate(${windDeg}deg)`;
+  els.windDirection.textContent = Number.isFinite(windDeg) ? `Vento de ${degreesToCompass(windDeg)} · ${Math.round(windDeg)}°` : 'Direção indisponível';
+  els.windArrow.style.transform = `rotate(${Number.isFinite(windDeg) ? windDeg : 0}deg)`;
   els.moonName.textContent = moon.name;
   els.moonPercent.textContent = `${moon.illumination}%`;
   els.moonVisual.querySelector("span").style.opacity = Math.max(.28, moon.illumination / 100);
-  renderScore(points, moon.illumination, windSpeed, state.weather.daily.precipitation_probability_max?.[index] || 0);
+  renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], moon: moon.illumination }), date);
 }
 
 function renderChart(points, events) {
@@ -200,19 +211,28 @@ function renderWindows(events) {
   els.fishingWindows.innerHTML = highs.map((event, i) => `<div class="window-card"><span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"}</span><strong>${subtractHours(event.hour, 3)} — ${event.hour}</strong><small>Maré alta de ${event.level.toFixed(2)} m às ${event.hour}</small><span class="wave-lines" aria-hidden="true">≈≈</span></div>`).join("");
 }
 
-function renderScore(points, moon, wind, rain) {
-  const amplitude = points.length ? Math.max(...points.map(p => p.level)) - Math.min(...points.map(p => p.level)) : 0;
-  const tideScore = Math.min(35, amplitude * 28), windScore = Math.max(0, 30 - Math.max(0, wind - 10) * 1.4);
-  const moonScore = 15 + Math.abs(moon - 50) / 50 * 10, rainScore = Math.max(0, 10 - rain * .1);
-  const score = Math.round(Math.max(18, Math.min(96, tideScore + windScore + moonScore + rainScore)));
-  const label = score >= 78 ? "Excelente" : score >= 62 ? "Favorável" : score >= 46 ? "Razoável" : "Atenção";
-  els.scoreValue.textContent = score;
-  els.scoreLabel.textContent = label;
-  els.scoreBar.style.width = `${score}%`;
-  els.scoreNote.textContent = wind > 28 ? "Vento forte pode dificultar a pescaria." : amplitude > .8 ? "Boa movimentação de água nas viradas da maré." : "Maré com pouca amplitude prevista para o dia.";
+function renderSummary(summary, date) {
+  els.summaryTitle.textContent = summary.headline;
+  els.summaryDate.textContent = formatDate(date, { weekday: 'long', day: 'numeric', month: 'long' });
+  els.summaryCards.replaceChildren();
+  for (const item of summary.cards) {
+    const card = document.createElement('article'); card.className = `summary-item${item.warning ? ' summary-warning' : ''}`;
+    const title = document.createElement('h3'); title.textContent = `${item.title}${item.warning ? ' · Atenção' : ''}`;
+    const text = document.createElement('p'); text.textContent = item.text;
+    card.append(title, text); els.summaryCards.append(card);
+  }
+  els.scoreValue.textContent = summary.score ?? '—';
+  els.scoreLabel.textContent = summary.label;
+  els.scoreBar.style.width = `${summary.score ?? 0}%`;
+  els.scoreNote.textContent = summary.note;
+  els.scoreBreakdown.textContent = summary.breakdown.length ? `Neste dia: ${summary.breakdown.map(p => `${p.name} ${p.points.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/${p.max}`).join(' · ')}. Soma arredondada: ${summary.score}/100.` : 'Nota indisponível: faltam dados de vento, ondas, maré ou chuva.';
 }
 
 function renderUnavailable() {
+  els.summaryTitle.textContent = 'Resumo indisponível'; els.summaryDate.textContent = ''; els.summaryCards.replaceChildren();
+  els.scoreLabel.textContent = 'Sem dados'; els.scoreValue.textContent = '—'; els.scoreBar.style.width = '0%';
+  els.scoreNote.textContent = 'Tente atualizar a previsão novamente.'; els.scoreBreakdown.textContent = 'Sem dados para calcular a nota.';
+  els.windSpeed.textContent = '—'; els.windDirection.textContent = 'Direção indisponível'; els.moonName.textContent = '—'; els.moonPercent.textContent = '—';
   els.dayStrip.innerHTML = `<div class="day-card"><span>SEM DADOS</span><b>Previsão indisponível</b><small>Tente novamente</small></div>`;
   els.tideChart.innerHTML = `<text x="380" y="120" text-anchor="middle" class="axis-label">Não foi possível carregar a curva de maré</text>`;
   els.tideEvents.innerHTML = ""; els.fishingWindows.innerHTML = "";
