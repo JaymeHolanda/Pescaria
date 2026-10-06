@@ -91,7 +91,8 @@
             </div>
 
             <div class="tide-events" id="tideEvents"></div>
-            <p class="chart-note">Alturas em relação ao nível médio do mar. Use como apoio ao planejamento, nunca para navegação.</p>
+            <p id="tideSource" class="chart-note">Curva estimada da API, não uma tábua oficial. Use como apoio ao planejamento, nunca para navegação.</p>
+            <p id="tideReference" class="tide-reference">Referência oficial regional: <a href="https://www.marinha.mil.br/cppb/tabuas_de_mare" target="_blank" rel="noreferrer">tábua do Porto de Cabedelo — Marinha do Brasil</a>. Confira ano, data e fuso no documento. Os horários e as alturas oficiais não estão incorporados nesta curva; Cabedelo não representa exatamente todos os pontos da região.</p>
           </article>
 
           <aside class="conditions">
@@ -117,14 +118,24 @@
                 <p id="scoreBreakdown">Aguardando previsão.</p>
               </details>
             </article>
+            <article class="score-card card catch-probability" aria-labelledby="catchProbabilityTitle">
+              <p class="eyebrow">CHANCE DE CAPTURA</p>
+              <h3 id="catchProbabilityTitle">Ainda não estimada</h3>
+              <p>Não há dados suficientes para informar uma porcentagem confiável. A nota do dia não é uma probabilidade de pegar peixe.</p>
+              <details class="score-details"><summary>Como poderemos calcular a porcentagem?</summary>
+                <p>A proposta é estimar a chance de pegar pelo menos um peixe em uma pescaria de três horas, para um local e uma modalidade definidos.</p>
+                <p>Precisamos registrar todas as saídas, inclusive sem captura: início, duração, local, modalidade, espécie-alvo e condições no período. Só registrar peixes pegos distorce o resultado.</p>
+                <p>Depois, compararemos pescarias semelhantes e validaremos as estimativas com novas saídas. A porcentagem deverá mostrar o tamanho da amostra e a incerteza. Este recurso ainda não calcula nem coleta esses dados.</p>
+              </details>
+            </article>
           </aside>
         </section>
 
         <section class="window-section" aria-labelledby="windowTitle">
           <div class="window-copy">
             <p class="eyebrow">JANELAS DE PESCA</p>
-            <h2 id="windowTitle">Chegue antes da maré alta.</h2>
-            <p>Calculamos o início ideal três horas antes de cada pico de maré. Assim você vê o melhor intervalo sem fazer conta.</p>
+            <h2 id="windowTitle">Janelas sugeridas pela maré.</h2>
+            <p>Cada janela começa três horas antes da alta estimada. É uma regra de planejamento, não uma comparação dos melhores horários nem garantia de captura. Confira as condições e a referência oficial antes de sair.</p>
           </div>
           <div id="fishingWindows" class="window-list">
             <div class="window-card skeleton"></div><div class="window-card skeleton"></div>

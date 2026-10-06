@@ -1,4 +1,5 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
+import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo } from './tides.js';
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), weather: null, marine: null, selectedDay: 0, aborter: null };
 
@@ -11,6 +12,7 @@ const els = {
   moonVisual: $("#moonVisual"), windSpeed: $("#windSpeed"), windDirection: $("#windDirection"), windArrow: $("#windArrow"),
   scoreLabel: $("#scoreLabel"), scoreValue: $("#scoreValue"), scoreBar: $("#scoreBar"), scoreNote: $("#scoreNote"),
   summaryTitle: $("#summaryTitle"), summaryDate: $("#summaryDate"), summaryCards: $("#summaryCards"), scoreBreakdown: $("#scoreBreakdown"),
+  tideSource: $("#tideSource"), tideReference: $("#tideReference"),
   dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton")
 };
 
@@ -38,12 +40,6 @@ function formatDate(dateString, options = {}) {
 function degreesToCompass(deg) {
   const names = ["N", "NE", "L", "SE", "S", "SO", "O", "NO"];
   return names[Math.round((Number(deg) || 0) / 45) % 8];
-}
-
-function subtractHours(time, hours) {
-  const [h, m] = time.split(":").map(Number);
-  const total = (h * 60 + m - hours * 60 + 1440) % 1440;
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function fallbackMoonPhase(dateString) {
@@ -78,7 +74,8 @@ async function loadForecast() {
   const { latitude, longitude } = state.location;
   const common = `latitude=${latitude}&longitude=${longitude}&timezone=auto&forecast_days=7`;
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&wind_speed_unit=kmh&hourly=wind_speed_10m&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max`;
-  const marineUrl = `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=sea_level_height_msl,wave_height,wave_period&cell_selection=sea`;
+  // Include neighboring days before detecting peaks, including midnight on day 1/7.
+  const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latitude}&longitude=${longitude}&timezone=auto&past_days=1&forecast_days=8&hourly=sea_level_height_msl,wave_height,wave_period&cell_selection=sea`;
 
   setLoading(true);
   try {
@@ -117,21 +114,10 @@ function setLoading(loading) {
 
 function dayData(index) {
   const date = state.weather.daily.time[index];
-  const hourly = state.marine.hourly;
-  const points = hourly.time.map((time, i) => ({
-    time, hour: time.slice(11, 16), level: hourly.sea_level_height_msl?.[i], wave: hourly.wave_height?.[i], period: hourly.wave_period?.[i]
-  })).filter(p => p.time.startsWith(date) && Number.isFinite(p.level));
-  return { date, points, events: findEvents(points) };
-}
-
-function findEvents(points) {
-  const events = [];
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1].level, value = points[i].level, next = points[i + 1].level;
-    if (value > prev && value >= next) events.push({ ...points[i], type: "high" });
-    if (value < prev && value <= next) events.push({ ...points[i], type: "low" });
-  }
-  return events;
+  const allPoints = marinePoints(state.marine.hourly);
+  const points = allPoints.filter(p => p.time.startsWith(`${date}T`) && Number.isFinite(p.level));
+  const events = findTideEvents(allPoints).filter(p => p.time.startsWith(`${date}T`));
+  return { date, points, events };
 }
 
 function renderAll() {
@@ -163,6 +149,8 @@ function renderSelectedDay() {
   const windSpeed = Number.isFinite(wind) ? Math.round(wind) : '—';
   const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index];
   const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
+  els.tideSource.textContent = `Curva estimada: Open-Meteo / modelo oceânico. Amostras horárias; picos aproximados. Fuso: ${state.marine.timezone || 'local da previsão'}. Alturas relativas ao nível médio global do mar, não ao zero da tábua oficial.`;
+  els.tideReference.hidden = !isNearCabedelo(state.location);
 
   els.selectedDate.textContent = index === 0 ? "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
   renderChart(points, events);
@@ -208,7 +196,11 @@ function renderEvents(events) {
 function renderWindows(events) {
   const highs = events.filter(e => e.type === "high").slice(0, 2);
   if (!highs.length) { els.fishingWindows.innerHTML = `<div class="window-card"><span class="window-label">SEM JANELA CALCULADA</span><strong>Dados insuficientes</strong><small>Tente outro dia ou um ponto mais próximo da costa.</small></div>`; return; }
-  els.fishingWindows.innerHTML = highs.map((event, i) => `<div class="window-card"><span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"}</span><strong>${subtractHours(event.hour, 3)} — ${event.hour}</strong><small>Maré alta de ${event.level.toFixed(2)} m às ${event.hour}</small><span class="wave-lines" aria-hidden="true">≈≈</span></div>`).join("");
+  els.fishingWindows.innerHTML = highs.map((event, i) => {
+    const window = fishingWindow(event);
+    const dates = window.previousDay ? `<small class="window-dates">Início em ${formatDate(window.startDate, { day: '2-digit', month: '2-digit' })} (dia anterior); fim em ${formatDate(window.endDate, { day: '2-digit', month: '2-digit' })}.</small>` : '';
+    return `<div class="window-card"><span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${dates}<small>Alta estimada de ${event.level.toFixed(2)} m às ${event.hour}. Horários aproximados.</small><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
+  }).join("");
 }
 
 function renderSummary(summary, date) {
@@ -229,6 +221,7 @@ function renderSummary(summary, date) {
 }
 
 function renderUnavailable() {
+  els.tideSource.textContent = 'Sem previsão marítima carregada.'; els.tideReference.hidden = !isNearCabedelo(state.location);
   els.summaryTitle.textContent = 'Resumo indisponível'; els.summaryDate.textContent = ''; els.summaryCards.replaceChildren();
   els.scoreLabel.textContent = 'Sem dados'; els.scoreValue.textContent = '—'; els.scoreBar.style.width = '0%';
   els.scoreNote.textContent = 'Tente atualizar a previsão novamente.'; els.scoreBreakdown.textContent = 'Sem dados para calcular a nota.';
