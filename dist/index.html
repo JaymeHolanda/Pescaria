@@ -45,6 +45,7 @@
 
       <nav class="view-tabs" aria-label="Áreas do site" role="tablist">
         <button id="forecastTab" role="tab" aria-controls="forecastPanel" aria-selected="true" type="button">Condições de pesca</button>
+        <button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>
         <button id="rankingTab" role="tab" aria-controls="rankingPanel" aria-selected="false" tabindex="-1" type="button">Ranking & capturas</button>
         <button id="accountButton" class="account-button" type="button">Entrar / cadastrar</button>
       </nav>
@@ -118,16 +119,6 @@
                 <p id="scoreBreakdown">Aguardando previsão.</p>
               </details>
             </article>
-            <article class="score-card card catch-probability" aria-labelledby="catchProbabilityTitle">
-              <p class="eyebrow">CHANCE DE CAPTURA</p>
-              <h3 id="catchProbabilityTitle">Ainda não estimada</h3>
-              <p>Não há dados suficientes para informar uma porcentagem confiável. A nota do dia não é uma probabilidade de pegar peixe.</p>
-              <details class="score-details"><summary>Como poderemos calcular a porcentagem?</summary>
-                <p>A proposta é estimar a chance de pegar pelo menos um peixe em uma pescaria de três horas, para um local e uma modalidade definidos.</p>
-                <p>Precisamos registrar todas as saídas, inclusive sem captura: início, duração, local, modalidade, espécie-alvo e condições no período. Só registrar peixes pegos distorce o resultado.</p>
-                <p>Depois, compararemos pescarias semelhantes e validaremos as estimativas com novas saídas. A porcentagem deverá mostrar o tamanho da amostra e a incerteza. Este recurso ainda não calcula nem coleta esses dados.</p>
-              </details>
-            </article>
           </aside>
         </section>
 
@@ -146,6 +137,42 @@
           <strong>Não conseguimos atualizar os dados agora.</strong>
           <span id="errorMessage">Confira sua conexão e tente novamente.</span>
           <button id="retryButton" type="button">Tentar novamente</button>
+        </section>
+      </main>
+
+      <main id="tipsPanel" role="tabpanel" aria-labelledby="tipsTab" hidden>
+        <section class="intro tips-intro" aria-labelledby="tipsTitle">
+          <div><p class="eyebrow">LEITURA DA PRAIA</p><h1 id="tipsTitle">Antes de lançar,<br><em>observe o mar.</em></h1></div>
+          <div class="intro-aside"><p>Quatro pistas para reconhecer canais, poços e estruturas na pesca de praia. Observe vários ciclos de ondas, sempre de um ponto seguro na areia.</p><p class="tips-note">Dicas gerais de observação, não garantia de captura ou de segurança.</p></div>
+        </section>
+        <aside class="tips-safety" aria-labelledby="tipsSafetyTitle">
+          <h2 id="tipsSafetyTitle">Água calma também pode esconder perigo.</h2>
+          <p>Uma faixa escura ou sem ondas quebrando pode ser uma corrente de retorno. Não entre nos canais nem avance na água para alcançar o ponto de pesca. Observe da areia, respeite a sinalização e consulte os guarda-vidas.</p>
+          <a href="https://www.weather.gov/safety/ripcurrent" target="_blank" rel="noreferrer">Saiba mais sobre correntes de retorno ↗</a>
+        </aside>
+        <figure class="tips-figure card">
+          <img src="./assets/valoes-praia.jpg" width="1280" height="720" loading="lazy" alt="Imagem de referência enviada: faixas entre a arrebentação marcadas como primeiro e segundo valão, com setas amarelas." />
+          <figcaption><span class="eyebrow">UM EXEMPLO PARA OBSERVAR</span>As marcações destacam possíveis valões entre as ondas. A imagem é ilustrativa: não confirma profundidade, presença de peixes ou segurança para entrar na água.</figcaption>
+        </figure>
+        <section class="tips-grid" aria-label="Dicas para escolher onde arremessar">
+          <article class="tip-card card"><span class="tip-number" aria-hidden="true">01</span><p class="eyebrow">ÁGUA ESCURA</p><h2>Procure por canais e valões</h2>
+            <h3>Como identificar</h3><p>Olhe para a arrebentação. Procure faixas onde as ondas não quebram ou demoram mais para quebrar, e onde a água parece mais escura ou azulada. São pistas de possíveis depressões na areia; a cor sozinha não confirma a profundidade.</p>
+            <h3>Por que pescar ali</h3><p>O movimento das ondas pode concentrar pequenos crustáceos e moluscos nos canais, atraindo peixes como pampo, corvina e betara. Avalie o arremesso a partir da areia, sem entrar no valão.</p>
+          </article>
+          <article class="tip-card card"><span class="tip-number" aria-hidden="true">02</span><p class="eyebrow">ENTRE AS ESPUMAS</p><h2>Identifique os poços</h2>
+            <h3>Como identificar</h3><p>Observe áreas circulares ou ovais de água aparentemente mais calma, cercadas por espuma branca. Elas podem indicar poços, mas uma aparência tranquila não significa água segura.</p>
+            <h3>Por que pescar ali</h3><p>Essas depressões podem oferecer abrigo da força das ondas e pontos de emboscada. Experimente arremessar na transição entre a água mais clara e a mais escura, mantendo-se em um local seguro na areia.</p>
+          </article>
+          <article class="tip-card card"><span class="tip-number" aria-hidden="true">03</span><p class="eyebrow">ÁGUA VOLTANDO AO MAR</p><h2>Reconheça as correntes de retorno</h2>
+            <h3>Como identificar</h3><p>Procure trechos onde a água parece puxar para o mar aberto, carregando espuma, água amarronzada ou areia em suspensão. Uma interrupção na linha de espuma também pode ser um sinal. Observe o fluxo, não apenas a aparência calma da água.</p>
+            <h3>Por que observar ali</h3><p>O fluxo pode transportar alimento, como camarões, corruptos e tatuís, e atrair predadores nas proximidades. Isso não torna o canal seguro: não entre na corrente e não tente alcançar seu final caminhando na água.</p>
+            <p class="tip-caution">Atenção: correntes de retorno podem arrastar pessoas para longe da praia.</p>
+          </article>
+          <article class="tip-card card"><span class="tip-number" aria-hidden="true">04</span><p class="eyebrow">ESTRUTURAS</p><h2>Encontro de águas e pedras</h2>
+            <h3>Como identificar</h3><p>Observe pontas de pedras, costões e locais onde riachos ou rios desembocam na praia.</p>
+            <h3>Por que pescar ali</h3><p>A água em movimento pode desprender alimento das pedras; rios também transportam nutrientes. Essas estruturas podem concentrar peixes, dependendo das condições do local.</p>
+            <p class="tip-caution">Arremesse nas bordas ou na areia próxima à estrutura para reduzir enroscos. Mantenha distância de pedras molhadas e de desembocaduras com corrente forte.</p>
+          </article>
         </section>
       </main>
 
@@ -199,6 +226,7 @@
       </footer>
     </div>
     <script type="module" src="./app.js"></script>
+    <script type="module" src="./tabs.js"></script>
     <script type="module" src="./ranking.js"></script>
   </body>
 </html>

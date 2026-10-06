@@ -12,24 +12,6 @@ const today = () => localDate();
 const message = (id, text, error = false) => { $(id).textContent = text; $(id).classList.toggle('is-error', error); };
 const explain = explainError;
 
-function selectTab(name) {
-  for (const tab of ['forecast', 'ranking']) {
-    const active = tab === name;
-    $(`${tab}Tab`).setAttribute('aria-selected', String(active));
-    $(`${tab}Tab`).tabIndex = active ? 0 : -1;
-    $(`${tab}Panel`).hidden = !active;
-  }
-}
-['forecast', 'ranking'].forEach(name => {
-  $(`${name}Tab`).addEventListener('click', () => selectTab(name));
-  $(`${name}Tab`).addEventListener('keydown', event => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-    event.preventDefault();
-    const next = event.key === 'Home' ? 'forecast' : event.key === 'End' ? 'ranking' : name === 'forecast' ? 'ranking' : 'forecast';
-    selectTab(next); $(`${next}Tab`).focus();
-  });
-});
-
 function openAccount() { message('authMessage', ''); renderAccount(auth.currentUser); $('accountDialog').showModal(); }
 $('accountButton').addEventListener('click', openAccount);
 $('captureLoginButton').addEventListener('click', openAccount);
