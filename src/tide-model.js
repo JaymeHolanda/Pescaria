@@ -1,4 +1,5 @@
 // API timestamps are wall-clock times in the requested location's timezone.
+import { CABEDELO_2026, CABEDELO_SOURCE } from './cabedelo-2026.js';
 // UTC arithmetic here preserves those displayed dates, independent of device timezone.
 const wallTime = time => Date.parse(`${time.length === 16 ? `${time}:00` : time}Z`);
 export function marinePoints(hourly) {
@@ -34,4 +35,32 @@ export function isNearCabedelo({ latitude, longitude }) {
   const dLat = radians(latitude + 6.97), dLon = radians(longitude + 34.84);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(radians(latitude)) * Math.cos(radians(-6.97)) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= 40;
+}
+
+const officialEvents = Object.entries(CABEDELO_2026).flatMap(([date, entries]) => entries.map(([hour, level]) => ({ time: `${date}T${hour}`, hour, level, official: true })));
+officialEvents.forEach((event, i) => {
+  const neighbor = officialEvents[i + 1] || officialEvents[i - 1];
+  event.type = event.level > neighbor.level ? 'high' : 'low';
+});
+
+export function officialTideDay(location, date) {
+  if (!isNearCabedelo(location)) return null;
+  const events = officialEvents.filter(e => e.time.startsWith(`${date}T`));
+  const points = [];
+  const start = wallTime(`${date}T00:00`), end = start + 86400000;
+  // Half-cosine interpolation is illustrative, not an official continuous forecast.
+  for (let i = 0; i < officialEvents.length - 1; i++) {
+    const a = officialEvents[i], b = officialEvents[i + 1];
+    const ta = wallTime(a.time), tb = wallTime(b.time);
+    if (tb < start || ta >= end) continue;
+    const samples = new Set([Math.max(start, ta), Math.min(end - 60000, tb)]);
+    for (let t = Math.ceil(Math.max(start, ta) / 900000) * 900000; t < Math.min(end, tb); t += 900000) samples.add(t);
+    for (const t of [...samples].sort((a, b) => a - b)) {
+      if (t < ta || t > tb || t < start || t >= end) continue;
+      const time = new Date(t).toISOString().slice(0, 16);
+      const level = t === ta ? a.level : t === tb ? b.level : a.level + (b.level - a.level) * (1 - Math.cos(Math.PI * (t - ta) / (tb - ta))) / 2;
+      if (points.at(-1)?.time !== time) points.push({ time, hour: time.slice(11), level });
+    }
+  }
+  return { date, events, points: events.length ? points : [], official: true, available: events.length > 0, source: CABEDELO_SOURCE };
 }

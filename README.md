@@ -33,3 +33,11 @@ O ranking inclui todos os registros disponíveis e atualiza em tempo real. Captu
 ## Dados ambientais
 
 Fontes: [Open-Meteo](https://open-meteo.com/) / DWD. A curva marítima usa nível do mar em relação ao nível médio, com extremos detectados em dados horários. O percentual lunar é calculado a partir da fase fornecida pela API. As janelas representam a regra escolhida pelo produto e não garantem produtividade de pesca.
+# Referência de maré de João Pessoa
+
+Para locais a até 40 km da estação do Porto de Cabedelo, horários e alturas vêm da tábua anual de 2026 do CHM/Marinha, incorporada em `src/cabedelo-2026.js`. O fuso é UTC−03 e as alturas mantêm a referência local da tabela: não são profundidades da água. A curva entre os extremos usa interpolação de meia cossenoide apenas ilustrativa; as janelas usam os horários oficiais, incluindo a data anterior quando necessário. Vento e ondas continuam nas APIs Open-Meteo. Outros locais usam o modelo oceânico, identificado como estimativa relativa ao nível médio global.
+
+Fonte: https://www.marinha.mil.br/cppb/sites/www.marinha.mil.br.cppb/files/2025-12/2026-PORTO-DE-CABEDELO.pdf
+
+Atualização anual necessária: fora de 2026, a interface informa ausência da tábua oficial e não troca silenciosamente para outro referencial. Para extrair uma tabela do mesmo formato: `python scripts/extract-cabedelo.py caminho.pdf` (requer pypdf), revisar o JSON contra o PDF e atualizar o módulo e os testes. Cabedelo é uma referência regional, não uma previsão exata para cada praia.
+

@@ -1,5 +1,5 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
-import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo } from './tides.js';
+import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js';
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), weather: null, marine: null, selectedDay: 0, aborter: null };
 
@@ -114,6 +114,8 @@ function setLoading(loading) {
 
 function dayData(index) {
   const date = state.weather.daily.time[index];
+  const official = officialTideDay(state.location, date);
+  if (official) return official;
   const allPoints = marinePoints(state.marine.hourly);
   const points = allPoints.filter(p => p.time.startsWith(`${date}T`) && Number.isFinite(p.level));
   const events = findTideEvents(allPoints).filter(p => p.time.startsWith(`${date}T`));
@@ -144,15 +146,17 @@ function renderDays() {
 
 function renderSelectedDay() {
   const index = state.selectedDay;
-  const { date, points, events } = dayData(index);
+  const { date, points, events, official, available } = dayData(index);
   const wind = state.weather.daily.wind_speed_10m_max?.[index];
   const windSpeed = Number.isFinite(wind) ? Math.round(wind) : '—';
   const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index];
   const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
-  els.tideSource.textContent = `Curva estimada: Open-Meteo / modelo oceânico. Amostras horárias; picos aproximados. Fuso: ${state.marine.timezone || 'local da previsão'}. Alturas relativas ao nível médio global do mar, não ao zero da tábua oficial.`;
+  els.tideSource.textContent = official
+    ? available ? 'Horários e alturas: Marinha do Brasil / CHM, Porto de Cabedelo, tábua 2026. Fuso UTC−03. Alturas na referência local da tábua, não profundidade da água. A curva entre os extremos é interpolada e apenas ilustrativa.' : 'Tábua oficial de Cabedelo indisponível para esta data. A cobertura atual é de janeiro a dezembro de 2026; não substituímos por alturas de outra referência.'
+    : `Curva estimada: Open-Meteo / modelo oceânico. Amostras horárias; picos aproximados. Fuso: ${state.marine.timezone || 'local da previsão'}. Alturas relativas ao nível médio global do mar, não ao zero da tábua oficial.`;
   els.tideReference.hidden = !isNearCabedelo(state.location);
 
-  els.selectedDate.textContent = index === 0 ? "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
+  els.selectedDate.textContent = index === 0 ? official ? "Hoje · referência Cabedelo" : "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
   renderChart(points, events);
   renderEvents(events);
   renderWindows(events);
@@ -162,14 +166,16 @@ function renderSelectedDay() {
   els.moonName.textContent = moon.name;
   els.moonPercent.textContent = `${moon.illumination}%`;
   els.moonVisual.querySelector("span").style.opacity = Math.max(.28, moon.illumination / 100);
-  renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], moon: moon.illumination }), date);
+  renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: official ? events.map(e => e.level) : points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], moon: moon.illumination }), date);
 }
 
 function renderChart(points, events) {
   if (!points.length) { els.tideChart.innerHTML = `<text x="380" y="120" text-anchor="middle" class="axis-label">Sem dados marítimos para este local</text>`; return; }
   const width = 760, height = 250, left = 42, right = 16, top = 25, bottom = 34;
   const values = points.map(p => p.level), min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
-  const x = i => left + (i / Math.max(1, points.length - 1)) * (width - left - right);
+  const minutes = time => Number(time.slice(11, 13)) * 60 + Number(time.slice(14, 16));
+  const xTime = time => left + minutes(time) / 1440 * (width - left - right);
+  const x = i => xTime(points[i].time);
   const y = v => top + (max - v) / range * (height - top - bottom);
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.level).toFixed(1)}`).join(" ");
   const area = `${path} L${x(points.length - 1)},${height - bottom} L${x(0)},${height - bottom} Z`;
@@ -178,12 +184,12 @@ function renderChart(points, events) {
     const val = max - i * range / 3;
     return `<line x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}" class="grid-line"/><text x="4" y="${yy+4}" class="axis-label">${val.toFixed(2)}m</text>`;
   }).join("");
-  const hours = points.filter((_, i) => i % 4 === 0).map(p => {
-    const i = points.indexOf(p); return `<text x="${x(i)}" y="${height-8}" text-anchor="middle" class="axis-label">${p.hour}</text>`;
+  const hours = [0, 4, 8, 12, 16, 20].map(hour => {
+    return `<text x="${left + hour / 24 * (width - left - right)}" y="${height-8}" text-anchor="middle" class="axis-label">${String(hour).padStart(2, '0')}:00</text>`;
   }).join("");
   const markers = events.map(event => {
-    const i = points.findIndex(p => p.time === event.time), yy = y(event.level);
-    return `<circle cx="${x(i)}" cy="${yy}" r="5" class="event-point ${event.type}"/><text x="${x(i)}" y="${event.type === "high" ? yy-12 : yy+20}" text-anchor="middle" class="event-label">${event.hour}</text>`;
+    const xx = xTime(event.time), yy = y(event.level);
+    return `<circle cx="${xx}" cy="${yy}" r="5" class="event-point ${event.type}"/><text x="${xx}" y="${event.type === "high" ? yy-12 : yy+20}" text-anchor="middle" class="event-label">${event.hour}</text>`;
   }).join("");
   els.tideChart.innerHTML = `<defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4de1c1" stop-opacity=".24"/><stop offset="1" stop-color="#4de1c1" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" class="tide-area"/><path d="${path}" class="tide-line"/>${markers}${hours}`;
 }
@@ -199,7 +205,7 @@ function renderWindows(events) {
   els.fishingWindows.innerHTML = highs.map((event, i) => {
     const window = fishingWindow(event);
     const dates = window.previousDay ? `<small class="window-dates">Início em ${formatDate(window.startDate, { day: '2-digit', month: '2-digit' })} (dia anterior); fim em ${formatDate(window.endDate, { day: '2-digit', month: '2-digit' })}.</small>` : '';
-    return `<div class="window-card"><span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${dates}<small>Alta estimada de ${event.level.toFixed(2)} m às ${event.hour}. Horários aproximados.</small><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
+    return `<div class="window-card"><span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${dates}<small>${event.official ? 'Alta prevista na tábua de Cabedelo' : 'Alta estimada'} de ${event.level.toFixed(2)} m às ${event.hour}. ${event.official ? 'Referência: Marinha do Brasil.' : 'Horários aproximados.'}</small><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
   }).join("");
 }
 
