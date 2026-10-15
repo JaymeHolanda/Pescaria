@@ -77,6 +77,7 @@
           <p class="summary-disclaimer">Apoio ao planejamento, não garantia de captura ou de segurança. Consulte avisos locais e considere sua modalidade de pesca.</p>
         </section>
 
+
         <section class="dashboard" aria-live="polite" aria-busy="true" id="dashboard">
           <article class="tide-card card">
             <div class="card-heading">
@@ -107,18 +108,6 @@
               <div><p class="eyebrow">VENTO</p><h3><span id="windSpeed">—</span> km/h</h3><p id="windDirection">Direção —</p></div>
             </article>
 
-            <article class="score-card card">
-              <div class="score-head"><div><p class="eyebrow">CONDIÇÃO DO DIA</p><h3 id="scoreLabel">Calculando</h3></div><strong id="scoreValue">—</strong></div>
-              <div class="score-track"><span id="scoreBar"></span></div>
-              <p id="scoreNote">Analisando maré, vento e luminosidade lunar.</p>
-              <details class="score-details"><summary>Como calculamos esta condição?</summary>
-                <p>Índice experimental do site, de 0 a 100. Não é uma classificação oficial nem uma previsão de sucesso na pesca.</p>
-                <p>Maré: até 35 pontos (variação em metros × 28). Vento: até 30 (30 − 1,4 por km/h acima de 10, mínimo zero). Lua: 15 a 25 (15 + distância de 50% de iluminação ÷ 5). Chuva: até 10 (10 − probabilidade em % ÷ 10).</p>
-                <p>Excelente: 78 ou mais; favorável: 62–77; razoável: 46–61; atenção: abaixo de 46. Vento acima de 28 km/h ou ondas a partir de 2 m tornam a classificação “Atenção”, independentemente da nota. São limites de destaque do site, não limites de segurança.</p>
-                <p>O resumo compara a média das ondas entre manhã (6h–12h) e tarde (12h–18h): diferença de 0,3 m ou mais indica aumento ou redução. Horários locais da previsão. Altura significativa não é a altura máxima de uma onda individual.</p>
-                <p id="scoreBreakdown">Aguardando previsão.</p>
-              </details>
-            </article>
           </aside>
         </section>
 
@@ -133,6 +122,32 @@
           </div>
         </section>
 
+        <section id="marinePanel" class="marine-panel card" aria-labelledby="marineTitle" aria-busy="true">
+          <div class="marine-heading">
+            <div><p class="eyebrow">PREVISÃO MARÍTIMA</p><h2 id="marineTitle">Condições médias do dia.</h2><p id="marineDate" class="marine-subtitle"></p></div>
+          </div>
+          <p id="marineEmpty" class="empty-note" role="status">Calculando médias de vento e mar…</p>
+          <div id="marineContent" hidden>
+            <div class="marine-rating" aria-live="polite">
+              <div id="marineGauge" class="marine-gauge" role="img" aria-label="Calculando nota marítima">
+                <svg viewBox="0 0 320 230" aria-hidden="true">
+                  <path class="gauge-arc gauge-low" d="M40 150 A120 120 0 0 1 160 30"/>
+                  <path class="gauge-arc gauge-mid" d="M160 30 A120 120 0 0 1 244.85 65.15"/>
+                  <path class="gauge-arc gauge-high" d="M244.85 65.15 A120 120 0 0 1 280 150"/>
+                  <g id="marineGaugeNeedle"><path class="gauge-needle" d="M160 144 L55 150 L160 156 Z"/><circle cx="160" cy="150" r="7"/></g>
+                  <text id="marineGaugeValue" x="160" y="197" text-anchor="middle">—</text>
+                  <text class="gauge-total" x="160" y="218" text-anchor="middle">DE 100</text>
+                  <text class="gauge-end" x="40" y="180" text-anchor="middle">0</text><text class="gauge-end" x="280" y="180" text-anchor="middle">100</text>
+                </svg>
+              </div>
+              <div class="marine-rating-copy"><p class="eyebrow">PESCA DE PRAIA · ÍNDICE EXPERIMENTAL</p><h3 id="marineRatingLabel">Calculando</h3><p id="marineRatingNote"></p><p class="marine-rating-limit">Estima a facilidade para pescar da areia. Não mede chance de captura nem segurança.</p>
+                <details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>Calculamos a nota de cada horário com ondas, vento e rajadas e depois tiramos a média do dia. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15), com parcelas entre zero e seus máximos.</p><p>A nota diária exige pelo menos 18 horários completos. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas em qualquer horário destacam atenção, mesmo que a média seja favorável.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>
+              </div>
+            </div>
+            <div id="marineMetrics" class="marine-metrics" aria-live="polite"></div>
+            <p id="marineFocusNote" class="marine-note"></p>
+          </div>
+        </section>
         <section id="errorBox" class="error-box" hidden>
           <strong>Não conseguimos atualizar os dados agora.</strong>
           <span id="errorMessage">Confira sua conexão e tente novamente.</span>

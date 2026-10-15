@@ -262,6 +262,48 @@ footer a { color: var(--aqua-soft); }
   .error-box { align-items: flex-start; flex-direction: column; }
 }
 
+.marine-panel { padding: 28px; margin: 28px 0 0; min-width: 0; }
+.marine-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.marine-heading h2 { font: 700 clamp(1.5rem, 3vw, 2rem) Manrope, sans-serif; letter-spacing: -.04em; margin: 4px 0; }
+.marine-subtitle, .marine-note { color: var(--muted); font-size: .82rem; line-height: 1.6; }
+.marine-subtitle:empty { display: none; }
+.marine-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.marine-rating { display: grid; grid-template-columns: minmax(230px, .8fr) 1.4fr; align-items: center; gap: 30px; padding: 6px 14px 26px; }
+.marine-gauge { width: 100%; max-width: 340px; justify-self: center; }
+.marine-gauge svg { width: 100%; display: block; }
+.gauge-arc { fill: none; stroke-width: 15; }
+.gauge-low { stroke: #e6a478; }
+.gauge-mid { stroke: var(--lime); }
+.gauge-high { stroke: var(--aqua); }
+.gauge-needle, #marineGaugeNeedle circle { fill: var(--ink); }
+#marineGaugeValue { font: 700 44px Manrope, sans-serif; fill: var(--ink); }
+.gauge-total, .gauge-end { font: 600 11px 'DM Sans', sans-serif; fill: var(--muted); letter-spacing: 1px; }
+.marine-gauge[data-tone="partial"] .gauge-arc { stroke: var(--line); }
+.marine-rating-copy h3 { font: 700 clamp(1.5rem, 3vw, 2.2rem) Manrope, sans-serif; margin: 10px 0; letter-spacing: -.04em; }
+.marine-rating-copy > p { color: var(--muted); line-height: 1.65; font-size: .9rem; }
+.marine-rating-copy .eyebrow { color: var(--aqua); font-size: .7rem; }
+.marine-rating-copy .marine-rating-limit { font-size: .77rem; }
+.marine-score-details { font-size: .8rem; line-height: 1.7; color: var(--muted); }
+.marine-score-details summary { color: var(--aqua-soft); cursor: pointer; }
+.marine-metric { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: rgba(77, 225, 193, .035); }
+.marine-metric h3 { margin: 0 0 14px; color: var(--muted); font-size: .8rem; font-weight: 500; }
+.marine-metric strong { display: block; font: 700 clamp(1.2rem, 2.4vw, 1.9rem) Manrope, sans-serif; color: var(--aqua-soft); overflow-wrap: anywhere; }
+.marine-metric p { color: var(--muted); font-size: .8rem; line-height: 1.6; margin: 10px 0 0; }
+.marine-note { margin: 12px 0 0; }
+.window-marine { position: relative; z-index: 1; border-top: 1px solid rgba(5, 23, 33, .16); padding-top: 12px; margin: 12px 0 0; font-size: .8rem; line-height: 1.65; }
+.marine-panel :focus-visible { outline: 2px solid var(--aqua); outline-offset: 3px; }
+@media (max-width: 900px) {
+  .marine-metrics { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 620px) {
+  .marine-panel { padding: 20px 16px; }
+  .marine-rating { grid-template-columns: 1fr; gap: 0; padding: 0 0 24px; }
+  .marine-gauge { max-width: 290px; }
+  .marine-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .marine-metric { padding: 13px; }
+  .marine-metric h3 { font-size: .76rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

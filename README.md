@@ -32,6 +32,14 @@ O ranking inclui todos os registros disponíveis e atualiza em tempo real. Captu
 
 ## Dados ambientais
 
+A seção **Previsão marítima**, no fim da página, mostra a nota e as condições médias do dia selecionado: vento e rajadas, ondas combinadas, período, swell, temperatura do mar e pressão atmosférica. As direções são médias circulares para respeitar a passagem de 359° para 0°. Campos com menos de 18 amostras horárias ficam indisponíveis; fontes são alinhadas pelo timestamp local, não pelo índice dos arrays.
+
+As janelas de maré incluem faixas das amostras horárias existentes dentro do intervalo, inclusive quando ele atravessa meia-noite. A nota média diária é calculada a partir dos horários que têm onda, vento e rajada; exige pelo menos 18 horários completos. Uma faixa de atenção em qualquer horário é sinalizada mesmo se a média do dia for favorável. Os dados não medem transparência da água, valões nem arrebentação em cada praia. Pressão e temperatura são informativas e não adicionam pontos ao índice experimental.
+
+A organização foi inspirada na aula de Vinicius Braun: https://www.youtube.com/watch?v=-EP0z2oXjXU. Definições técnicas de ondas seguem Open-Meteo e NOAA/NWS (https://www.weather.gov/okx/marinedef). Limites e exemplos regionais do vídeo não foram convertidos em regras universais.
+
+O velocímetro mostra a média das notas horárias, usando a fórmula `50 × clamp(1 − ondas/2) + 35 × clamp(1 − vento/40) + 15 × clamp(1 − rajadas/60)`, com cada `clamp` limitado a 0–1. Não é um modelo validado de produtividade nem um índice de segurança. Trovoadas, ondas ≥ 2 m, vento > 28 km/h ou rajadas ≥ 40 km/h têm destaque de atenção independente da pontuação. As janelas continuam seguindo a regra de três horas antes da preamar.
+
 Fontes: [Open-Meteo](https://open-meteo.com/) / DWD. A curva marítima usa nível do mar em relação ao nível médio, com extremos detectados em dados horários. O percentual lunar é calculado a partir da fase fornecida pela API. As janelas representam a regra escolhida pelo produto e não garantem produtividade de pesca.
 # Referência de maré de João Pessoa
 
