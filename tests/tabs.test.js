@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { initTabs, TAB_NAMES } from '../src/tabs.js';
 
 function fixture() {
@@ -42,5 +43,20 @@ test('HTML local e Pages têm imagem correta e não exibem chance de captura', (
     assert.ok(html.indexOf('id="tipsTab"') < html.indexOf('id="rankingTab"'));
     assert.match(html, path.includes('dist') ? /src="\.\/assets\/valoes-praia.jpg"/ : /src="\.\/dist\/assets\/valoes-praia.jpg"/);
     assert.match(html, /Não entre nos canais/);
+  }
+});
+
+test('entradas HTML e dependências usam versões atuais para evitar cache antigo', () => {
+  const revision = file => createHash('sha256').update(readFileSync(new URL(`../dist/${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')).digest('hex').slice(0, 12);
+  for (const path of ['../dist/index.html', '../index.html']) {
+    const html = readFileSync(new URL(path, import.meta.url), 'utf8');
+    const prefix = path.includes('dist') ? './' : './dist/';
+    for (const file of ['styles.css', 'app.js', 'tabs.js', 'ranking.js']) {
+      assert.ok(html.includes(`"${prefix}${file}?v=${revision(file)}"`), `${path}: ${file}`);
+    }
+  }
+  const app = readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+  for (const file of ['conditions.js', 'marine.js', 'tides.js']) {
+    assert.ok(app.includes(`'./${file}?v=${revision(file)}'`));
   }
 });

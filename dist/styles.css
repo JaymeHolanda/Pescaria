@@ -283,7 +283,18 @@ footer a { color: var(--aqua-soft); }
   .error-box { align-items: flex-start; flex-direction: column; }
 }
 
-.marine-panel { padding: 28px; margin: 28px 0 0; min-width: 0; }
+.marine-panel { --marine-accent: var(--aqua); --marine-tint: 77, 225, 193; padding: 28px; margin: 28px 0 0; min-width: 0; transition: border-color .2s, background .2s; }
+.marine-panel[data-window="1"] { border-color: rgba(77, 225, 193, .4); }
+.marine-panel[data-window="2"] { --marine-accent: var(--lime); --marine-tint: 223, 247, 109; border-color: rgba(223, 247, 109, .4); background: linear-gradient(145deg, #233d36, #092531); }
+.marine-tabs { display: flex; gap: 10px; padding-bottom: 22px; margin-top: 12px; }
+.marine-tabs button { flex: 1; display: grid; gap: 6px; padding: 16px 20px; text-align: left; color: var(--muted); border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .025); }
+.marine-tabs button span { font-weight: 700; font-size: .95rem; }
+.marine-tabs button small { font-size: .78rem; line-height: 1.5; }
+.marine-tabs button:not(:disabled):hover { border-color: var(--marine-accent); }
+.marine-tabs button[data-window="1"][aria-selected="true"] { color: #06231f; background: var(--aqua); border-color: var(--aqua); }
+.marine-tabs button[data-window="2"][aria-selected="true"] { color: #19240c; background: var(--lime); border-color: var(--lime); }
+.marine-tabs button:disabled { opacity: .5; cursor: default; }
+.marine-panel .marine-heading .eyebrow, .marine-panel .marine-rating-copy .eyebrow { color: var(--marine-accent); }
 .marine-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .marine-heading h2 { font: 700 clamp(1.5rem, 3vw, 2rem) Manrope, sans-serif; letter-spacing: -.04em; margin: 4px 0; }
 .marine-subtitle, .marine-note { color: var(--muted); font-size: .82rem; line-height: 1.6; }
@@ -306,18 +317,21 @@ footer a { color: var(--aqua-soft); }
 .marine-rating-copy .marine-rating-limit { font-size: .77rem; }
 .marine-score-details { font-size: .8rem; line-height: 1.7; color: var(--muted); }
 .marine-score-details summary { color: var(--aqua-soft); cursor: pointer; }
-.marine-metric { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: rgba(77, 225, 193, .035); }
+.marine-metric { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: rgba(var(--marine-tint), .035); }
 .marine-metric h3 { margin: 0 0 14px; color: var(--muted); font-size: .8rem; font-weight: 500; }
-.marine-metric strong { display: block; font: 700 clamp(1.2rem, 2.4vw, 1.9rem) Manrope, sans-serif; color: var(--aqua-soft); overflow-wrap: anywhere; }
+.marine-metric strong { display: block; font: 700 clamp(1.2rem, 2.4vw, 1.9rem) Manrope, sans-serif; color: var(--marine-accent); overflow-wrap: anywhere; }
 .marine-metric p { color: var(--muted); font-size: .8rem; line-height: 1.6; margin: 10px 0 0; }
 .marine-note { margin: 12px 0 0; }
 .window-marine { position: relative; z-index: 1; border-top: 1px solid rgba(5, 23, 33, .16); padding-top: 12px; margin: 12px 0 0; font-size: .8rem; line-height: 1.65; }
-.marine-panel :focus-visible { outline: 2px solid var(--aqua); outline-offset: 3px; }
+.marine-panel :focus-visible { outline: 2px solid var(--marine-accent); outline-offset: 3px; }
 @media (max-width: 900px) {
   .marine-metrics { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
   .marine-panel { padding: 20px 16px; }
+  .marine-tabs { gap: 8px; }
+  .marine-tabs button { padding: 13px 12px; min-width: 0; }
+  .marine-tabs button span { font-size: .85rem; }
   .marine-rating { grid-template-columns: 1fr; gap: 0; padding: 0 0 24px; }
   .marine-gauge { max-width: 290px; }
   .marine-heading { align-items: flex-start; flex-direction: column; gap: 12px; }

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://marine-api.open-meteo.com" />
     <link rel="preconnect" href="https://geocoding-api.open-meteo.com" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./dist/styles.css" />
+    <link rel="stylesheet" href="./dist/styles.css?v=5d966abfb9c2" />
     <title>Maré Certa — planeje sua pescaria</title>
   </head>
   <body>
@@ -134,10 +134,11 @@
 
         <section id="marinePanel" class="marine-panel card" aria-labelledby="marineTitle" aria-busy="true">
           <div class="marine-heading">
-            <div><p class="eyebrow">PREVISÃO MARÍTIMA</p><h2 id="marineTitle">Condições médias do dia.</h2><p id="marineDate" class="marine-subtitle"></p></div>
+            <div><p class="eyebrow">PREVISÃO MARÍTIMA</p><h2 id="marineTitle">Condições médias por janela.</h2><p id="marineDate" class="marine-subtitle" aria-live="polite"></p></div>
           </div>
+          <div id="marineTabs" class="marine-tabs" role="tablist" aria-label="Janela da previsão marítima" hidden></div>
           <p id="marineEmpty" class="empty-note" role="status">Calculando médias de vento e mar…</p>
-          <div id="marineContent" hidden>
+          <div id="marineContent" role="tabpanel" tabindex="0" hidden>
             <div class="marine-rating" aria-live="polite">
               <div id="marineGauge" class="marine-gauge" role="img" aria-label="Calculando nota marítima">
                 <svg viewBox="0 0 320 230" aria-hidden="true">
@@ -151,7 +152,7 @@
                 </svg>
               </div>
               <div class="marine-rating-copy"><p class="eyebrow">PESCA DE PRAIA · ÍNDICE EXPERIMENTAL</p><h3 id="marineRatingLabel">Calculando</h3><p id="marineRatingNote"></p><p class="marine-rating-limit">Estima a facilidade para pescar da areia. Não mede chance de captura nem segurança.</p>
-                <details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>Calculamos a nota de cada horário com ondas, vento e rajadas e depois tiramos a média do dia. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15), com parcelas entre zero e seus máximos.</p><p>A nota diária exige pelo menos 18 horários completos. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas em qualquer horário destacam atenção, mesmo que a média seja favorável.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>
+                <details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>Calculamos a nota de cada horário dentro da janela selecionada com ondas, vento e rajadas e depois tiramos a média. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15), com parcelas entre zero e seus máximos.</p><p>Usamos as amostras horárias entre o início e o fim da janela, incluindo o dia anterior quando necessário. Cada média exige ao menos 3 amostras e cobertura de 75% dos horários do intervalo; dados ausentes ficam indisponíveis. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas dentro da janela destacam atenção, mesmo que a média seja favorável.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>
               </div>
             </div>
             <div id="marineMetrics" class="marine-metrics" aria-live="polite"></div>
@@ -250,8 +251,8 @@
         <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
       </footer>
     </div>
-    <script type="module" src="./dist/app.js"></script>
-    <script type="module" src="./dist/tabs.js"></script>
-    <script type="module" src="./dist/ranking.js"></script>
+    <script type="module" src="./dist/app.js?v=b6db6edf8e0e"></script>
+    <script type="module" src="./dist/tabs.js?v=66ed1be780a2"></script>
+    <script type="module" src="./dist/ranking.js?v=d28e6202b978"></script>
   </body>
 </html>

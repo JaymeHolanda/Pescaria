@@ -44,13 +44,16 @@ export function marineScore(row) {
 
 // Daily means ignore incomplete fields and require at least 18 hourly samples.
 export function dailyMarineSummary(rows) {
-  const minimumHours = 18;
+  return summarizeMarine(rows, 18, true);
+}
+
+function summarizeMarine(rows, minimumHours, daily = false) {
   const fields = [...WEATHER_FIELDS, ...MARINE_FIELDS].filter(key => key !== 'weather_code' && key !== 'precipitation');
   const values = {};
   for (const key of fields) {
     const samples = rows.map(row => row[key]).filter(finite);
     if (samples.length < minimumHours) { values[key] = null; continue; }
-    if (key.endsWith('_direction')) {
+    if (key === 'wind_direction_10m' || key.endsWith('_direction')) {
       const radians = samples.map(value => value * Math.PI / 180);
       const x = radians.reduce((sum, value) => sum + Math.cos(value), 0) / samples.length;
       const y = radians.reduce((sum, value) => sum + Math.sin(value), 0) / samples.length;
@@ -69,23 +72,38 @@ export function dailyMarineSummary(rows) {
   ] : [];
   const score = rated.length >= minimumHours ? Math.round(rated.reduce((sum, item) => sum + item.rating.score, 0) / rated.length) : null;
   const tone = score === null ? 'partial' : attention.length ? 'attention' : score >= 75 ? 'calm' : score >= 50 ? 'moderate' : 'attention';
-  const label = score === null ? 'Dados incompletos' : attention.length ? 'Atenção em parte do dia' : score >= 75 ? 'Mais tranquilo' : score >= 50 ? 'Intermediário' : 'Mais exigente';
+  const label = score === null ? 'Dados incompletos' : attention.length ? `Atenção em parte ${daily ? 'do dia' : 'da janela'}` : score >= 75 ? 'Mais tranquilo' : score >= 50 ? 'Intermediário' : 'Mais exigente';
   const attentionTimes = [...new Set(attention.map(row => row.hour).filter(Boolean))];
   const attentionSummary = attentionTimes.length === 1
     ? `às ${attentionTimes[0]}`
     : `em ${attentionTimes.length} horários, incluindo ${attentionTimes.slice(0, 3).join(', ')}${attentionTimes.length > 3 ? '…' : ''}`;
   const note = score === null
-    ? `Há ${rated.length} horário(s) com os três dados necessários; são necessários pelo menos ${minimumHours} para a nota diária.${attentionTimes.length ? ` Também houve faixa de atenção ${attentionSummary}.` : ''}`
+    ? `Há ${rated.length} horário(s) com os três dados necessários; são necessários pelo menos ${minimumHours} para a nota ${daily ? 'diária' : 'da janela'}.${attentionTimes.length ? ` Também houve faixa de atenção ${attentionSummary}.` : ''}`
     : attentionTimes.length
       ? `Média de ${rated.length} horários. Faixa de atenção ${attentionSummary}.`
-      : `Média de ${rated.length} horários do dia. Nota maior indica menos vento e ondas mais baixas no modelo.`;
+      : `Média de ${rated.length} horários ${daily ? 'do dia' : 'da janela'}. Nota maior indica menos vento e ondas mais baixas no modelo.`;
   return { values, count: rated.length, score, parts, tone, label, note, attentionHours: attentionTimes };
 }
 
-export function windowMarine(window, weather, marine) {
+export function windowMarineRows(window, weather, marine) {
   const dates = [...new Set([window.startDate, window.endDate])];
   const start = `${window.startDate}T${window.startHour}`, end = `${window.endDate}T${window.endHour}`;
-  const rows = dates.flatMap(date => marineRows(date, weather, marine)).filter(row => row.time >= start && row.time <= end);
+  return dates.flatMap(date => marineRows(date, weather, marine)).filter(row => row.time >= start && row.time <= end);
+}
+
+export function windowMarineSummary(window, weather, marine) {
+  const rows = windowMarineRows(window, weather, marine);
+  // Count the hourly timestamps inside the closed interval, even when both
+  // sources omit a timestamp. A three-hour window needs 3 complete samples.
+  const start = Date.parse(`${window.startDate}T${window.startHour}:00Z`);
+  const end = Date.parse(`${window.endDate}T${window.endHour}:00Z`);
+  const expected = Math.max(0, Math.floor(end / 3600000) - Math.ceil(start / 3600000) + 1);
+  const minimumHours = Math.max(3, Math.ceil(expected * .75));
+  return { ...summarizeMarine(rows, minimumHours), rows, expected, minimumHours };
+}
+
+export function windowMarine(window, weather, marine) {
+  const rows = windowMarineRows(window, weather, marine);
   return { wind: rangeOf(rows, 'wind_speed_10m'), gust: rangeOf(rows, 'wind_gusts_10m'), waves: rangeOf(rows, 'wave_height'), period: rangeOf(rows, 'wave_period'), thunder: rows.some(row => [95, 96, 99].includes(row.weather_code)) };
 }
 
