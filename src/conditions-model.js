@@ -1,5 +1,14 @@
 const finite = Number.isFinite;
 const decimal = value => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+// Exposure categories from the WHO/WMO Global Solar UV Index.
+export function uvIndexInfo(value) {
+  if (!finite(value) || value < 0) return { value: '—', label: 'Indisponível', tone: 'unavailable' };
+  const [label, tone] = value < 3 ? ['Baixo', 'low']
+    : value < 6 ? ['Moderado', 'moderate']
+    : value < 8 ? ['Alto', 'high']
+    : value < 11 ? ['Muito alto', 'very-high'] : ['Extremo', 'extreme'];
+  return { value: value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }), label, tone };
+}
 export function hourlyDay(hourly, key, date) {
   return (hourly?.time || []).flatMap((time, i) => time.startsWith(`${date}T`) && finite(hourly[key]?.[i]) ? [{ hour: Number(time.slice(11, 13)), time: time.slice(11, 16), value: hourly[key][i] }] : []);
 }

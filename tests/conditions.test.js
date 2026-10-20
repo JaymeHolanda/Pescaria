@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hourlyDay, conditionsSummary } from '../src/conditions-model.js';
+import { hourlyDay, conditionsSummary, uvIndexInfo } from '../src/conditions-model.js';
 const base = { wind: 10, waves: [{ hour: 8, value: .5 }], levels: [0, 1.5], rain: 0, moon: 100 };
+test('UV respeita limites das categorias e distingue zero de ausência', () => {
+  for (const [value, label] of [[0, 'Baixo'], [2.9, 'Baixo'], [3, 'Moderado'], [5.9, 'Moderado'], [6, 'Alto'], [7.9, 'Alto'], [8, 'Muito alto'], [10.9, 'Muito alto'], [11, 'Extremo'], [14, 'Extremo']]) {
+    assert.equal(uvIndexInfo(value).label, label);
+  }
+  assert.equal(uvIndexInfo(8.5).value, '8,5');
+  for (const value of [null, undefined, NaN, Infinity, -1, '8']) {
+    assert.equal(uvIndexInfo(value).tone, 'unavailable');
+    assert.equal(uvIndexInfo(value).value, '—');
+  }
+});
 test('nota e classificação têm critérios consistentes', () => {
   const result = conditionsSummary(base);
   assert.equal(result.score, 100); assert.equal(result.label, 'Excelente');

@@ -32,6 +32,8 @@ O ranking inclui todos os registros disponíveis e atualiza em tempo real. Captu
 
 ## Dados ambientais
 
+O cartão **Índice UV**, logo abaixo dos dias no topo, mostra o máximo diário previsto (`uv_index_max` do Open-Meteo) para a data e o local selecionados. As categorias seguem a escala OMS/OMM: baixo (< 3), moderado (3–< 6), alto (6–< 8), muito alto (8–< 11) e extremo (≥ 11). Dados ausentes aparecem como indisponíveis, sem assumir UV zero. Referências: [Open-Meteo](https://open-meteo.com/en/docs) e [OMS — índice UV](https://www.who.int/news-room/questions-and-answers/item/radiation-the-ultraviolet-%28uv%29-index/).
+
 A seção **Previsão marítima**, no fim da página, mostra a nota e as condições médias do dia selecionado: vento e rajadas, ondas combinadas, período, swell, temperatura do mar e pressão atmosférica. As direções são médias circulares para respeitar a passagem de 359° para 0°. Campos com menos de 18 amostras horárias ficam indisponíveis; fontes são alinhadas pelo timestamp local, não pelo índice dos arrays.
 
 As janelas de maré incluem faixas das amostras horárias existentes dentro do intervalo, inclusive quando ele atravessa meia-noite. A nota média diária é calculada a partir dos horários que têm onda, vento e rajada; exige pelo menos 18 horários completos. Uma faixa de atenção em qualquer horário é sinalizada mesmo se a média do dia for favorável. Os dados não medem transparência da água, valões nem arrebentação em cada praia. Pressão e temperatura são informativas e não adicionam pontos ao índice experimental.

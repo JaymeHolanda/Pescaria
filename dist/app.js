@@ -1,4 +1,4 @@
-import { conditionsSummary, hourlyDay } from './conditions.js';
+import { conditionsSummary, hourlyDay, uvIndexInfo } from './conditions.js';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js';
 import { renderMarinePanel, clearMarinePanel, marineWindowText } from './marine.js';
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
@@ -12,6 +12,7 @@ const els = {
   tideEvents: $("#tideEvents"), fishingWindows: $("#fishingWindows"), moonName: $("#moonName"), moonPercent: $("#moonPercent"),
   moonVisual: $("#moonVisual"), windSpeed: $("#windSpeed"), windDirection: $("#windDirection"), windArrow: $("#windArrow"),
   summaryTitle: $("#summaryTitle"), summaryDate: $("#summaryDate"), summaryCards: $("#summaryCards"),
+  uvCard: $("#uvCard"), uvValue: $("#uvValue"), uvCategory: $("#uvCategory"), uvDate: $("#uvDate"),
   tideSource: $("#tideSource"), tideReference: $("#tideReference"),
   dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton")
 };
@@ -73,7 +74,7 @@ async function loadForecast() {
   state.aborter = new AbortController();
   const { latitude, longitude } = state.location;
   const common = `latitude=${latitude}&longitude=${longitude}&timezone=auto&forecast_days=7`;
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&wind_speed_unit=kmh&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation_probability,precipitation,weather_code&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max`;
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&wind_speed_unit=kmh&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation_probability,precipitation,weather_code&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max,uv_index_max`;
   // Include neighboring days before detecting peaks, including midnight on day 1/7.
   const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latitude}&longitude=${longitude}&timezone=auto&past_days=1&forecast_days=8&hourly=sea_level_height_msl,wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,wind_wave_height,sea_surface_temperature&cell_selection=sea`;
 
@@ -103,6 +104,7 @@ function setLoading(loading) {
   els.dashboard.setAttribute("aria-busy", String(loading));
   els.locationButton.disabled = loading;
   if (loading) {
+    renderUv(null, '', true);
     clearMarinePanel(true);
     els.summaryTitle.textContent = 'Atualizando o resumo…';
     els.summaryCards.replaceChildren();
@@ -145,6 +147,7 @@ function renderDays() {
 function renderSelectedDay() {
   const index = state.selectedDay;
   const { date, points, events, official, available } = dayData(index);
+  renderUv(state.weather.daily.uv_index_max?.[index], date);
   const wind = state.weather.daily.wind_speed_10m_max?.[index];
   const windSpeed = Number.isFinite(wind) ? Math.round(wind) : '—';
   const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index];
@@ -166,6 +169,15 @@ function renderSelectedDay() {
   els.moonPercent.textContent = `${moon.illumination}%`;
   els.moonVisual.querySelector("span").style.opacity = Math.max(.28, moon.illumination / 100);
   renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: official ? events.map(e => e.level) : points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], moon: moon.illumination }), date);
+}
+
+function renderUv(value, date = '', loading = false) {
+  const uv = uvIndexInfo(value);
+  els.uvCard.dataset.tone = uv.tone;
+  els.uvCard.setAttribute('aria-busy', String(loading));
+  els.uvValue.textContent = uv.value;
+  els.uvCategory.textContent = loading ? 'Carregando…' : uv.label;
+  els.uvDate.textContent = date ? `${formatDate(date, { day: '2-digit', month: '2-digit' })} · ${state.location.name}` : loading ? 'Buscando o UV do local selecionado…' : 'Sem previsão UV para este dia.';
 }
 
 function renderChart(points, events) {
@@ -221,6 +233,7 @@ function renderSummary(summary, date) {
 }
 
 function renderUnavailable() {
+  renderUv(null);
   clearMarinePanel();
   els.tideSource.textContent = 'Sem previsão marítima carregada.'; els.tideReference.hidden = !isNearCabedelo(state.location);
   els.summaryTitle.textContent = 'Resumo indisponível'; els.summaryDate.textContent = ''; els.summaryCards.replaceChildren();

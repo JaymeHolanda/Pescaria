@@ -71,6 +71,16 @@
           <div class="day-card skeleton"><span></span><b></b><small></small></div>
         </section>
 
+        <section id="uvCard" class="uv-card card" data-tone="unavailable" aria-labelledby="uvTitle" aria-live="polite" aria-busy="true">
+          <span class="uv-icon" aria-hidden="true">☀</span>
+          <div class="uv-copy">
+            <h2 id="uvTitle">Índice UV <span>· máximo do dia</span></h2>
+            <p id="uvDate">Buscando o UV do local selecionado…</p>
+          </div>
+          <div class="uv-reading"><strong id="uvValue">—</strong><span id="uvCategory">Carregando…</span></div>
+          <a class="uv-source" href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">Fonte: Open-Meteo ↗</a>
+        </section>
+
         <section class="daily-summary card" aria-labelledby="summaryTitle" aria-live="polite">
           <div class="summary-heading"><div><p class="eyebrow">RESUMO DAS CONDIÇÕES</p><h2 id="summaryTitle">Preparando o resumo…</h2></div><p id="summaryDate"></p></div>
           <div id="summaryCards" class="summary-grid"></div>
