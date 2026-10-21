@@ -9,10 +9,11 @@
     <link rel="preconnect" href="https://marine-api.open-meteo.com" />
     <link rel="preconnect" href="https://geocoding-api.open-meteo.com" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./dist/styles.css?v=5d966abfb9c2" />
-    <title>Maré Certa — planeje sua pescaria</title>
+    <link rel="stylesheet" href="./dist/styles.css?v=150638ac77fa" />
+    <link rel="stylesheet" href="./dist/versao-b.css?v=756b31f60ba0" />
+    <title>Maré Certa — sua próxima pescaria</title>
   </head>
-  <body>
+  <body class="preview-b">
     <div class="shell">
       <header class="topbar">
         <a class="brand" href="#" aria-label="Maré Certa — início">
@@ -50,15 +51,9 @@
         <button id="accountButton" class="account-button" type="button">Entrar / cadastrar</button>
       </nav>
       <main id="forecastPanel" role="tabpanel" aria-labelledby="forecastTab">
-        <section class="intro" aria-labelledby="pageTitle">
-          <div>
-            <p class="eyebrow">CONDIÇÕES PARA PESCA</p>
-            <h1 id="pageTitle">Quando o mar chama,<br/><em>a gente avisa.</em></h1>
-          </div>
-          <div class="intro-aside">
-            <p>Maré, vento e lua reunidos para você escolher a melhor janela e chegar preparado.</p>
-            <div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados...</span></div>
-          </div>
+        <section class="intro b-intro" aria-labelledby="pageTitle">
+          <div class="b-hero-copy"><p class="eyebrow">AO RITMO DO MAR</p><h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1><p class="b-intro-note">A maré marca o horário. Você escolhe a próxima pescaria.</p><div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div></div>
+          <article id="nextWindow" class="b-next-window" aria-labelledby="nextWindowTitle" aria-busy="true"><div class="b-next-top"><span class="b-status-dot"></span><span>SEU PRÓXIMO HORÁRIO</span><svg viewBox="0 0 64 32" aria-hidden="true"><path d="M2 18 Q16 0 30 18 T60 18 M2 27 Q16 9 30 27 T60 27"/></svg></div><h2 id="nextWindowTitle">Buscando sua próxima janela</h2><strong id="nextWindowHours">—</strong><p id="nextWindowDate">Consultando os horários de maré…</p><div class="b-next-bottom"><span id="nextWindowCountdown">Atualizando…</span><a id="nextWindowLink" href="#windowsB" aria-label="Ver janelas da próxima maré alta">Ver esta janela <span aria-hidden="true">↘</span></a></div></article>
         </section>
 
         <section class="day-strip" aria-label="Previsão dos próximos sete dias" id="dayStrip">
@@ -71,22 +66,27 @@
           <div class="day-card skeleton"><span></span><b></b><small></small></div>
         </section>
 
-        <section id="uvCard" class="uv-card card" data-tone="unavailable" aria-labelledby="uvTitle" aria-live="polite" aria-busy="true">
-          <span class="uv-icon" aria-hidden="true">☀</span>
-          <div class="uv-copy">
-            <h2 id="uvTitle">Índice UV <span>· máximo do dia</span></h2>
-            <p id="uvDate">Buscando o UV do local selecionado…</p>
+        <section class="uv-strip card" aria-label="Índice UV e temperatura do dia">
+          <div class="uv-visual" aria-hidden="true">☀</div>
+          <div class="uv-heading"><h2>Índice UV <span>· máximo do dia</span></h2><p id="uvContext">Carregando local…</p></div>
+          <div class="uv-reading"><strong id="uvIndex">—</strong><span id="uvLevel">Carregando…</span></div>
+          <div class="uv-temperature"><span>Temperatura do dia</span><strong id="dayTemperature">—</strong></div>
+          <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Fonte: Open-Meteo ↗</a>
+        </section>
+
+
+
+
+        <section id="windowsB" class="window-section" aria-labelledby="windowTitle">
+          <div class="window-copy">
+            <p class="eyebrow">JANELAS DE PESCA</p>
+            <h2 id="windowTitle">Janelas sugeridas pela maré.</h2>
+            <p>Cada janela começa três horas antes da maré alta: na região de João Pessoa, usamos a tábua oficial de Cabedelo; nos demais locais, uma estimativa do modelo. É uma regra de planejamento, não garantia de captura. Confira as condições antes de sair.</p>
           </div>
-          <div class="uv-reading"><strong id="uvValue">—</strong><span id="uvCategory">Carregando…</span></div>
-          <a class="uv-source" href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">Fonte: Open-Meteo ↗</a>
+          <div id="fishingWindows" class="window-list">
+            <div class="window-card skeleton"></div><div class="window-card skeleton"></div>
+          </div>
         </section>
-
-        <section class="daily-summary card" aria-labelledby="summaryTitle" aria-live="polite">
-          <div class="summary-heading"><div><p class="eyebrow">RESUMO DAS CONDIÇÕES</p><h2 id="summaryTitle">Preparando o resumo…</h2></div><p id="summaryDate"></p></div>
-          <div id="summaryCards" class="summary-grid"></div>
-          <p class="summary-disclaimer">Apoio ao planejamento, não garantia de captura ou de segurança. Consulte avisos locais e considere sua modalidade de pesca.</p>
-        </section>
-
 
         <section class="dashboard" aria-live="polite" aria-busy="true" id="dashboard">
           <article class="tide-card card">
@@ -100,11 +100,12 @@
 
             <div class="chart-wrap">
               <svg id="tideChart" viewBox="0 0 760 250" role="img" aria-label="Curva horária da maré"></svg>
+              <div id="chartTooltip" class="b-chart-tooltip" hidden></div>
             </div>
 
+            <div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas</span><span>Toque na curva ou deslize o horário</span></div></div>
             <div class="tide-events" id="tideEvents"></div>
             <p id="tideSource" class="chart-note">Curva estimada da API, não uma tábua oficial. Use como apoio ao planejamento, nunca para navegação.</p>
-            <p id="tideReference" class="tide-reference">Estação de referência: <a href="https://www.marinha.mil.br/cppb/sites/www.marinha.mil.br.cppb/files/2025-12/2026-PORTO-DE-CABEDELO.pdf" target="_blank" rel="noreferrer">Porto de Cabedelo — Marinha do Brasil, 2026</a>. Horários e alturas oficiais incorporados para João Pessoa e locais a até 40 km da estação. Cabedelo não representa exatamente cada praia. Não use a curva ilustrativa para navegação.</p>
           </article>
 
           <aside class="conditions">
@@ -121,38 +122,38 @@
           </aside>
         </section>
 
-        <section class="window-section" aria-labelledby="windowTitle">
-          <div class="window-copy">
-            <p class="eyebrow">JANELAS DE PESCA</p>
-            <h2 id="windowTitle">Janelas sugeridas pela maré.</h2>
-            <p>Cada janela começa três horas antes da maré alta: na região de João Pessoa, usamos a tábua oficial de Cabedelo; nos demais locais, uma estimativa do modelo. É uma regra de planejamento, não garantia de captura. Confira as condições antes de sair.</p>
-          </div>
-          <div id="fishingWindows" class="window-list">
-            <div class="window-card skeleton"></div><div class="window-card skeleton"></div>
-          </div>
+
+
+        <section class="daily-summary card" aria-labelledby="summaryTitle" aria-live="polite">
+          <div class="summary-heading"><div><p class="eyebrow">RESUMO DAS CONDIÇÕES</p><h2 id="summaryTitle">Preparando o resumo…</h2></div><p id="summaryDate"></p></div>
+          <div id="summaryCards" class="summary-grid"></div>
         </section>
 
         <section id="marinePanel" class="marine-panel card" aria-labelledby="marineTitle" aria-busy="true">
           <div class="marine-heading">
-            <div><p class="eyebrow">PREVISÃO MARÍTIMA</p><h2 id="marineTitle">Condições médias por janela.</h2><p id="marineDate" class="marine-subtitle" aria-live="polite"></p></div>
+            <div><p class="eyebrow">PREVISÃO MARÍTIMA</p><h2 id="marineTitle">Condições por janela.</h2><p id="marineDate" class="marine-subtitle"></p></div>
           </div>
-          <div id="marineTabs" class="marine-tabs" role="tablist" aria-label="Janela da previsão marítima" hidden></div>
-          <p id="marineEmpty" class="empty-note" role="status">Calculando médias de vento e mar…</p>
-          <div id="marineContent" role="tabpanel" tabindex="0" hidden>
+          <div id="marineWindowTabs" class="marine-window-tabs" role="tablist" aria-label="Condições marítimas por janela"></div>
+          <p id="marineEmpty" class="empty-note" role="status">Calculando as condições de cada janela…</p>
+          <div id="marineContent" role="tabpanel" hidden>
             <div class="marine-rating" aria-live="polite">
               <div id="marineGauge" class="marine-gauge" role="img" aria-label="Calculando nota marítima">
                 <svg viewBox="0 0 320 230" aria-hidden="true">
-                  <path class="gauge-arc gauge-low" d="M40 150 A120 120 0 0 1 160 30"/>
-                  <path class="gauge-arc gauge-mid" d="M160 30 A120 120 0 0 1 244.85 65.15"/>
-                  <path class="gauge-arc gauge-high" d="M244.85 65.15 A120 120 0 0 1 280 150"/>
-                  <g id="marineGaugeNeedle"><path class="gauge-needle" d="M160 144 L55 150 L160 156 Z"/><circle cx="160" cy="150" r="7"/></g>
+                  <defs>
+                    <linearGradient id="marineAuroraGradient" x1="0" x2="1"><stop stop-color="#b5a4ff"/><stop offset=".48" stop-color="#65c6ff"/><stop offset="1" stop-color="#4de1c1"/></linearGradient>
+                    <filter id="marineAuroraGlow" x="-25%" y="-50%" width="150%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+                  </defs>
+                  <path class="gauge-glow" d="M40 150 A120 120 0 0 1 280 150"/>
+                  <path class="gauge-arc" d="M40 150 A120 120 0 0 1 280 150"/>
+                  <path class="gauge-ticks" d="M58.00 150.00 L68.00 150.00 M59.26 134.04 L64.19 134.83 M62.99 118.48 L67.75 120.03 M69.12 103.69 L73.57 105.96 M77.48 90.05 L81.53 92.98 M87.88 77.88 L94.95 84.95 M100.05 67.48 L102.98 71.53 M113.69 59.12 L115.96 63.57 M128.48 52.99 L130.03 57.75 M144.04 49.26 L144.83 54.19 M160.00 48.00 L160.00 58.00 M175.96 49.26 L175.17 54.19 M191.52 52.99 L189.97 57.75 M206.31 59.12 L204.04 63.57 M219.95 67.48 L217.02 71.53 M232.12 77.88 L225.05 84.95 M242.52 90.05 L238.47 92.98 M250.88 103.69 L246.43 105.96 M257.01 118.48 L252.25 120.03 M260.74 134.04 L255.81 134.83 M262.00 150.00 L252.00 150.00"/>
+                  <g id="marineGaugeNeedle"><line class="gauge-needle" x1="160" y1="150" x2="58" y2="150"/><circle cx="160" cy="150" r="5"/></g>
                   <text id="marineGaugeValue" x="160" y="197" text-anchor="middle">—</text>
                   <text class="gauge-total" x="160" y="218" text-anchor="middle">DE 100</text>
                   <text class="gauge-end" x="40" y="180" text-anchor="middle">0</text><text class="gauge-end" x="280" y="180" text-anchor="middle">100</text>
                 </svg>
               </div>
               <div class="marine-rating-copy"><p class="eyebrow">PESCA DE PRAIA · ÍNDICE EXPERIMENTAL</p><h3 id="marineRatingLabel">Calculando</h3><p id="marineRatingNote"></p><p class="marine-rating-limit">Estima a facilidade para pescar da areia. Não mede chance de captura nem segurança.</p>
-                <details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>Calculamos a nota de cada horário dentro da janela selecionada com ondas, vento e rajadas e depois tiramos a média. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15), com parcelas entre zero e seus máximos.</p><p>Usamos as amostras horárias entre o início e o fim da janela, incluindo o dia anterior quando necessário. Cada média exige ao menos 3 amostras e cobertura de 75% dos horários do intervalo; dados ausentes ficam indisponíveis. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas dentro da janela destacam atenção, mesmo que a média seja favorável.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>
+                <details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>A nota de cada janela é a média das notas dos horários previstos dentro daquele intervalo de três horas. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15).</p><p>Usamos as amostras horárias dentro do intervalo, incluindo o dia anterior quando necessário. A nota exige todos os horários completos; campos com lacunas ficam indisponíveis. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas em qualquer horário da janela destacam atenção.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>
               </div>
             </div>
             <div id="marineMetrics" class="marine-metrics" aria-live="polite"></div>
@@ -224,11 +225,14 @@
               <label>Data da pescaria<input name="date" type="date" required /></label>
               <label>Local<input name="location" maxlength="100" required placeholder="Praia, rio ou cidade" /></label>
               <button class="primary-button" type="submit">Salvar captura</button>
+              <button id="cancelCaptureEdit" class="text-button" type="button" hidden>Cancelar edição</button>
               <p class="chart-note">Seu nome, espécie, quantidade, peso, data e local ficam visíveis à comunidade.</p>
             </form>
             <p id="captureMessage" class="form-message" role="status"></p>
           </section>
         </div>
+        <section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Encontre uma pescaria.</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<input id="filterLocation" type="search" placeholder="Ex.: Intermares" autocomplete="off"></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o diário…</p></section>
+        <section id="myCapturesSection" class="card catches-card" aria-labelledby="myCapturesTitle" hidden><div class="card-heading"><div><p class="eyebrow">SEU DIÁRIO</p><h2 id="myCapturesTitle">Minhas capturas</h2></div></div><div id="myCaptures" class="recent-catches"></div></section>
         <section class="card catches-card" aria-labelledby="catchesTitle"><div class="card-heading"><div><p class="eyebrow">DIÁRIO DA COMUNIDADE</p><h2 id="catchesTitle">Capturas recentes</h2></div></div><div id="recentCatches" class="recent-catches"></div></section>
       </main>
 
@@ -251,8 +255,8 @@
         <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
       </footer>
     </div>
-    <script type="module" src="./dist/app.js?v=b6db6edf8e0e"></script>
+    <script type="module" src="./dist/app-b.js?v=8df35d837e75"></script>
     <script type="module" src="./dist/tabs.js?v=66ed1be780a2"></script>
-    <script type="module" src="./dist/ranking.js?v=d28e6202b978"></script>
+    <script type="module" src="./dist/ranking-b.js?v=c5802dccf5fb"></script>
   </body>
 </html>

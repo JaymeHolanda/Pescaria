@@ -12,7 +12,10 @@ export function uvIndexInfo(value) {
 export function hourlyDay(hourly, key, date) {
   return (hourly?.time || []).flatMap((time, i) => time.startsWith(`${date}T`) && finite(hourly[key]?.[i]) ? [{ hour: Number(time.slice(11, 13)), time: time.slice(11, 16), value: hourly[key][i] }] : []);
 }
-export function conditionsSummary({ wind, windHours = [], waves = [], levels = [], events = [], rain, moon }) {
+export function conditionsSummary({ wind, windHours = [], waves = [], levels = [], events = [], rain, rainHours = [], moon }) {
+  const rainPeak = rainHours.length ? Math.max(...rainHours.map(p => p.value)) : null;
+  const rainTimes = rainHours.filter(p => p.value === rainPeak).map(p => p.time);
+  const rainTiming = rainPeak > 0 ? `Maior chance horária (${Math.round(rainPeak)}%) às ${rainTimes.join(', ')} — horário local.` : rainPeak === 0 ? 'Sem chance de chuva nos horários disponíveis.' : 'Horários da chuva indisponíveis.';
   const maxWave = waves.length ? Math.max(...waves.map(p => p.value)) : null;
   const amplitude = levels.length >= 2 ? Math.max(...levels) - Math.min(...levels) : null;
   const cautions = [];
@@ -31,7 +34,7 @@ export function conditionsSummary({ wind, windHours = [], waves = [], levels = [
     { title: 'Vento', warning: finite(wind) && wind > 28, text: finite(wind) ? `${wind > 28 ? 'Vento mais intenso' : wind > 15 ? 'Vento moderado' : 'Vento leve'}${period ? ` ${period}` : ' no dia'}. Máximo previsto: ${decimal(wind)} km/h${peak ? `, às ${peak.time}` : ''}.` : 'Sem previsão de vento para este dia.' },
     { title: 'Ondas', warning: finite(maxWave) && maxWave >= 2, text: finite(maxWave) ? `${finite(change) && change >= .3 ? 'Ondas aumentando à tarde.' : finite(change) && change <= -.3 ? 'Ondas diminuindo à tarde.' : finite(change) ? 'Ondas sem grande mudança entre manhã e tarde.' : 'Previsão de ondas disponível.'} Altura significativa máxima: ${decimal(maxWave)} m.` : 'Sem previsão de ondas para este local.' },
     { title: 'Maré', warning: false, text: finite(amplitude) ? `Variação prevista de ${decimal(amplitude)} m entre o menor e o maior nível do dia.${highs.length ? ` Picos de alta às ${highs.join(' e ')}.` : ' Sem picos de alta identificados.'}` : 'Sem dados suficientes para resumir a maré.' },
-    { title: 'Chuva', warning: finite(rain) && rain >= 60, text: finite(rain) ? `Chance máxima de chuva: ${Math.round(rain)}%. ${rain >= 60 ? 'Vale se preparar para chuva.' : 'Confira a previsão novamente antes de sair.'}` : 'Sem previsão de chance de chuva para este dia.' }
+    { title: 'Chuva', warning: finite(rain) && rain >= 60, text: finite(rain) ? `Chance máxima de chuva: ${Math.round(rain)}%. ${rainTiming}` : 'Sem previsão de chance de chuva para este dia.' }
   ];
   const complete = [wind, amplitude, rain, moon, maxWave].every(finite);
   const breakdown = complete ? [

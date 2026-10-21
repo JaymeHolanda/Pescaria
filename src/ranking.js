@@ -1,13 +1,15 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, runTransaction, onValue, push, remove, serverTimestamp } from 'firebase/database';
 import { auth, database } from './firebase.js';
-import { makeRanking, validateCapture, profileRecord } from './ranking-model.js';
-import { explainError, localDate } from './ranking-errors.js';
+import { makeRanking, validateCapture, profileRecord, captureUpdate } from './ranking-model.js';
+import { explainError, localDate, CaptureValidationError } from './ranking-errors.js';
 
 const $ = id => document.getElementById(id);
 let mode = 'login', profiles = {}, captures = {}, readyProfiles = false, readyCaptures = false;
 let profileReady = false;
 let signupInProgress = false;
+let editingCapture = null, savingCapture = false;
+const captureFields = ['species', 'quantity', 'weight', 'date', 'location'];
 const today = () => localDate();
 const message = (id, text, error = false) => { $(id).textContent = text; $(id).classList.toggle('is-error', error); };
 const explain = explainError;
@@ -74,6 +76,7 @@ $('logoutButton').addEventListener('click', async () => {
 });
 
 function renderAccount(user) {
+  if (editingCapture && editingCapture.uid !== user?.uid) resetCaptureEditor();
   $('accountButton').textContent = user ? user.displayName || 'Minha conta' : 'Entrar / cadastrar';
   $('authForms').hidden = !!user; $('accountProfile').hidden = !user;
   $('captureLogin').hidden = !!user; $('captureForm').hidden = !user;
@@ -110,32 +113,100 @@ $('profileForm').addEventListener('submit', async event => {
 $('captureForm').elements.date.value = today();
 $('captureForm').elements.date.max = today();
 try { const local = JSON.parse(localStorage.getItem('mare-certa-location')); if (local?.name) $('captureForm').elements.location.value = local.name; } catch {}
+
+function resetCaptureEditor() {
+  editingCapture = null;
+  const form = $('captureForm');
+  form.reset(); form.elements.date.value = today();
+  try { const local = JSON.parse(localStorage.getItem('mare-certa-location')); if (local?.name) form.elements.location.value = local.name; } catch {}
+  $('captureTitle').textContent = 'Registrar captura';
+  form.querySelector('button[type="submit"]').textContent = 'Salvar captura';
+  $('cancelCaptureEdit').hidden = true;
+}
+
+function editCapture(id) {
+  if (savingCapture) return;
+  const capture = captures[id], user = auth.currentUser;
+  if (!user || !capture || capture.uid !== user.uid) return;
+  editingCapture = { id, uid: user.uid };
+  const form = $('captureForm');
+  for (const name of captureFields) form.elements.namedItem(name).value = capture[name] ?? '';
+  $('captureTitle').textContent = 'Editar captura';
+  form.querySelector('button[type="submit"]').textContent = 'Salvar alterações';
+  $('cancelCaptureEdit').hidden = false;
+  message('captureMessage', 'Edite os dados e salve suas alterações.');
+  form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  form.elements.species.focus({ preventScroll: true });
+}
+
+$('cancelCaptureEdit').addEventListener('click', () => {
+  if (savingCapture) return;
+  resetCaptureEditor(); message('captureMessage', 'Edição cancelada.');
+});
+
 $('captureForm').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget, button = form.querySelector('button[type="submit"]');
   const user = auth.currentUser;
   if (!user) return openAccount();
+  if (savingCapture) return;
+  const edit = editingCapture;
+  savingCapture = true; $('cancelCaptureEdit').disabled = true;
   button.disabled = true; message('captureMessage', 'Salvando captura...');
   let stage = 'Dados da captura';
   try {
-    const fields = Object.fromEntries(['species', 'quantity', 'weight', 'date', 'location'].map(name => [name, form.elements.namedItem(name).value]));
+    const fields = Object.fromEntries(captureFields.map(name => [name, form.elements.namedItem(name).value]));
     const capture = validateCapture(fields, user.uid, serverTimestamp(), today());
     stage = 'Perfil do pescador';
     if (!profileReady) await ensureProfile(user);
     stage = 'Gravação da captura';
-    await push(ref(database, 'mareCerta/captures'), capture);
+    if (edit) {
+      if (edit.uid !== user.uid) throw new CaptureValidationError('Entre na conta que registrou esta captura.');
+      const result = await runTransaction(ref(database, `mareCerta/captures/${edit.id}`), existing => captureUpdate(existing, capture, user.uid), { applyLocally: false });
+      if (!result.committed) throw new CaptureValidationError('Esta captura não está mais disponível para edição.');
+    } else {
+      await push(ref(database, 'mareCerta/captures'), capture);
+    }
   } catch (error) {
     console.error('Falha ao salvar captura', { stage, code: error.code, name: error.name, message: error.message });
-    message('captureMessage', `${explain(error, stage)} Os campos foram mantidos; sua captura não foi confirmada.`, true);
+    message('captureMessage', `${explain(error, stage)} Os campos foram mantidos; ${edit ? 'as alterações não foram confirmadas' : 'sua captura não foi confirmada'}.`, true);
     return;
-  } finally { button.disabled = false; }
+  } finally { button.disabled = false; savingCapture = false; $('cancelCaptureEdit').disabled = false; }
   // Only clear the form after Firebase confirms the write, outside the save catch.
-    form.elements.species.value = ''; form.elements.quantity.value = '1'; form.elements.weight.value = '';
-    message('captureMessage', 'Captura salva! Seu ranking foi atualizado.');
+  if (auth.currentUser?.uid === user.uid) {
+    resetCaptureEditor();
+    message('captureMessage', edit ? 'Captura atualizada! Seu ranking foi recalculado.' : 'Captura salva! Seu ranking foi atualizado.');
+  }
 });
 
 function addCell(row, value, className) {
   const td = document.createElement('td'); td.textContent = value; if (className) td.className = className; row.append(td); return td;
+}
+function captureCard(id, capture) {
+  const card = document.createElement('article'); card.className = 'catch-item';
+  const title = document.createElement('h3'); title.textContent = `${capture.quantity} × ${capture.species}`;
+  const author = document.createElement('p'); author.textContent = profiles[capture.uid]?.displayName || 'Pescador';
+  const details = document.createElement('small');
+  details.textContent = `${capture.date.split('-').reverse().join('/')} · ${capture.location}${capture.weight ? ` · ${Number(capture.weight).toLocaleString('pt-BR')} kg` : ''}`;
+  card.append(title, author, details);
+  if (capture.uid === auth.currentUser?.uid) {
+    const actions = document.createElement('div'); actions.className = 'capture-actions';
+    const edit = document.createElement('button'); edit.className = 'text-button'; edit.textContent = 'Editar captura';
+    edit.addEventListener('click', () => editCapture(id));
+    const button = document.createElement('button'); button.className = 'text-button'; button.textContent = 'Excluir minha captura';
+    button.addEventListener('click', async () => {
+      if (savingCapture || auth.currentUser?.uid !== capture.uid) return;
+      if (!window.confirm('Excluir esta captura? Ela será removida do ranking.')) return;
+      button.disabled = true;
+      try {
+        await remove(ref(database, `mareCerta/captures/${id}`));
+        if (editingCapture?.id === id) resetCaptureEditor();
+        message('captureMessage', 'Captura excluída.');
+      } catch (error) { message('captureMessage', explain(error), true); button.disabled = false; }
+    });
+    actions.append(edit, button); card.append(actions);
+  }
+  return card;
 }
 function renderCommunity() {
   const ranking = makeRanking(profiles, captures);
@@ -151,25 +222,21 @@ function renderCommunity() {
     $('rankingRows').append(row);
   }
   $('recentCatches').replaceChildren();
-  const recent = Object.entries(captures).sort((a, b) => b[1].createdAt - a[1].createdAt).slice(0, 30);
+  const all = Object.entries(captures).sort((a, b) => b[1].createdAt - a[1].createdAt);
+  const recent = all.slice(0, 30);
+  $('myCapturesSection').hidden = !auth.currentUser;
+  $('myCaptures').replaceChildren();
+  const mine = all.filter(([, capture]) => capture.uid === auth.currentUser?.uid);
+  for (const [id, capture] of mine) $('myCaptures').append(captureCard(id, capture));
+  if (auth.currentUser && readyCaptures && !mine.length) {
+    const empty = document.createElement('p'); empty.className = 'empty-note'; empty.textContent = 'Suas capturas aparecerão aqui para você editar.'; $('myCaptures').append(empty);
+  }
+  if (editingCapture && readyCaptures && !captures[editingCapture.id] && !savingCapture) {
+    resetCaptureEditor(); message('captureMessage', 'A captura em edição foi excluída.');
+  }
   if (!recent.length && readyCaptures) { const empty = document.createElement('p'); empty.className = 'empty-note'; empty.textContent = 'As próximas capturas aparecerão aqui.'; $('recentCatches').append(empty); }
   for (const [id, capture] of recent) {
-    const card = document.createElement('article'); card.className = 'catch-item';
-    const title = document.createElement('h3'); title.textContent = `${capture.quantity} × ${capture.species}`;
-    const author = document.createElement('p'); author.textContent = profiles[capture.uid]?.displayName || 'Pescador';
-    const details = document.createElement('small');
-    details.textContent = `${capture.date.split('-').reverse().join('/')} · ${capture.location}${capture.weight ? ` · ${Number(capture.weight).toLocaleString('pt-BR')} kg` : ''}`;
-    card.append(title, author, details);
-    if (capture.uid === auth.currentUser?.uid) {
-      const button = document.createElement('button'); button.className = 'text-button'; button.textContent = 'Excluir minha captura';
-      button.addEventListener('click', async () => {
-        if (!window.confirm('Excluir esta captura? Ela será removida do ranking.')) return;
-        button.disabled = true;
-        try { await remove(ref(database, `mareCerta/captures/${id}`)); message('captureMessage', 'Captura excluída.'); }
-        catch (error) { message('captureMessage', explain(error), true); button.disabled = false; }
-      }); card.append(button);
-    }
-    $('recentCatches').append(card);
+    $('recentCatches').append(captureCard(id, capture));
   }
 }
 function connected() { if (readyProfiles && readyCaptures) message('communityMessage', 'Ranking atualizado em tempo real.'); renderCommunity(); }

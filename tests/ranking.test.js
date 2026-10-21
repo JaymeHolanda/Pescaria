@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeRanking, validateCapture, profileRecord } from '../src/ranking-model.js';
+import { makeRanking, validateCapture, profileRecord, captureUpdate } from '../src/ranking-model.js';
 import { explainError, localDate, CaptureValidationError } from '../src/ranking-errors.js';
 
 test('erros de captura mostram a etapa, permissões e validação sem mensagem genérica', () => {
@@ -30,6 +30,26 @@ test('ranking soma peixes, une espécies e compartilha posições em empates', (
 test('uma captura excluída sai do total', () => {
   assert.equal(makeRanking({}, { a: { uid: 'x', species: 'Atum', quantity: 4 } })[0].quantity, 4);
   assert.deepEqual(makeRanking({}, {}), []);
+});
+
+test('edição preserva autoria e data original e recalcula o ranking sem duplicar a captura', () => {
+  const original = { uid: 'a', createdAt: 123, species: 'Robalo', quantity: 2, weight: 1, location: 'Fortaleza', date: '2026-10-21' };
+  const fields = { species: 'Atum', quantity: '5', weight: '3', location: 'João Pessoa', date: '2026-10-20' };
+  const validated = validateCapture(fields, 'a', { '.sv': 'timestamp' }, '2026-10-21');
+  const updated = captureUpdate(original, validated, 'a');
+  assert.equal(updated.uid, 'a'); assert.equal(updated.createdAt, 123);
+  assert.equal(updated.species, 'Atum'); assert.equal(updated.date, '2026-10-20');
+  const rows = makeRanking({}, { first: updated, second: { uid: 'b', species: 'Robalo', quantity: 4 } });
+  assert.deepEqual(rows.map(row => [row.uid, row.quantity, row.rank]), [['a', 5, 1], ['b', 4, 2]]);
+  assert.equal(original.quantity, 2);
+});
+
+test('edição aborta para outra conta, sessão encerrada ou captura excluída', () => {
+  const record = { uid: 'a', createdAt: 123 };
+  assert.equal(captureUpdate(record, { uid: 'a' }, 'b'), undefined);
+  assert.equal(captureUpdate(record, { uid: 'b' }, 'a'), undefined);
+  assert.equal(captureUpdate(record, { uid: 'a' }, null), undefined);
+  assert.equal(captureUpdate(null, { uid: 'a' }, 'a'), undefined);
 });
 test('captura exige identidade, quantidade inteira e data real', () => {
   const data = { species: 'Robalo', quantity: '2', weight: '', date: '2026-09-30', location: 'Fortaleza' };

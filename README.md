@@ -1,6 +1,6 @@
 # Maré Certa · Pescaria
 
-Site em português com maré, janelas de pesca (3 horas antes da alta), vento, fase lunar e ranking de pescadores.
+Site em português com maré, janelas de pesca (3 horas antes da alta), vento, fase lunar e ranking de pescadores. A versão B é a página principal; a versão A permanece disponível em `/versao-a.html`.
 
 ## Executar
 
@@ -28,15 +28,15 @@ No GitHub Pages, adicione `jaymeholanda.github.io` aos domínios autorizados do 
 
 Perfis públicos guardam apenas nome e data de criação. Capturas públicas guardam UID, espécie, quantidade, peso total opcional, data e local. Só o proprietário pode cadastrar/excluir suas capturas; o ranking é calculado a partir dos registros, sem contador editável pelo usuário. E-mails ficam no Authentication. A localização da previsão permanece como preferência local no aparelho.
 
-O ranking inclui todos os registros disponíveis e atualiza em tempo real. Capturas são autodeclaradas; não há moderação ou verificação de competição nesta versão. Analytics não é inicializado, pois não é necessário para cadastro e ranking.
+O ranking inclui todos os registros disponíveis e atualiza em tempo real. Pessoas conectadas podem editar as próprias capturas, que continuam autodeclaradas; não há moderação ou verificação de competição nesta versão. Analytics não é inicializado, pois não é necessário para cadastro e ranking.
 
 ## Dados ambientais
 
-O cartão **Índice UV**, logo abaixo dos dias no topo, mostra o máximo diário previsto (`uv_index_max` do Open-Meteo) para a data e o local selecionados. As categorias seguem a escala OMS/OMM: baixo (< 3), moderado (3–< 6), alto (6–< 8), muito alto (8–< 11) e extremo (≥ 11). Dados ausentes aparecem como indisponíveis, sem assumir UV zero. Referências: [Open-Meteo](https://open-meteo.com/en/docs) e [OMS — índice UV](https://www.who.int/news-room/questions-and-answers/item/radiation-the-ultraviolet-%28uv%29-index/).
+O cartão **Índice UV**, logo abaixo dos dias no topo, mostra o máximo diário previsto (`uv_index_max`) e a faixa de temperatura mínima e máxima para a data e o local selecionados. As categorias de UV seguem a escala OMS/OMM: baixo (< 3), moderado (3–< 6), alto (6–< 8), muito alto (8–< 11) e extremo (≥ 11). Dados ausentes aparecem como indisponíveis, sem assumir UV zero. Referências: [Open-Meteo](https://open-meteo.com/en/docs) e [OMS — índice UV](https://www.who.int/news-room/questions-and-answers/item/radiation-the-ultraviolet-%28uv%29-index/).
 
-A seção **Previsão marítima**, no fim da página, tem abas para a **primeira janela** (verde-água) e a **segunda janela** (verde-lima), nos mesmos intervalos dos cartões de pesca. A aba selecionada mostra a nota e as condições médias apenas daquele intervalo: vento e rajadas, ondas combinadas, período, swell, temperatura do mar e pressão atmosférica. As direções são médias circulares para respeitar a passagem de 359° para 0°. Cada campo exige pelo menos 3 amostras e 75% dos horários esperados dentro da janela; fontes são alinhadas pelo timestamp local, não pelo índice dos arrays. Dias com só uma janela mostram a segunda aba indisponível; sem janelas, o painel explica a ausência de dados.
+A página B traz um contador para a próxima janela, gráfico de maré interativo, reflexo holográfico em condições de sizígia e filtros de capturas por espécie, local e datas. A seção **Previsão marítima** tem abas para cada janela, nos mesmos intervalos dos cartões de pesca. A aba selecionada mostra a nota e as condições médias apenas daquele intervalo: vento e rajadas, ondas combinadas, período, swell, temperatura do mar e pressão atmosférica. Os cartões também mostram o vento médio da janela. As direções são médias circulares para respeitar a passagem de 359° para 0°. As métricas usam os horários previstos dentro da janela, incluindo o dia anterior se ela atravessar a meia-noite; fontes são alinhadas pelo timestamp local, não pelo índice dos arrays. Sem janelas, o painel explica a ausência de dados.
 
-As janelas de maré incluem faixas das amostras horárias existentes dentro do intervalo, inclusive quando ele atravessa meia-noite. As duas APIs incluem o dia anterior para cobrir essas janelas; o seletor diário continua começando hoje. A nota média de cada janela usa os horários com onda, vento e rajada e segue a mesma cobertura mínima. Uma faixa de atenção em qualquer horário da janela é sinalizada mesmo se a média for favorável. Os dados não medem transparência da água, valões nem arrebentação em cada praia. Pressão e temperatura são informativas e não adicionam pontos ao índice experimental.
+As janelas de maré incluem as amostras horárias disponíveis dentro do intervalo; o seletor diário continua começando hoje. A nota média de cada janela usa os horários com onda, vento e rajada. Uma faixa de atenção em qualquer horário da janela é sinalizada mesmo se a média for favorável. Os dados não medem transparência da água, valões nem arrebentação em cada praia. Pressão e temperatura são informativas e não adicionam pontos ao índice experimental.
 
 A organização foi inspirada na aula de Vinicius Braun: https://www.youtube.com/watch?v=-EP0z2oXjXU. Definições técnicas de ondas seguem Open-Meteo e NOAA/NWS (https://www.weather.gov/okx/marinedef). Limites e exemplos regionais do vídeo não foram convertidos em regras universais.
 

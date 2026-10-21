@@ -1,4 +1,4 @@
-import { conditionsSummary, hourlyDay, uvIndexInfo } from './conditions.js?v=00fa40767187';
+import { conditionsSummary, hourlyDay, uvIndexInfo } from './conditions.js?v=e2046439115a';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js?v=b51d6bc911fb';
 import { renderMarinePanel, clearMarinePanel, marineWindowText } from './marine.js?v=4bdba46ef042';
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };

@@ -24,6 +24,12 @@ export function profileRecord(existing, requestedName, authName, timestamp) {
   };
 }
 
+// Returning undefined aborts the transaction, including deleted or foreign records.
+export function captureUpdate(existing, validated, uid) {
+  if (!uid || !existing || existing.uid !== uid || validated.uid !== uid) return undefined;
+  return { ...validated, uid: existing.uid, createdAt: existing.createdAt };
+}
+
 export function validateCapture(fields, uid, createdAt, today) {
   const species = String(fields.species || '').trim();
   const location = String(fields.location || '').trim();
