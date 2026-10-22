@@ -12,7 +12,10 @@ import {
   tideAmplitudeInfo,
   SPECIES_CATALOG,
   filterSpeciesCatalog,
-  computeAchievements
+  computeAchievements,
+  findNearestBrazilianHarbor,
+  parseTabuaMareResponse,
+  buildHarborTideDay
 } from '../src/preview-b/model.js';
 
 const day = (...times) => ({ events: times.map(time => ({ time, type: 'high' })) });
@@ -100,4 +103,41 @@ test('conquistas e amplitude de maré calculam estatísticas e medalhas corretam
   assert.equal(stats.personal.spotsCount, 3);
   const unlockedIds = stats.badges.filter(b => b.unlocked).map(b => b.id);
   assert.deepEqual(unlockedIds, ['first-catch', 'tide-master', 'biodiversity', 'heavyweight', 'explorer']);
+});
+
+test('API Tábua de Marés localiza porto do RJ e interpola extremos oficiais', () => {
+  const rj = findNearestBrazilianHarbor({ latitude: -22.9064, longitude: -43.1822 });
+  assert.equal(rj?.id, 'rj03');
+  assert.match(rj?.name, /Rio de Janeiro/);
+
+  const arraial = findNearestBrazilianHarbor({ latitude: -22.9661, longitude: -42.0278 });
+  assert.equal(arraial?.id, 'rj05');
+
+  const payload = [{
+    data: [{
+      id: 'rj03',
+      year: 2026,
+      harbor_name: 'PORTO DO RIO DE JANEIRO ILHA FISCAL',
+      state: 'rj',
+      data_collection_institution: 'CHM',
+      months: [{
+        month: 10,
+        days: [
+          { day: 21, hours: [{ hour: '18:23:00', level: 0.42 }] },
+          { day: 22, hours: [{ hour: '00:12:00', level: 1.05 }, { hour: '06:31:00', level: 0.15 }, { hour: '12:59:00', level: 1.13 }, { hour: '18:57:00', level: 0.32 }] }
+        ]
+      }]
+    }]
+  }];
+  const parsed = parseTabuaMareResponse(payload);
+  const tideDay = buildHarborTideDay(parsed, '2026-10-22');
+  assert.equal(tideDay.brazilApi, true);
+  assert.equal(tideDay.events.length, 4);
+  assert.deepEqual(tideDay.events.map(e => [e.hour, e.type, e.level]), [
+    ['00:12', 'high', 1.05],
+    ['06:31', 'low', 0.15],
+    ['12:59', 'high', 1.13],
+    ['18:57', 'low', 0.32]
+  ]);
+  assert.ok(tideDay.points.length > 20);
 });

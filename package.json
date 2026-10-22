@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "esbuild src/ranking.js --bundle --format=esm --minify --outfile=dist/ranking.js && esbuild src/conditions-model.js --bundle --format=esm --minify --outfile=dist/conditions.js && esbuild src/tide-model.js --bundle --format=esm --minify --outfile=dist/tides.js && esbuild src/tabs.js --bundle --format=esm --minify --outfile=dist/tabs.js && esbuild src/marine-view.js --bundle --format=esm --minify --outfile=dist/marine.js && node scripts/build-preview-b.mjs",
-    "dev": "npm run build && vite dist --host localhost --port 4173 --strictPort",
+    "dev": "npm run build && vite dist --config vite.config.js --host localhost --port 4173 --strictPort",
     "test": "node --test tests/ranking.test.js tests/conditions.test.js tests/tides.test.js tests/tabs.test.js tests/marine.test.js tests/preview-b.test.js",
     "deploy:rules": "firebase deploy --only database --project teste-b81e2"
   },

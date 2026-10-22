@@ -1,10 +1,10 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync } from './preview-b.js';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides } from './preview-b.js';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
-const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, selectedDay: 0, aborter: null };
+const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
 
 const $ = (selector) => document.querySelector(selector);
 const els = {
@@ -130,9 +130,9 @@ function cacheKey(loc) {
   return `mare-certa-cache:${Number(loc.latitude).toFixed(2)},${Number(loc.longitude).toFixed(2)}`;
 }
 
-function saveForecastCache(loc, weather, marine) {
+function saveForecastCache(loc, weather, marine, brazilTides = null) {
   try {
-    localStorage.setItem(cacheKey(loc), JSON.stringify({ weather, marine, timestamp: Date.now() }));
+    localStorage.setItem(cacheKey(loc), JSON.stringify({ weather, marine, brazilTides, timestamp: Date.now() }));
   } catch {}
 }
 
@@ -157,9 +157,19 @@ async function loadForecast() {
       fetchJson(weatherUrl, state.aborter.signal),
       fetchJson(marineUrl, state.aborter.signal)
     ]);
-    saveForecastCache(state.location, weather, marine);
     state.weather = forecastDays(weather);
     state.marine = marine;
+    state.brazilTides = null;
+    // Keep João Pessoa / Cabedelo strictly on the local embedded table; for other locations (RJ, SP, PE, etc.) query API Tábua de Marés
+    if (!isNearCabedelo(state.location)) {
+      try {
+        state.brazilTides = await fetchBrazilianHarborTides(state.location, state.weather.daily.time, state.aborter.signal);
+      } catch (tideErr) {
+        if (tideErr?.name === "AbortError") throw tideErr;
+        state.brazilTides = null;
+      }
+    }
+    saveForecastCache(state.location, weather, marine, state.brazilTides);
     state.selectedDay = 0;
     els.dataStatus.textContent = `Atualizada às ${new Intl.DateTimeFormat('pt-BR', { timeZone: weather.timezone || 'America/Fortaleza', hour: '2-digit', minute: '2-digit' }).format(new Date())}`;
     if (els.livePill) {
@@ -174,6 +184,7 @@ async function loadForecast() {
     if (cached?.weather && cached?.marine) {
       state.weather = forecastDays(cached.weather);
       state.marine = cached.marine;
+      state.brazilTides = cached.brazilTides || null;
       state.selectedDay = 0;
       const savedTime = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(cached.timestamp));
       els.dataStatus.textContent = `Modo Offline · Dados salvos em ${savedTime}`;
@@ -185,7 +196,7 @@ async function loadForecast() {
       renderAll();
       return;
     }
-    state.weather = null; state.marine = null;
+    state.weather = null; state.marine = null; state.brazilTides = null;
     els.errorMessage.textContent = error.message || "Confira sua conexão e tente novamente.";
     els.errorBox.hidden = false;
     els.dataStatus.textContent = "Atualização pendente";
@@ -210,6 +221,10 @@ function dayData(index) {
   const date = state.weather.daily.time[index];
   const official = officialTideDay(state.location, date);
   if (official) return official;
+  if (state.brazilTides) {
+    const harborDay = buildHarborTideDay(state.brazilTides, date);
+    if (harborDay) return harborDay;
+  }
   const allPoints = marinePoints(state.marine.hourly);
   const points = allPoints.filter(p => p.time.startsWith(`${date}T`) && Number.isFinite(p.level));
   const events = findTideEvents(allPoints).filter(p => p.time.startsWith(`${date}T`));
@@ -243,7 +258,7 @@ function renderDays() {
 
 function renderSelectedDay() {
   const index = state.selectedDay;
-  const { date, points, events, official, available } = dayData(index);
+  const { date, points, events, official, brazilApi, available, harborName, institution } = dayData(index);
   const wind = state.weather.daily.wind_speed_10m_max?.[index];
   const windSpeed = Number.isFinite(wind) ? Math.round(wind) : '—';
   const windDeg = state.weather.daily.wind_direction_10m_dominant?.[index];
@@ -253,9 +268,18 @@ function renderSelectedDay() {
   const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
   els.tideSource.textContent = official
     ? available ? 'Horários e alturas: Marinha do Brasil / CHM, Porto de Cabedelo, tábua 2026. Fuso UTC−03. Alturas na referência local da tábua, não profundidade da água. A curva entre os extremos é interpolada e apenas ilustrativa.' : 'Tábua oficial de Cabedelo indisponível para esta data. A cobertura atual é de janeiro a dezembro de 2026; não substituímos por alturas de outra referência.'
-    : `Curva estimada: Open-Meteo / modelo oceânico. Amostras horárias; picos aproximados. Fuso: ${state.marine.timezone || 'local da previsão'}. Alturas relativas ao nível médio global do mar, não ao zero da tábua oficial.`;
+    : brazilApi
+      ? `Horários e alturas: API Tábua de Marés (tabuamare.api.br) · ${institution || 'CHM / Marinha do Brasil'} — ${harborName}. Alturas na referência local do porto. A curva entre os extremos é interpolada e ilustrativa.`
+      : `Curva estimada: Open-Meteo / modelo oceânico. Amostras horárias; picos aproximados. Fuso: ${state.marine.timezone || 'local da previsão'}. Alturas relativas ao nível médio global do mar, não ao zero da tábua oficial.`;
 
-  els.selectedDate.textContent = index === 0 ? official ? "Hoje · referência Cabedelo" : "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
+  const shortHarbor = state.brazilTides?.matchedHarbor?.name || harborName || "porto oficial";
+  els.selectedDate.textContent = index === 0
+    ? official
+      ? "Hoje · referência Cabedelo"
+      : brazilApi
+        ? `Hoje · ${shortHarbor}`
+        : "Hoje, no seu ponto"
+    : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
   renderChart(points, events);
   renderEvents(events);
   renderWindows(events, moon, date);
@@ -275,7 +299,7 @@ function renderSelectedDay() {
   els.moonName.textContent = moon.name;
   els.moonPercent.textContent = `${moon.illumination}%`;
   els.moonVisual.querySelector("span").style.opacity = Math.max(.28, moon.illumination / 100);
-  renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: official ? events.map(e => e.level) : points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], rainHours: hourlyDay(state.weather.hourly, 'precipitation_probability', date), moon: moon.illumination }), date);
+  renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: (official || brazilApi) ? events.map(e => e.level) : points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], rainHours: hourlyDay(state.weather.hourly, 'precipitation_probability', date), moon: moon.illumination }), date);
   renderPreview({
     date,
     points,

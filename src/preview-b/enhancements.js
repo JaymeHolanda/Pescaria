@@ -20,7 +20,11 @@ export {
   recommendTackle,
   tideAmplitudeInfo,
   SPECIES_CATALOG,
-  filterSpeciesCatalog
+  filterSpeciesCatalog,
+  findNearestBrazilianHarbor,
+  parseTabuaMareResponse,
+  buildHarborTideDay,
+  fetchBrazilianHarborTides
 } from './model.js';
 
 const $ = selector => document.querySelector(selector);

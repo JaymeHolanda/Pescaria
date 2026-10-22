@@ -1,4 +1,11 @@
 import { fishingWindow } from '../tide-model.js';
+export {
+  BRAZIL_HARBORS,
+  findNearestBrazilianHarbor,
+  parseTabuaMareResponse,
+  buildHarborTideDay,
+  fetchBrazilianHarborTides
+} from './brazil-tides-api.js';
 
 export const forecastNow = (now, offset) => new Date(now + offset * 1000).toISOString().slice(0, 16);
 
@@ -44,11 +51,12 @@ export const PRESET_SPOTS = [
   { id: 'jp-bessa', name: 'Praia do Bessa', admin1: 'João Pessoa, PB', country_code: 'BR', latitude: -7.0633, longitude: -34.8428 },
   { id: 'cabedelo-intermares', name: 'Intermares', admin1: 'Cabedelo, PB', country_code: 'BR', latitude: -7.0319, longitude: -34.8375 },
   { id: 'jp-centro', name: 'João Pessoa', admin1: 'Paraíba', country_code: 'BR', latitude: -7.115, longitude: -34.8631 },
-  { id: 'lucena', name: 'Praia de Lucena', admin1: 'Lucena, PB', country_code: 'BR', latitude: -6.8997, longitude: -34.8661 },
-  { id: 'conde-tambaba', name: 'Costa do Conde', admin1: 'Conde, PB', country_code: 'BR', latitude: -7.3653, longitude: -34.7981 },
-  { id: 'baia-traicao', name: 'Baía da Traição', admin1: 'Paraíba', country_code: 'BR', latitude: -6.6886, longitude: -34.9358 },
+  { id: 'rj-copacabana', name: 'Rio de Janeiro', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9064, longitude: -43.1822 },
+  { id: 'rj-arraial', name: 'Arraial do Cabo', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9661, longitude: -42.0278 },
   { id: 'natal-ponta-negra', name: 'Ponta Negra', admin1: 'Natal, RN', country_code: 'BR', latitude: -5.8811, longitude: -35.1669 },
-  { id: 'recife-boa-viagem', name: 'Boa Viagem', admin1: 'Recife, PE', country_code: 'BR', latitude: -8.1189, longitude: -34.8961 }
+  { id: 'recife-boa-viagem', name: 'Boa Viagem', admin1: 'Recife, PE', country_code: 'BR', latitude: -8.1189, longitude: -34.8961 },
+  { id: 'sp-santos', name: 'Santos', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9618, longitude: -46.3322 },
+  { id: 'ba-salvador', name: 'Salvador', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9714, longitude: -38.5014 }
 ];
 
 const fmtMinutes = totalMin => {
