@@ -1,18 +1,20 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js';
-import { clearPreview, renderPreview, forecastDays } from './preview-b.js';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync } from './preview-b.js';
+
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
-const state = { location: loadLocation(), weather: null, marine: null, selectedDay: 0, aborter: null };
+const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, selectedDay: 0, aborter: null };
 
 const $ = (selector) => document.querySelector(selector);
 const els = {
   locationButton: $("#locationButton"), locationPanel: $("#locationPanel"), locationName: $("#locationName"),
   searchForm: $("#searchForm"), locationSearch: $("#locationSearch"), searchResults: $("#searchResults"), useGps: $("#useGps"),
+  spotQuickBar: $("#spotQuickBar"), favLocationBtn: $("#favLocationBtn"), livePill: $(".live-pill"),
   dayStrip: $("#dayStrip"), dashboard: $("#dashboard"), selectedDate: $("#selectedDate"), tideChart: $("#tideChart"),
   tideEvents: $("#tideEvents"), fishingWindows: $("#fishingWindows"), moonName: $("#moonName"), moonPercent: $("#moonPercent"),
   moonVisual: $("#moonVisual"), windSpeed: $("#windSpeed"), windDirection: $("#windDirection"), windArrow: $("#windArrow"),
-  uvContext: $("#uvContext"), uvIndex: $("#uvIndex"), uvLevel: $("#uvLevel"), dayTemperature: $("#dayTemperature"),
+  uvStrip: $(".uv-strip"), uvContext: $("#uvContext"), uvIndex: $("#uvIndex"), uvLevel: $("#uvLevel"), dayTemperature: $("#dayTemperature"),
   summaryTitle: $("#summaryTitle"), summaryDate: $("#summaryDate"), summaryCards: $("#summaryCards"),
   tideSource: $("#tideSource"),
   dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton")
@@ -23,10 +25,63 @@ function loadLocation() {
   catch { return DEFAULT_LOCATION; }
 }
 
+function loadFavorites() {
+  try { return JSON.parse(localStorage.getItem("mare-certa-favorites")) || []; }
+  catch { return []; }
+}
+
+function isSameSpot(a, b) {
+  if (!a || !b) return false;
+  return Math.abs(Number(a.latitude) - Number(b.latitude)) < 0.015 && Math.abs(Number(a.longitude) - Number(b.longitude)) < 0.015;
+}
+
+function toggleFavoriteCurrentLocation() {
+  const current = state.location;
+  const exists = state.favorites.some(f => isSameSpot(f, current));
+  if (exists) {
+    state.favorites = state.favorites.filter(f => !isSameSpot(f, current));
+  } else {
+    state.favorites = [{ name: current.name, admin1: current.admin1 || "", country_code: current.country_code || "BR", latitude: current.latitude, longitude: current.longitude }, ...state.favorites].slice(0, 6);
+  }
+  try { localStorage.setItem("mare-certa-favorites", JSON.stringify(state.favorites)); } catch {}
+  renderSpotQuickBar();
+}
+
+function renderSpotQuickBar() {
+  if (!els.spotQuickBar) return;
+  const combined = [...state.favorites.map(f => ({ ...f, isFav: true }))];
+  for (const preset of PRESET_SPOTS) {
+    if (!combined.some(item => isSameSpot(item, preset))) {
+      combined.push(preset);
+    }
+  }
+  const isCurrentFav = state.favorites.some(f => isSameSpot(f, state.location));
+  if (els.favLocationBtn) {
+    els.favLocationBtn.setAttribute("aria-pressed", String(isCurrentFav));
+    els.favLocationBtn.textContent = isCurrentFav ? "★ Favorito salvo" : "☆ Favoritar praia";
+  }
+
+  els.spotQuickBar.innerHTML = combined.map((spot, idx) => {
+    const active = isSameSpot(spot, state.location);
+    return `<button type="button" class="spot-pill ${active ? "active" : ""}" data-spot-index="${idx}" aria-pressed="${active}">
+      ${spot.isFav ? '<span class="spot-star" aria-hidden="true">★</span>' : '<span class="spot-pin" aria-hidden="true">⚓</span>'}
+      <span>${spot.name}</span>
+    </button>`;
+  }).join("");
+
+  els.spotQuickBar.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const chosen = combined[Number(btn.dataset.spotIndex)];
+      if (chosen) selectLocation(chosen);
+    });
+  });
+}
+
 function saveLocation(location) {
   state.location = location;
-  localStorage.setItem("mare-certa-location", JSON.stringify(location));
+  try { localStorage.setItem("mare-certa-location", JSON.stringify(location)); } catch {}
   updateLocationLabel();
+  renderSpotQuickBar();
 }
 
 function updateLocationLabel() {
@@ -71,13 +126,29 @@ async function fetchJson(url, signal) {
   return response.json();
 }
 
+function cacheKey(loc) {
+  return `mare-certa-cache:${Number(loc.latitude).toFixed(2)},${Number(loc.longitude).toFixed(2)}`;
+}
+
+function saveForecastCache(loc, weather, marine) {
+  try {
+    localStorage.setItem(cacheKey(loc), JSON.stringify({ weather, marine, timestamp: Date.now() }));
+  } catch {}
+}
+
+function loadForecastCache(loc) {
+  try {
+    const raw = localStorage.getItem(cacheKey(loc));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 async function loadForecast() {
   if (state.aborter) state.aborter.abort();
   state.aborter = new AbortController();
   const { latitude, longitude } = state.location;
   const common = `latitude=${latitude}&longitude=${longitude}&timezone=auto&forecast_days=7`;
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&past_days=1&wind_speed_unit=kmh&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation_probability,precipitation,weather_code&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max,uv_index_max,temperature_2m_min,temperature_2m_max`;
-  // Include neighboring days before detecting peaks, including midnight on day 1/7.
   const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latitude}&longitude=${longitude}&timezone=auto&past_days=1&forecast_days=8&hourly=sea_level_height_msl,wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,wind_wave_height,sea_surface_temperature&cell_selection=sea`;
 
   setLoading(true);
@@ -86,14 +157,34 @@ async function loadForecast() {
       fetchJson(weatherUrl, state.aborter.signal),
       fetchJson(marineUrl, state.aborter.signal)
     ]);
+    saveForecastCache(state.location, weather, marine);
     state.weather = forecastDays(weather);
     state.marine = marine;
     state.selectedDay = 0;
     els.dataStatus.textContent = `Atualizada às ${new Intl.DateTimeFormat('pt-BR', { timeZone: weather.timezone || 'America/Fortaleza', hour: '2-digit', minute: '2-digit' }).format(new Date())}`;
+    if (els.livePill) {
+      els.livePill.innerHTML = `<span></span> Previsão atualizada`;
+      els.livePill.dataset.offline = "false";
+    }
     els.errorBox.hidden = true;
     renderAll();
   } catch (error) {
     if (error.name === "AbortError") return;
+    const cached = loadForecastCache(state.location);
+    if (cached?.weather && cached?.marine) {
+      state.weather = forecastDays(cached.weather);
+      state.marine = cached.marine;
+      state.selectedDay = 0;
+      const savedTime = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(cached.timestamp));
+      els.dataStatus.textContent = `Modo Offline · Dados salvos em ${savedTime}`;
+      if (els.livePill) {
+        els.livePill.innerHTML = `<span></span> Modo Offline (Cache)`;
+        els.livePill.dataset.offline = "true";
+      }
+      els.errorBox.hidden = true;
+      renderAll();
+      return;
+    }
     state.weather = null; state.marine = null;
     els.errorMessage.textContent = error.message || "Confira sua conexão e tente novamente.";
     els.errorBox.hidden = false;
@@ -127,6 +218,7 @@ function dayData(index) {
 
 function renderAll() {
   updateLocationLabel();
+  renderSpotQuickBar();
   const now = new Date();
   els.todayLabel.textContent = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: state.weather.timezone || "America/Fortaleza" }).format(now);
   renderDays();
@@ -136,10 +228,12 @@ function renderAll() {
 function renderDays() {
   els.dayStrip.innerHTML = state.weather.daily.time.map((date, index) => {
     const moon = moonInfo(date, state.weather.daily.moon_phase?.[index]);
+    const tMax = state.weather.daily.temperature_2m_max?.[index];
+    const tempBadge = Number.isFinite(tMax) ? ` · ${Math.round(tMax)}°` : '';
     return `<button class="day-card ${index === state.selectedDay ? "active" : ""}" data-day="${index}" type="button" aria-pressed="${index === state.selectedDay}">
       <span>${index === 0 ? "Hoje" : formatDate(date, { weekday: "short" }).replace(".", "")}</span>
-      <b>${formatDate(date, { day: "2-digit", month: "short" }).replace(" de ", " ")}</b>
-      <small>${moon.illumination}% de lua</small>
+      <b>${formatDate(date, { day: "2-digit", month: "short" }).replace(" de ", " ")}${tempBadge}</b>
+      <small>🌙 ${moon.illumination}% lua</small>
     </button>`;
   }).join("");
   els.dayStrip.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
@@ -164,7 +258,7 @@ function renderSelectedDay() {
   els.selectedDate.textContent = index === 0 ? official ? "Hoje · referência Cabedelo" : "Hoje, no seu ponto" : formatDate(date, { weekday: "long", day: "numeric", month: "long" });
   renderChart(points, events);
   renderEvents(events);
-  renderWindows(events, moon);
+  renderWindows(events, moon, date);
   renderMarinePanel({ date, events, weather: state.weather, marine: state.marine });
   els.windSpeed.textContent = windSpeed;
   els.windDirection.textContent = Number.isFinite(windDeg) ? `Vento de ${degreesToCompass(windDeg)} · ${Math.round(windDeg)}°` : 'Direção indisponível';
@@ -172,6 +266,9 @@ function renderSelectedDay() {
   els.uvIndex.textContent = Number.isFinite(uvIndex) ? uvIndex.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—';
   els.uvContext.textContent = formatDate(date, { day: '2-digit', month: '2-digit' }) + ' · ' + els.locationName.textContent;
   els.uvLevel.textContent = !Number.isFinite(uvIndex) ? 'Indisponível' : uvIndex < 3 ? 'Baixo' : uvIndex < 6 ? 'Moderado' : uvIndex < 8 ? 'Alto' : uvIndex < 11 ? 'Muito alto' : 'Extremo';
+  if (els.uvStrip) {
+    els.uvStrip.dataset.tone = !Number.isFinite(uvIndex) ? 'unknown' : uvIndex < 3 ? 'low' : uvIndex < 6 ? 'moderate' : uvIndex < 8 ? 'high' : uvIndex < 11 ? 'very-high' : 'extreme';
+  }
   els.dayTemperature.textContent = Number.isFinite(temperatureMin) && Number.isFinite(temperatureMax)
     ? `Mín. ${Math.round(temperatureMin)} °C · Máx. ${Math.round(temperatureMax)} °C`
     : 'Indisponível';
@@ -179,7 +276,24 @@ function renderSelectedDay() {
   els.moonPercent.textContent = `${moon.illumination}%`;
   els.moonVisual.querySelector("span").style.opacity = Math.max(.28, moon.illumination / 100);
   renderSummary(conditionsSummary({ wind, windHours: hourlyDay(state.weather.hourly, 'wind_speed_10m', date), waves: hourlyDay(state.marine.hourly, 'wave_height', date), levels: official ? events.map(e => e.level) : points.map(p => p.level), events, rain: state.weather.daily.precipitation_probability_max?.[index], rainHours: hourlyDay(state.weather.hourly, 'precipitation_probability', date), moon: moon.illumination }), date);
-  renderPreview({ date, points, events, weather: state.weather, allDays: state.weather.daily.time.map((_, i) => dayData(i)), selectDate: date => { const nextIndex = state.weather.daily.time.indexOf(date); if (nextIndex >= 0) { state.selectedDay = nextIndex; renderDays(); renderSelectedDay(); } } });
+  renderPreview({
+    date,
+    points,
+    events,
+    weather: state.weather,
+    marine: state.marine,
+    location: state.location,
+    selectedDay: index,
+    allDays: state.weather.daily.time.map((_, i) => dayData(i)),
+    selectDate: targetDate => {
+      const nextIndex = state.weather.daily.time.indexOf(targetDate);
+      if (nextIndex >= 0) {
+        state.selectedDay = nextIndex;
+        renderDays();
+        renderSelectedDay();
+      }
+    }
+  });
 }
 
 function renderChart(points, events) {
@@ -202,26 +316,30 @@ function renderChart(points, events) {
   }).join("");
   const markers = events.map(event => {
     const xx = xTime(event.time), yy = y(event.level);
-    return `<circle cx="${xx}" cy="${yy}" r="5" class="event-point ${event.type}"/><text x="${xx}" y="${event.type === "high" ? yy-12 : yy+20}" text-anchor="middle" class="event-label">${event.hour}</text>`;
+    return `<circle cx="${xx}" cy="${yy}" r="5.5" class="event-point ${event.type}"/><text x="${xx}" y="${event.type === "high" ? yy-12 : yy+20}" text-anchor="middle" class="event-label">${event.hour} (${event.level.toFixed(1)}m)</text>`;
   }).join("");
-  els.tideChart.innerHTML = `<defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4de1c1" stop-opacity=".24"/><stop offset="1" stop-color="#4de1c1" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" class="tide-area"/><path d="${path}" class="tide-line"/>${markers}${hours}`;
+  els.tideChart.innerHTML = `<defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4de1c1" stop-opacity=".32"/><stop offset="1" stop-color="#4de1c1" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" class="tide-area"/><path d="${path}" class="tide-line"/>${markers}${hours}`;
 }
 
 function renderEvents(events) {
   if (!events.length) { els.tideEvents.innerHTML = `<p class="chart-note">Os extremos de maré não foram identificados nesta previsão.</p>`; return; }
-  els.tideEvents.innerHTML = events.slice(0, 4).map(event => `<div class="tide-event ${event.type}"><span>${event.type === "high" ? "MARÉ ALTA" : "MARÉ BAIXA"}</span><strong>${event.hour}</strong><small>${event.level.toFixed(2)} m</small></div>`).join("");
+  els.tideEvents.innerHTML = events.slice(0, 4).map(event => `<div class="tide-event ${event.type}"><span>${event.type === "high" ? "▲ MARÉ ALTA" : "▼ MARÉ BAIXA"}</span><strong>${event.hour}</strong><small>${event.level.toFixed(2)} m</small></div>`).join("");
 }
 
-function renderWindows(events, moon) {
+function renderWindows(events, moon, date) {
   const springTide = moon.name === 'Lua nova' || moon.name === 'Lua cheia';
   const springBadge = springTide ? '<span class="spring-tide-badge">' + moon.name + ' · Marés de sizígia</span><p class="spring-tide-note">Período associado a maior amplitude entre maré alta e baixa.</p>' : '';
   const highs = events.filter(e => e.type === "high").slice(0, 2);
   if (!highs.length) { els.fishingWindows.innerHTML = `<div class="window-card"><span class="window-label">SEM JANELA CALCULADA</span><strong>Dados insuficientes</strong><small>Tente outro dia ou um ponto mais próximo da costa.</small></div>`; return; }
+  const solunar = solunarPeriods(date, moon.phase, state.location?.longitude ?? -34.8631);
   els.fishingWindows.innerHTML = highs.map((event, i) => {
     const window = fishingWindow(event);
     const wind = windowMarineSummary(window, state.weather.hourly, state.marine.hourly).values.wind_speed_10m;
     const windMean = Number.isFinite(wind) ? wind.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km/h' : 'Indisponível';
-    return `<div class="window-card ${springTide ? 'spring-tide-window' : ''}">${springBadge}<span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong><p class="window-wind"><span aria-hidden="true">↗</span> Vento médio <b>${windMean}</b></p><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
+    const sync = checkSolunarSync(window, solunar);
+    const syncHtml = sync ? `<span class="window-solunar-chip">⚡ ${sync.badge}</span>` : '';
+    const peakNote = Number.isFinite(event.level) ? `<small class="window-peak-note">Preamar prevista: ${event.level.toFixed(2).replace('.', ',')} m às ${event.hour}</small>` : '';
+    return `<div class="window-card ${springTide ? 'spring-tide-window' : ''}">${springBadge}${syncHtml}<span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${peakNote}<p class="window-wind"><span aria-hidden="true">↗</span> Vento médio <b>${windMean}</b></p><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
   }).join("");
 }
 
@@ -269,6 +387,9 @@ els.locationButton.addEventListener("click", () => {
   const willOpen = els.locationPanel.hidden; els.locationPanel.hidden = !willOpen; els.locationButton.setAttribute("aria-expanded", String(willOpen));
   if (willOpen) setTimeout(() => els.locationSearch.focus(), 0);
 });
+if (els.favLocationBtn) {
+  els.favLocationBtn.addEventListener("click", toggleFavoriteCurrentLocation);
+}
 document.addEventListener("click", event => { if (!event.target.closest(".location-wrap")) closeLocationPanel(); });
 els.searchForm.addEventListener("submit", event => { event.preventDefault(); const term = els.locationSearch.value.trim(); if (term.length >= 2) searchLocations(term); });
 els.useGps.addEventListener("click", () => {
@@ -300,4 +421,10 @@ function registerWebMcp() {
   } catch { /* Navegadores sem suporte simplesmente ignoram WebMCP. */ }
 }
 
-updateLocationLabel(); registerWebMcp(); loadForecast();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+updateLocationLabel(); renderSpotQuickBar(); registerWebMcp(); loadForecast();

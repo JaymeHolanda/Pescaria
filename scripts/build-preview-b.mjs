@@ -12,22 +12,165 @@ const replace = (text, from, to) => { if (!text.includes(from)) throw new Error(
 const baseAHtml = read('src/preview-b/base-a.html');
 const baseHtml = read('src/preview-b/base-b.html');
 let html = baseHtml;
-html = replace(html, '<link rel="stylesheet" href="./styles.css" />', '<link rel="stylesheet" href="./styles.css" />\n    <link rel="stylesheet" href="./versao-b.css" />');
+
+html = replace(html, '<link rel="stylesheet" href="./styles.css" />', '<link rel="manifest" href="./manifest.webmanifest" />\n    <link rel="stylesheet" href="./styles.css" />\n    <link rel="stylesheet" href="./versao-b.css" />');
 html = replace(html, '<title>Maré Certa — planeje sua pescaria</title>', '<title>Maré Certa — sua próxima pescaria</title>');
 html = replace(html, '<body>', '<body class="preview-b">');
+
+// Quick Spot Bar right below topbar
+html = replace(html, '<nav class="view-tabs"', `<div class="spot-quick-strip" aria-label="Praias e pontos rápidos">
+        <div class="spot-strip-label"><span aria-hidden="true">🧭</span><span>PRAIAS & PONTOS</span></div>
+        <div id="spotQuickBar" class="spot-quick-bar" role="group" aria-label="Atalhos de praias"></div>
+        <button id="favLocationBtn" class="fav-spot-btn" type="button" aria-pressed="false">☆ Favoritar praia</button>
+      </div>
+
+      <nav class="view-tabs"`);
+
+// Upgraded Hero + Next Window with Progress Bar, Solunar Sync Badge, and Alert Reminder Button
 html = html.replace(/<section class="intro" aria-labelledby="pageTitle">[\s\S]*?<\/section>/, `<section class="intro b-intro" aria-labelledby="pageTitle">
-          <div class="b-hero-copy"><p class="eyebrow">AO RITMO DO MAR</p><h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1><p class="b-intro-note">A maré marca o horário. Você escolhe a próxima pescaria.</p><div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div></div>
-          <article id="nextWindow" class="b-next-window" aria-labelledby="nextWindowTitle" aria-busy="true"><div class="b-next-top"><span class="b-status-dot"></span><span>SEU PRÓXIMO HORÁRIO</span><svg viewBox="0 0 64 32" aria-hidden="true"><path d="M2 18 Q16 0 30 18 T60 18 M2 27 Q16 9 30 27 T60 27"/></svg></div><h2 id="nextWindowTitle">Buscando sua próxima janela</h2><strong id="nextWindowHours">—</strong><p id="nextWindowDate">Consultando os horários de maré…</p><div class="b-next-bottom"><span id="nextWindowCountdown">Atualizando…</span><a id="nextWindowLink" href="#windowsB" aria-label="Ver janelas da próxima maré alta">Ver esta janela <span aria-hidden="true">↘</span></a></div></article>
+          <div class="b-hero-copy">
+            <div class="b-eyebrow-row"><p class="eyebrow">AO RITMO DO MAR · SURFCASTING</p><span class="b-pro-pill">EDIÇÃO PRO</span></div>
+            <h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1>
+            <p class="b-intro-note">Tábua de maré oficial, períodos solunares, recomendação dinâmica de equipamento e diário de capturas em tempo real.</p>
+            <div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div>
+          </div>
+          <article id="nextWindow" class="b-next-window" aria-labelledby="nextWindowTitle" aria-busy="true">
+            <div class="b-next-top"><span class="b-status-dot"></span><span>SEU PRÓXIMO HORÁRIO</span><svg viewBox="0 0 64 32" aria-hidden="true"><path d="M2 18 Q16 0 30 18 T60 18 M2 27 Q16 9 30 27 T60 27"/></svg></div>
+            <h2 id="nextWindowTitle">Buscando sua próxima janela</h2>
+            <strong id="nextWindowHours">—</strong>
+            <p id="nextWindowDate">Consultando os horários de maré…</p>
+            <span id="nextWindowSyncBadge" class="b-sync-badge" hidden></span>
+            <div id="nextWindowProgressWrap" class="b-window-progress" hidden>
+              <div class="b-progress-track"><span id="nextWindowProgressBar" style="width:0%"></span></div>
+              <small id="nextWindowProgressText"></small>
+            </div>
+            <div class="b-next-bottom">
+              <span id="nextWindowCountdown">Atualizando…</span>
+              <div class="b-next-actions">
+                <button id="windowAlertBtn" class="b-alert-btn" type="button" aria-pressed="false">🔔 Lembrar janela</button>
+                <a id="nextWindowLink" href="#windowsB" aria-label="Ver janelas da próxima maré alta">Ver janela <span aria-hidden="true">↘</span></a>
+              </div>
+            </div>
+          </article>
         </section>`);
+
 const summary = html.match(/<section class="daily-summary card"[\s\S]*?<\/section>/)?.[0];
 const windows = html.match(/<section class="window-section"[\s\S]*?<\/section>/)?.[0];
 if (!summary || !windows) throw new Error('Seções de previsão não encontradas.');
 html = html.replace(summary, '').replace(windows, '');
-html = replace(html, '<section class="dashboard"', windows.replace('<section class="window-section"', '<section id="windowsB" class="window-section"') + '\n\n        <section class="dashboard"');
+
+// Solunar & Smart Tackle Advisor Section right after windowsB
+const solunarTackleHtml = `<section id="solunarTackleSection" class="b-intel-grid" aria-label="Atividade Solunar e Consultor de Equipamento">
+          <article class="card b-intel-card" aria-labelledby="solunarTitle">
+            <div class="card-heading">
+              <div><p class="eyebrow">TABELA SOLUNAR · FASES & TRÂNSITO</p><h2 id="solunarTitle">Períodos de atividade.</h2></div>
+            </div>
+            <p class="b-intel-sub">Períodos Maiores (trânsito lunar) e Menores (nascer/pôr da lua). Quando coincidem com a janela da maré alta, formam a Hora de Ouro.</p>
+            <div id="solunarPanelContent" class="solunar-body"><p class="empty-note">Calculando tabela solunar…</p></div>
+          </article>
+          <article class="card b-intel-card" aria-labelledby="tackleTitle">
+            <div class="card-heading">
+              <div><p class="eyebrow">CONSULTOR DE PRAIA · SURFCASTING</p><h2 id="tackleTitle">Equipamento sugerido.</h2></div>
+            </div>
+            <p class="b-intel-sub">Recomendação automática de chumbada, chicote e linha calculada a partir da altura das ondas, período e vento previstos para o dia.</p>
+            <div id="tackleAdvisorContent" class="tackle-body"><p class="empty-note">Avaliando condições do mar…</p></div>
+          </article>
+        </section>`;
+
+html = replace(html, '<section class="dashboard"', windows.replace('<section class="window-section"', '<section id="windowsB" class="window-section"') + '\n\n        ' + solunarTackleHtml + '\n\n        <section class="dashboard"');
 html = replace(html, '<section id="marinePanel"', summary + '\n\n        <section id="marinePanel"');
+html = replace(html, '<div class="legend"><span class="dot high"></span> Alta <span class="dot low"></span> Baixa</div>', '<div class="legend"><span id="tideAmplitudeBadge" class="amplitude-badge" hidden></span><span class="dot high"></span> Alta <span class="dot low"></span> Baixa</div>');
 html = html.replace(/(<svg id="tideChart"[^>]*><\/svg>)/, '$1\n              <div id="chartTooltip" class="b-chart-tooltip" hidden></div>');
-html = replace(html, '<div class="tide-events"', `<div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas</span><span>Toque na curva ou deslize o horário</span></div></div>\n            <div class="tide-events"`);
+html = replace(html, '<div class="tide-events"', `<div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré hora a hora</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas (3h antes da alta)</span><span><i class="solunar-bar-icon"></i> Período Solunar Maior</span><span>Toque na curva ou deslize</span></div></div>\n            <div class="tide-events"`);
+
+// Inject Interactive Species & Bait Catalog into #tipsPanel
+const speciesCatalogHtml = `
+        <section id="speciesCatalogSection" class="species-catalog-section" aria-labelledby="speciesCatalogTitle">
+          <div class="species-catalog-header card">
+            <div class="species-header-top">
+              <div>
+                <p class="eyebrow">GUIA DE CAMPO · LITORAL BRASILEIRO</p>
+                <h2 id="speciesCatalogTitle">Catálogo de espécies, iscas e montagens.</h2>
+                <p>Consulte onde cada peixe costuma encostar na praia, as iscas mais produtivas, numeração de anzol e o tamanho mínimo para pesca consciente.</p>
+              </div>
+              <span id="speciesCatalogCount" class="ranking-count">8 espécies de praia listadas</span>
+            </div>
+            <div class="species-filters-bar">
+              <label class="species-search-wrap">
+                <span class="sr-only">Buscar espécie ou isca</span>
+                <input id="speciesSearchInput" type="search" placeholder="Buscar peixe, isca ou dica (ex.: pampo, corrupto, valão)…" autocomplete="off" />
+              </label>
+              <div class="species-filter-group" role="group" aria-label="Filtrar por zona da praia">
+                <button type="button" data-zone-filter="all" aria-pressed="true">Todas as zonas</button>
+                <button type="button" data-zone-filter="beira" aria-pressed="false">Beira & 1º Valão</button>
+                <button type="button" data-zone-filter="canais" aria-pressed="false">Canais & Poços</button>
+                <button type="button" data-zone-filter="fundo" aria-pressed="false">2º Valão & Fundo</button>
+                <button type="button" data-zone-filter="estruturas" aria-pressed="false">Estuários & Pedras</button>
+              </div>
+              <div class="species-filter-group" role="group" aria-label="Filtrar por isca">
+                <button type="button" data-bait-filter="all" aria-pressed="true">Todas as iscas</button>
+                <button type="button" data-bait-filter="Camarão" aria-pressed="false">🦐 Camarão</button>
+                <button type="button" data-bait-filter="Tatuíra" aria-pressed="false">🦀 Tatuíra</button>
+                <button type="button" data-bait-filter="Corrupto" aria-pressed="false">🦞 Corrupto</button>
+                <button type="button" data-bait-filter="Sardinha" aria-pressed="false">🐟 Sardinha</button>
+                <button type="button" data-bait-filter="Artificial" aria-pressed="false">🪝 Artificial</button>
+              </div>
+            </div>
+          </div>
+          <div id="speciesCatalogGrid" class="species-catalog-grid" aria-live="polite"></div>
+        </section>`;
+
+html = replace(html, '</section>\n      </main>\n\n      <main id="rankingPanel"', `</section>${speciesCatalogHtml}\n      </main>\n\n      <main id="rankingPanel"`);
+
+// Inject Community KPIs & Fisherman Achievements into #rankingPanel
+const achievementsHtml = `<section id="achievementsSection" class="b-achievements-section" aria-label="Estatísticas e Conquistas">
+          <div class="b-stats-strip">
+            <article class="b-stat-card card"><span class="eyebrow">PEIXES NA COMUNIDADE</span><strong id="statTotalFish">0</strong><small>Total acumulado no ranking</small></article>
+            <article class="b-stat-card card"><span class="eyebrow">RELATOS NO DIÁRIO</span><strong id="statTotalRecords">0</strong><small>Pescarias registradas</small></article>
+            <article class="b-stat-card card"><span class="eyebrow">ESPÉCIE EM DESTAQUE</span><strong id="statTopSpecies">—</strong><small>Mais capturada na costa</small></article>
+            <article class="b-stat-card card"><span class="eyebrow">MAIOR PESO (TROFÉU)</span><strong id="statMaxWeight">—</strong><small>Recorde informado</small></article>
+          </div>
+          <div class="card b-badges-panel">
+            <div class="card-heading">
+              <div><p class="eyebrow">GAMIFICAÇÃO · CONQUISTAS DO PESCADOR</p><h2>Medalhas costeiras</h2></div>
+              <p id="badgesSubtitle" class="ranking-count">Registre suas capturas para desbloquear</p>
+            </div>
+            <div id="badgesGrid" class="b-badges-grid"></div>
+          </div>
+        </section>`;
+
+html = replace(html, '<div class="ranking-layout">', `${achievementsHtml}\n        <div class="ranking-layout">`);
+
+// Add Quick Species Chips to #captureForm
+html = replace(html, '<label>Peixe / espécie<input name="species" required maxlength="60" placeholder="Ex.: Robalo" /></label>', `<label>Peixe / espécie<input name="species" required maxlength="60" placeholder="Ex.: Robalo" /></label>
+              <div id="quickSpeciesBar" class="quick-species-bar" role="group" aria-label="Escolha rápida de espécie">
+                <button type="button" data-species="Pampo">Pampo</button>
+                <button type="button" data-species="Betara">Betara</button>
+                <button type="button" data-species="Robalo">Robalo</button>
+                <button type="button" data-species="Corvina">Corvina</button>
+                <button type="button" data-species="Xaréu">Xaréu</button>
+                <button type="button" data-species="Sargo">Sargo</button>
+                <button type="button" data-species="Bagre">Bagre</button>
+              </div>`);
+
 html = replace(html, '<section id="myCapturesSection"', `<section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Encontre uma pescaria.</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<input id="filterLocation" type="search" placeholder="Ex.: Intermares" autocomplete="off"></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o diário…</p></section>\n        <section id="myCapturesSection"`);
+
+// Add Shareable Trophy Card Dialog right after #accountDialog
+const shareDialogHtml = `\n      <dialog id="shareCardDialog" class="account-dialog share-card-dialog" aria-labelledby="shareCardTitle">
+        <button id="closeShareCard" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <p class="eyebrow">TROFÉU DIGITAL · STORIES & WHATSAPP</p>
+        <h2 id="shareCardTitle">Compartilhar captura</h2>
+        <div class="trophy-canvas-wrap">
+          <canvas id="trophyCanvas" width="1080" height="1350" aria-label="Cartão visual da captura"></canvas>
+        </div>
+        <div class="share-dialog-actions">
+          <button id="downloadTrophyBtn" class="primary-button" type="button">⬇ Baixar Imagem (PNG)</button>
+          <button id="nativeShareTrophyBtn" class="secondary-share-btn" type="button">📲 Compartilhar no WhatsApp / Redes</button>
+        </div>
+      </dialog>`;
+
+html = replace(html, '</dialog>', `</dialog>${shareDialogHtml}`);
+
 html = replace(html, 'src="./app.js"', 'src="./app-b.js"');
 html = replace(html, 'src="./ranking.js"', 'src="./ranking-b.js"');
 html = replace(html, 'id="marineTitle">Condições médias do dia.', 'id="marineTitle">Condições por janela.');
@@ -35,15 +178,70 @@ html = replace(html, '<p id="marineEmpty"', '<div id="marineWindowTabs" class="m
 html = replace(html, 'Calculando médias de vento e mar…', 'Calculando as condições de cada janela…');
 html = replace(html, '<div id="marineContent" hidden>', '<div id="marineContent" role="tabpanel" hidden>');
 html = html.replace(/<details class="marine-score-details">[\s\S]*?<\/details>/, '<details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>A nota de cada janela é a média das notas dos horários previstos dentro daquele intervalo de três horas. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15).</p><p>Usamos as amostras horárias dentro do intervalo, incluindo o dia anterior quando necessário. A nota exige todos os horários completos; campos com lacunas ficam indisponíveis. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas em qualquer horário da janela destacam atenção.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>');
+
 writeFileSync('dist/versao-b.html', html);
 writeFileSync('dist/versao-a.html', baseAHtml);
 writeFileSync('dist/versao-b.css', read('src/preview-b/styles.css'));
-
 writeFileSync('dist/app-b.js', read('src/preview-b/app.js'));
 
+// Write PWA Manifest and Service Worker to dist/
+const manifestJson = JSON.stringify({
+  name: 'Maré Certa — Planeje sua Pescaria',
+  short_name: 'Maré Certa',
+  description: 'Tábua de maré oficial, janelas de pesca, tabela solunar, recomendação de equipamento e ranking de pescadores.',
+  start_url: './',
+  display: 'standalone',
+  background_color: '#05151f',
+  theme_color: '#061b2a',
+  lang: 'pt-BR',
+  icons: [
+    {
+      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E",
+      sizes: '192x192',
+      type: 'image/svg+xml',
+      purpose: 'any maskable'
+    }
+  ]
+}, null, 2);
+writeFileSync('dist/manifest.webmanifest', manifestJson);
+
+const swCode = `const CACHE_NAME = 'mare-certa-pwa-v2';
+const CORE_ASSETS = ['./', './index.html', './styles.css', './versao-b.css', './app-b.js', './preview-b.js', './marine-b.js', './tides.js', './conditions.js', './tabs.js'];
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)).catch(() => {}));
+  self.skipWaiting();
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        if (response && response.status === 200 && event.request.url.startsWith(self.location.origin)) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(() => {});
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
+});
+`;
+writeFileSync('dist/sw.js', swCode);
+
 let ranking = read('src/ranking.js');
-ranking = replace(ranking, "import { auth, database } from './firebase.js';", "import { auth, database } from './firebase.js';\nimport { filterCaptures } from './preview-b/model.js';");
-ranking = replace(ranking, '  const recent = all.slice(0, 30);', `  const filters = { species: $('filterSpecies').value, location: $('filterLocation').value, from: $('filterFrom').value, to: $('filterTo').value };
+ranking = replace(ranking, "import { auth, database } from './firebase.js';", "import { auth, database } from './firebase.js';\nimport { filterCaptures } from './preview-b/model.js';\nimport { renderAchievementsAndStats, openShareCardModal } from './preview-b/community-enhancements.js';");
+ranking = replace(ranking, "addCell(row, String(person.rank).padStart(2, '0'), 'rank-position');", "const medal = person.rank === 1 ? '🥇 ' : person.rank === 2 ? '🥈 ' : person.rank === 3 ? '🥉 ' : '';\n    addCell(row, medal + String(person.rank).padStart(2, '0'), 'rank-position');");
+ranking = replace(ranking, '  card.append(title, author, details);', `  const shareWrap = document.createElement('div'); shareWrap.className = 'capture-share-row';
+  const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-card-btn'; shareBtn.textContent = '📤 Compartilhar card';
+  shareBtn.addEventListener('click', () => openShareCardModal(capture, profiles[capture.uid]?.displayName || 'Pescador'));
+  shareWrap.append(shareBtn);
+  card.append(title, author, details, shareWrap);`);
+ranking = replace(ranking, '  const recent = all.slice(0, 30);', `  renderAchievementsAndStats(captures, auth.currentUser?.uid || null);
+  const filters = { species: $('filterSpecies').value, location: $('filterLocation').value, from: $('filterFrom').value, to: $('filterTo').value };
   const filtered = filterCaptures(all, filters);
   const recent = filtered.slice(0, 30);
   $('captureFilterResult').textContent = filters.from && filters.to && filters.from > filters.to ? 'Confira o período: a data inicial é posterior à final.' : readyCaptures ? filtered.length + ' captura(s) encontrada(s) no diário da comunidade.' : 'Carregando o diário…';`);
@@ -51,6 +249,7 @@ ranking = replace(ranking, '  const mine = all.filter(([, capture]) => capture.u
 ranking = replace(ranking, "'Suas capturas aparecerão aqui para você editar.'", "'Nenhuma captura sua encontrada com estes filtros.'");
 ranking = replace(ranking, "'As próximas capturas aparecerão aqui.'", "'Nenhuma captura encontrada. Experimente outra espécie, local ou período.'");
 ranking += `\nlet filterTimer;\n$('captureFilterForm').addEventListener('submit', event => event.preventDefault());\n$('captureFilterForm').addEventListener('input', () => { clearTimeout(filterTimer); filterTimer = setTimeout(renderCommunity, 150); });\n$('clearCaptureFilters').addEventListener('click', () => { clearTimeout(filterTimer); $('captureFilterForm').reset(); renderCommunity(); });\n`;
+
 const baseOptions = { bundle: true, format: 'esm', minify: true, logLevel: 'silent' };
 await Promise.all([
   build({ ...baseOptions, entryPoints: ['src/preview-b/enhancements.js'], outfile: 'dist/preview-b.js' }),

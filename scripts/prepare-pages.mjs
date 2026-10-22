@@ -21,5 +21,5 @@ for (const pageName of ['index.html', 'versao-a.html', 'versao-b.html']) {
 }
 
 const html = readFileSync(distFile('index.html'), 'utf8');
-const entry = html.replace(/(href|src)="\.\/(styles\.css\?v=[a-f0-9]+|versao-b\.css\?v=[a-f0-9]+|app(?:-b)?\.js\?v=[a-f0-9]+|ranking(?:-b)?\.js\?v=[a-f0-9]+|tabs\.js\?v=[a-f0-9]+|assets\/[^\"]+)"/g, '$1="./dist/$2"');
+const entry = html.replace(/(href|src)="\.\/(styles\.css\?v=[a-f0-9]+|versao-b\.css\?v=[a-f0-9]+|app(?:-b)?\.js\?v=[a-f0-9]+|ranking(?:-b)?\.js\?v=[a-f0-9]+|tabs\.js\?v=[a-f0-9]+|manifest\.webmanifest|assets\/[^\"]+)"/g, '$1="./dist/$2"');
 writeFileSync(new URL('../index.html', import.meta.url), entry);

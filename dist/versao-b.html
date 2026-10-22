@@ -9,8 +9,9 @@
     <link rel="preconnect" href="https://marine-api.open-meteo.com" />
     <link rel="preconnect" href="https://geocoding-api.open-meteo.com" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="stylesheet" href="./styles.css?v=150638ac77fa" />
-    <link rel="stylesheet" href="./versao-b.css?v=756b31f60ba0" />
+    <link rel="stylesheet" href="./versao-b.css?v=e18d30305888" />
     <title>Maré Certa — sua próxima pescaria</title>
   </head>
   <body class="preview-b">
@@ -44,6 +45,12 @@
         <div class="live-pill"><span></span> Previsão atualizada</div>
       </header>
 
+      <div class="spot-quick-strip" aria-label="Praias e pontos rápidos">
+        <div class="spot-strip-label"><span aria-hidden="true">🧭</span><span>PRAIAS & PONTOS</span></div>
+        <div id="spotQuickBar" class="spot-quick-bar" role="group" aria-label="Atalhos de praias"></div>
+        <button id="favLocationBtn" class="fav-spot-btn" type="button" aria-pressed="false">☆ Favoritar praia</button>
+      </div>
+
       <nav class="view-tabs" aria-label="Áreas do site" role="tablist">
         <button id="forecastTab" role="tab" aria-controls="forecastPanel" aria-selected="true" type="button">Condições de pesca</button>
         <button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>
@@ -52,8 +59,30 @@
       </nav>
       <main id="forecastPanel" role="tabpanel" aria-labelledby="forecastTab">
         <section class="intro b-intro" aria-labelledby="pageTitle">
-          <div class="b-hero-copy"><p class="eyebrow">AO RITMO DO MAR</p><h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1><p class="b-intro-note">A maré marca o horário. Você escolhe a próxima pescaria.</p><div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div></div>
-          <article id="nextWindow" class="b-next-window" aria-labelledby="nextWindowTitle" aria-busy="true"><div class="b-next-top"><span class="b-status-dot"></span><span>SEU PRÓXIMO HORÁRIO</span><svg viewBox="0 0 64 32" aria-hidden="true"><path d="M2 18 Q16 0 30 18 T60 18 M2 27 Q16 9 30 27 T60 27"/></svg></div><h2 id="nextWindowTitle">Buscando sua próxima janela</h2><strong id="nextWindowHours">—</strong><p id="nextWindowDate">Consultando os horários de maré…</p><div class="b-next-bottom"><span id="nextWindowCountdown">Atualizando…</span><a id="nextWindowLink" href="#windowsB" aria-label="Ver janelas da próxima maré alta">Ver esta janela <span aria-hidden="true">↘</span></a></div></article>
+          <div class="b-hero-copy">
+            <div class="b-eyebrow-row"><p class="eyebrow">AO RITMO DO MAR · SURFCASTING</p><span class="b-pro-pill">EDIÇÃO PRO</span></div>
+            <h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1>
+            <p class="b-intro-note">Tábua de maré oficial, períodos solunares, recomendação dinâmica de equipamento e diário de capturas em tempo real.</p>
+            <div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div>
+          </div>
+          <article id="nextWindow" class="b-next-window" aria-labelledby="nextWindowTitle" aria-busy="true">
+            <div class="b-next-top"><span class="b-status-dot"></span><span>SEU PRÓXIMO HORÁRIO</span><svg viewBox="0 0 64 32" aria-hidden="true"><path d="M2 18 Q16 0 30 18 T60 18 M2 27 Q16 9 30 27 T60 27"/></svg></div>
+            <h2 id="nextWindowTitle">Buscando sua próxima janela</h2>
+            <strong id="nextWindowHours">—</strong>
+            <p id="nextWindowDate">Consultando os horários de maré…</p>
+            <span id="nextWindowSyncBadge" class="b-sync-badge" hidden></span>
+            <div id="nextWindowProgressWrap" class="b-window-progress" hidden>
+              <div class="b-progress-track"><span id="nextWindowProgressBar" style="width:0%"></span></div>
+              <small id="nextWindowProgressText"></small>
+            </div>
+            <div class="b-next-bottom">
+              <span id="nextWindowCountdown">Atualizando…</span>
+              <div class="b-next-actions">
+                <button id="windowAlertBtn" class="b-alert-btn" type="button" aria-pressed="false">🔔 Lembrar janela</button>
+                <a id="nextWindowLink" href="#windowsB" aria-label="Ver janelas da próxima maré alta">Ver janela <span aria-hidden="true">↘</span></a>
+              </div>
+            </div>
+          </article>
         </section>
 
         <section class="day-strip" aria-label="Previsão dos próximos sete dias" id="dayStrip">
@@ -88,6 +117,23 @@
           </div>
         </section>
 
+        <section id="solunarTackleSection" class="b-intel-grid" aria-label="Atividade Solunar e Consultor de Equipamento">
+          <article class="card b-intel-card" aria-labelledby="solunarTitle">
+            <div class="card-heading">
+              <div><p class="eyebrow">TABELA SOLUNAR · FASES & TRÂNSITO</p><h2 id="solunarTitle">Períodos de atividade.</h2></div>
+            </div>
+            <p class="b-intel-sub">Períodos Maiores (trânsito lunar) e Menores (nascer/pôr da lua). Quando coincidem com a janela da maré alta, formam a Hora de Ouro.</p>
+            <div id="solunarPanelContent" class="solunar-body"><p class="empty-note">Calculando tabela solunar…</p></div>
+          </article>
+          <article class="card b-intel-card" aria-labelledby="tackleTitle">
+            <div class="card-heading">
+              <div><p class="eyebrow">CONSULTOR DE PRAIA · SURFCASTING</p><h2 id="tackleTitle">Equipamento sugerido.</h2></div>
+            </div>
+            <p class="b-intel-sub">Recomendação automática de chumbada, chicote e linha calculada a partir da altura das ondas, período e vento previstos para o dia.</p>
+            <div id="tackleAdvisorContent" class="tackle-body"><p class="empty-note">Avaliando condições do mar…</p></div>
+          </article>
+        </section>
+
         <section class="dashboard" aria-live="polite" aria-busy="true" id="dashboard">
           <article class="tide-card card">
             <div class="card-heading">
@@ -95,7 +141,7 @@
                 <p class="eyebrow">TÁBUA DA MARÉ</p>
                 <h2 id="selectedDate">Carregando previsão</h2>
               </div>
-              <div class="legend"><span class="dot high"></span> Alta <span class="dot low"></span> Baixa</div>
+              <div class="legend"><span id="tideAmplitudeBadge" class="amplitude-badge" hidden></span><span class="dot high"></span> Alta <span class="dot low"></span> Baixa</div>
             </div>
 
             <div class="chart-wrap">
@@ -103,7 +149,7 @@
               <div id="chartTooltip" class="b-chart-tooltip" hidden></div>
             </div>
 
-            <div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas</span><span>Toque na curva ou deslize o horário</span></div></div>
+            <div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré hora a hora</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas (3h antes da alta)</span><span><i class="solunar-bar-icon"></i> Período Solunar Maior</span><span>Toque na curva ou deslize</span></div></div>
             <div class="tide-events" id="tideEvents"></div>
             <p id="tideSource" class="chart-note">Curva estimada da API, não uma tábua oficial. Use como apoio ao planejamento, nunca para navegação.</p>
           </article>
@@ -201,6 +247,40 @@
             <p class="tip-caution">Arremesse nas bordas ou na areia próxima à estrutura para reduzir enroscos. Mantenha distância de pedras molhadas e de desembocaduras com corrente forte.</p>
           </article>
         </section>
+        <section id="speciesCatalogSection" class="species-catalog-section" aria-labelledby="speciesCatalogTitle">
+          <div class="species-catalog-header card">
+            <div class="species-header-top">
+              <div>
+                <p class="eyebrow">GUIA DE CAMPO · LITORAL BRASILEIRO</p>
+                <h2 id="speciesCatalogTitle">Catálogo de espécies, iscas e montagens.</h2>
+                <p>Consulte onde cada peixe costuma encostar na praia, as iscas mais produtivas, numeração de anzol e o tamanho mínimo para pesca consciente.</p>
+              </div>
+              <span id="speciesCatalogCount" class="ranking-count">8 espécies de praia listadas</span>
+            </div>
+            <div class="species-filters-bar">
+              <label class="species-search-wrap">
+                <span class="sr-only">Buscar espécie ou isca</span>
+                <input id="speciesSearchInput" type="search" placeholder="Buscar peixe, isca ou dica (ex.: pampo, corrupto, valão)…" autocomplete="off" />
+              </label>
+              <div class="species-filter-group" role="group" aria-label="Filtrar por zona da praia">
+                <button type="button" data-zone-filter="all" aria-pressed="true">Todas as zonas</button>
+                <button type="button" data-zone-filter="beira" aria-pressed="false">Beira & 1º Valão</button>
+                <button type="button" data-zone-filter="canais" aria-pressed="false">Canais & Poços</button>
+                <button type="button" data-zone-filter="fundo" aria-pressed="false">2º Valão & Fundo</button>
+                <button type="button" data-zone-filter="estruturas" aria-pressed="false">Estuários & Pedras</button>
+              </div>
+              <div class="species-filter-group" role="group" aria-label="Filtrar por isca">
+                <button type="button" data-bait-filter="all" aria-pressed="true">Todas as iscas</button>
+                <button type="button" data-bait-filter="Camarão" aria-pressed="false">🦐 Camarão</button>
+                <button type="button" data-bait-filter="Tatuíra" aria-pressed="false">🦀 Tatuíra</button>
+                <button type="button" data-bait-filter="Corrupto" aria-pressed="false">🦞 Corrupto</button>
+                <button type="button" data-bait-filter="Sardinha" aria-pressed="false">🐟 Sardinha</button>
+                <button type="button" data-bait-filter="Artificial" aria-pressed="false">🪝 Artificial</button>
+              </div>
+            </div>
+          </div>
+          <div id="speciesCatalogGrid" class="species-catalog-grid" aria-live="polite"></div>
+        </section>
       </main>
 
       <main id="rankingPanel" role="tabpanel" aria-labelledby="rankingTab" hidden>
@@ -209,6 +289,21 @@
           <p>Registre suas capturas e acompanhe o ranking da comunidade. A classificação considera a quantidade total de peixes registrados.</p>
         </section>
         <p id="communityMessage" class="community-message" role="status">Conectando à comunidade...</p>
+        <section id="achievementsSection" class="b-achievements-section" aria-label="Estatísticas e Conquistas">
+          <div class="b-stats-strip">
+            <article class="b-stat-card card"><span class="eyebrow">PEIXES NA COMUNIDADE</span><strong id="statTotalFish">0</strong><small>Total acumulado no ranking</small></article>
+            <article class="b-stat-card card"><span class="eyebrow">RELATOS NO DIÁRIO</span><strong id="statTotalRecords">0</strong><small>Pescarias registradas</small></article>
+            <article class="b-stat-card card"><span class="eyebrow">ESPÉCIE EM DESTAQUE</span><strong id="statTopSpecies">—</strong><small>Mais capturada na costa</small></article>
+            <article class="b-stat-card card"><span class="eyebrow">MAIOR PESO (TROFÉU)</span><strong id="statMaxWeight">—</strong><small>Recorde informado</small></article>
+          </div>
+          <div class="card b-badges-panel">
+            <div class="card-heading">
+              <div><p class="eyebrow">GAMIFICAÇÃO · CONQUISTAS DO PESCADOR</p><h2>Medalhas costeiras</h2></div>
+              <p id="badgesSubtitle" class="ranking-count">Registre suas capturas para desbloquear</p>
+            </div>
+            <div id="badgesGrid" class="b-badges-grid"></div>
+          </div>
+        </section>
         <div class="ranking-layout">
           <section class="card leaderboard" aria-labelledby="rankingTitle">
             <div class="card-heading"><div><p class="eyebrow">TODAS AS CAPTURAS</p><h2 id="rankingTitle">Ranking de pescadores</h2></div><span id="rankingCount" class="ranking-count">0 participantes</span></div>
@@ -221,6 +316,15 @@
             <div id="captureLogin"><p>Entre ou crie uma conta para salvar suas capturas e participar do ranking.</p><button class="primary-button" id="captureLoginButton" type="button">Entrar / cadastrar</button></div>
             <form id="captureForm" hidden>
               <label>Peixe / espécie<input name="species" required maxlength="60" placeholder="Ex.: Robalo" /></label>
+              <div id="quickSpeciesBar" class="quick-species-bar" role="group" aria-label="Escolha rápida de espécie">
+                <button type="button" data-species="Pampo">Pampo</button>
+                <button type="button" data-species="Betara">Betara</button>
+                <button type="button" data-species="Robalo">Robalo</button>
+                <button type="button" data-species="Corvina">Corvina</button>
+                <button type="button" data-species="Xaréu">Xaréu</button>
+                <button type="button" data-species="Sargo">Sargo</button>
+                <button type="button" data-species="Bagre">Bagre</button>
+              </div>
               <div class="form-grid"><label>Quantidade<input name="quantity" type="number" min="1" max="1000" step="1" value="1" required /></label><label>Peso total (kg)<input name="weight" type="number" min="0" max="10000" step="0.01" placeholder="Opcional" /></label></div>
               <label>Data da pescaria<input name="date" type="date" required /></label>
               <label>Local<input name="location" maxlength="100" required placeholder="Praia, rio ou cidade" /></label>
@@ -248,6 +352,18 @@
           <button id="logoutButton" class="primary-button" type="button" style="margin-top:16px">Sair da conta</button></div>
         <p id="authMessage" class="form-message" role="status"></p>
       </dialog>
+      <dialog id="shareCardDialog" class="account-dialog share-card-dialog" aria-labelledby="shareCardTitle">
+        <button id="closeShareCard" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <p class="eyebrow">TROFÉU DIGITAL · STORIES & WHATSAPP</p>
+        <h2 id="shareCardTitle">Compartilhar captura</h2>
+        <div class="trophy-canvas-wrap">
+          <canvas id="trophyCanvas" width="1080" height="1350" aria-label="Cartão visual da captura"></canvas>
+        </div>
+        <div class="share-dialog-actions">
+          <button id="downloadTrophyBtn" class="primary-button" type="button">⬇ Baixar Imagem (PNG)</button>
+          <button id="nativeShareTrophyBtn" class="secondary-share-btn" type="button">📲 Compartilhar no WhatsApp / Redes</button>
+        </div>
+      </dialog>
 
       <footer>
         <div class="brand footer-brand">MARÉ <b>CERTA</b></div>
@@ -255,8 +371,8 @@
         <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
       </footer>
     </div>
-    <script type="module" src="./app-b.js?v=8df35d837e75"></script>
+    <script type="module" src="./app-b.js?v=2654d2c11c05"></script>
     <script type="module" src="./tabs.js?v=66ed1be780a2"></script>
-    <script type="module" src="./ranking-b.js?v=c5802dccf5fb"></script>
+    <script type="module" src="./ranking-b.js?v=93468478e652"></script>
   </body>
 </html>

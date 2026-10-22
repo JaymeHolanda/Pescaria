@@ -41,7 +41,7 @@ test('HTML local e Pages têm imagem correta e não exibem chance de captura', (
     assert.doesNotMatch(html, /catchProbability|CHANCE DE CAPTURA/);
     assert.ok(html.indexOf('id="forecastTab"') < html.indexOf('id="tipsTab"'));
     assert.ok(html.indexOf('id="tipsTab"') < html.indexOf('id="rankingTab"'));
-    assert.match(html, path.includes('dist') ? /src="\.\/assets\/valoes-praia.jpg"/ : /src="\.\/dist\/assets\/valoes-praia.jpg"/);
+    assert.match(html, path.includes('dist') ? /src="\.\/assets\/valoes-praia\.jpg"/ : /src="\.\/dist\/assets\/valoes-praia\.jpg"/);
     assert.match(html, /Não entre nos canais/);
   }
 });
@@ -51,12 +51,20 @@ test('entradas HTML e dependências usam versões atuais para evitar cache antig
   for (const path of ['../dist/index.html', '../index.html']) {
     const html = readFileSync(new URL(path, import.meta.url), 'utf8');
     const prefix = path.includes('dist') ? './' : './dist/';
-    for (const file of ['styles.css', 'app.js', 'tabs.js', 'ranking.js']) {
+    for (const file of ['styles.css', 'versao-b.css', 'app-b.js', 'tabs.js', 'ranking-b.js']) {
       assert.ok(html.includes(`"${prefix}${file}?v=${revision(file)}"`), `${path}: ${file}`);
     }
+  }
+  const htmlA = readFileSync(new URL('../dist/versao-a.html', import.meta.url), 'utf8');
+  for (const file of ['styles.css', 'app.js', 'tabs.js', 'ranking.js']) {
+    assert.ok(htmlA.includes(`"./${file}?v=${revision(file)}"`), `../dist/versao-a.html: ${file}`);
   }
   const app = readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
   for (const file of ['conditions.js', 'marine.js', 'tides.js']) {
     assert.ok(app.includes(`'./${file}?v=${revision(file)}'`));
+  }
+  const appB = readFileSync(new URL('../dist/app-b.js', import.meta.url), 'utf8');
+  for (const file of ['conditions.js', 'marine-b.js', 'tides.js', 'preview-b.js']) {
+    assert.ok(appB.includes(`'./${file}?v=${revision(file)}'`));
   }
 });
