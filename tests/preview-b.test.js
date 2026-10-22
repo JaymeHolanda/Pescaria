@@ -141,3 +141,44 @@ test('API Tábua de Marés localiza porto do RJ e interpola extremos oficiais', 
   ]);
   assert.ok(tideDay.points.length > 20);
 });
+
+test('São Paulo e Santos encontram porto paulista e preenchem resumo marítimo completo', async () => {
+  const spInland = { name: 'São Paulo', latitude: -23.5475, longitude: -46.63611 };
+  const harbor = findNearestBrazilianHarbor(spInland);
+  assert.equal(harbor?.id, 'sp02');
+  assert.match(harbor?.name, /Santos/);
+
+  const { windowMarineSummary } = await import('../src/preview-b/window-marine-model.js');
+  const window = { startDate: '2026-10-21', startHour: '21:59', endDate: '2026-10-22', endHour: '00:59' };
+  const time = ['2026-10-21T22:00', '2026-10-21T23:00', '2026-10-22T00:00'];
+  const weather = {
+    time,
+    wind_speed_10m: [12, 11, 10],
+    wind_direction_10m: [80, 85, 90],
+    wind_gusts_10m: [25, 24, 22],
+    pressure_msl: [1018, 1017, 1017],
+    weather_code: [1, 1, 2]
+  };
+  const marine = {
+    time,
+    wave_height: [1.3, 1.2, 1.1],
+    wave_period: [9.0, 8.8, 8.5],
+    wave_direction: [160, 165, 170],
+    swell_wave_height: [1.0, 0.9, 0.8],
+    swell_wave_period: [9.2, 9.0, 8.8],
+    swell_wave_direction: [165, 168, 170],
+    wind_wave_height: [0.3, 0.2, 0.2],
+    sea_surface_temperature: [23.5, 23.5, 23.4]
+  };
+
+  const summary = windowMarineSummary(window, weather, marine);
+  assert.equal(summary.expected, 3);
+  assert.equal(summary.count, 3);
+  assert.ok(Number.isFinite(summary.score));
+  assert.ok(summary.score > 0 && summary.score <= 100);
+  assert.notEqual(summary.label, 'Dados incompletos');
+  assert.equal(Number(summary.values.wave_height.toFixed(1)), 1.2);
+  assert.equal(Number(summary.values.wave_period.toFixed(1)), 8.8);
+  assert.equal(Number(summary.values.swell_wave_height.toFixed(1)), 0.9);
+  assert.equal(Number(summary.values.sea_surface_temperature.toFixed(1)), 23.5);
+});

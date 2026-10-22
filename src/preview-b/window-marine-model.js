@@ -17,7 +17,7 @@ export function windowMarineSummary(window, weather = {}, marine = {}) {
   const values = {};
   for (const key of fields) {
     const samples = rows.map(row => row[key]).filter(finite);
-    if (!expected || samples.length !== expected) { values[key] = null; continue; }
+    if (!expected || samples.length === 0) { values[key] = null; continue; }
     if (key.endsWith('_direction')) {
       const radians = samples.map(value => value * Math.PI / 180);
       const x = radians.reduce((sum, value) => sum + Math.cos(value), 0) / samples.length;
@@ -26,7 +26,7 @@ export function windowMarineSummary(window, weather = {}, marine = {}) {
     } else values[key] = samples.reduce((sum, value) => sum + value, 0) / samples.length;
   }
   const rated = rows.map(row => marineScore(row)).filter(rating => rating.score !== null);
-  const complete = expected > 0 && rated.length === expected;
+  const complete = expected > 0 && rated.length > 0;
   const score = complete ? Math.round(rated.reduce((sum, rating) => sum + rating.score, 0) / rated.length) : null;
   const parts = complete ? rated[0].parts.map((part, i) => ({ ...part, points: rated.reduce((sum, rating) => sum + rating.parts[i].points, 0) / rated.length })) : [];
   const attention = rows.filter(row => [95, 96, 99].includes(row.weather_code) || row.wave_height >= 2 || row.wind_speed_10m > 28 || row.wind_gusts_10m >= 40);
@@ -34,6 +34,6 @@ export function windowMarineSummary(window, weather = {}, marine = {}) {
   const times = attention.map(row => `${row.time.slice(11, 16)}${window.previousDay ? ` (${row.time.slice(8, 10)}/${row.time.slice(5, 7)})` : ''}`);
   const tone = !complete ? 'partial' : attention.length ? 'attention' : score >= 75 ? 'calm' : score >= 50 ? 'moderate' : 'attention';
   const label = !complete ? 'Dados incompletos' : attention.length ? 'Atenção nesta janela' : score >= 75 ? 'Mais tranquilo' : score >= 50 ? 'Intermediário' : 'Mais exigente';
-  const note = (!complete ? `Há ${rated.length} de ${expected} horários completos para esta janela.` : `Média dos ${expected} horários previstos dentro da janela.`) + (times.length ? ` Faixa de atenção às ${times.join(', ')}.` : '');
+  const note = (!complete ? `Sem dados suficientes para calcular a nota desta janela.` : rated.length === expected ? `Média dos ${expected} horários previstos dentro da janela.` : `Média calculada com ${rated.length} de ${expected} horários disponíveis na janela.`) + (times.length ? ` Faixa de atenção às ${times.join(', ')}.` : '');
   return { values, rows, expected, count: rated.length, score, parts, tone, label, note, attentionHours };
 }

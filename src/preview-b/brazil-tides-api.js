@@ -48,7 +48,7 @@ const haversineKm = (lat1, lon1, lat2, lon2) => {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export function findNearestBrazilianHarbor(location, maxDistanceKm = 180) {
+export function findNearestBrazilianHarbor(location, maxDistanceKm = 300) {
   const lat = Number(location?.latitude);
   const lng = Number(location?.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -170,12 +170,35 @@ async function fetchTabuaMarePath(apiPath, signal) {
     if (err?.name === 'AbortError') throw err;
   }
 
-  // 2. Fallback to AllOrigins CORS relay for static hosting (GitHub Pages)
   const targetUrl = `https://tabuamare.api.br/api/v2${apiPath}`;
-  const relayUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-  const relayRes = await fetch(relayUrl, { signal });
-  if (!relayRes.ok) throw new Error(`API Tábua de Marés indisponível (${relayRes.status})`);
-  return relayRes.json();
+
+  // 2. Try direct fetch
+  try {
+    const directRes = await fetch(targetUrl, { signal });
+    if (directRes.ok) return await directRes.json();
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
+  }
+
+  // 3. Fallback to AllOrigins CORS relay
+  try {
+    const relayUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const relayRes = await fetch(relayUrl, { signal });
+    if (relayRes.ok) return await relayRes.json();
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
+  }
+
+  // 4. Fallback to CorsProxy.io relay
+  try {
+    const corsUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+    const corsRes = await fetch(corsUrl, { signal });
+    if (corsRes.ok) return await corsRes.json();
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err;
+  }
+
+  throw new Error(`API Tábua de Marés indisponível.`);
 }
 
 export async function fetchBrazilianHarborTides(location, dateStrings = [], signal) {

@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js?v=e2046439115a';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js?v=b51d6bc911fb';
-import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js?v=9cbb9724b8d9';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides } from './preview-b.js?v=f01f01a72671';
+import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js?v=f155a29720da';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor } from './preview-b.js?v=1b320e329092';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
@@ -153,10 +153,28 @@ async function loadForecast() {
 
   setLoading(true);
   try {
-    const [weather, marine] = await Promise.all([
+    let [weather, marine] = await Promise.all([
       fetchJson(weatherUrl, state.aborter.signal),
       fetchJson(marineUrl, state.aborter.signal)
     ]);
+
+    // If the selected location has no sea-grid coverage in Open-Meteo (e.g. inland cities like São Paulo at -23.54, -46.63),
+    // but there is a coastal harbor nearby (e.g. Porto de Santos at -23.96, -46.30), query marine conditions at that coastal reference
+    const validWaveCount = (marine?.hourly?.wave_height || []).filter(v => Number.isFinite(v)).length;
+    const harbor = findNearestBrazilianHarbor(state.location, 300);
+    if (validWaveCount < 18 && harbor) {
+      try {
+        const harborMarineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${harbor.lat}&longitude=${harbor.lng}&timezone=auto&past_days=1&forecast_days=8&hourly=sea_level_height_msl,wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,wind_wave_height,sea_surface_temperature&cell_selection=sea`;
+        const coastalMarine = await fetchJson(harborMarineUrl, state.aborter.signal);
+        const coastalValidCount = (coastalMarine?.hourly?.wave_height || []).filter(v => Number.isFinite(v)).length;
+        if (coastalValidCount > validWaveCount) {
+          marine = coastalMarine;
+        }
+      } catch (mErr) {
+        if (mErr?.name === 'AbortError') throw mErr;
+      }
+    }
+
     state.weather = forecastDays(weather);
     state.marine = marine;
     state.brazilTides = null;
@@ -391,14 +409,83 @@ function renderUnavailable() {
   els.tideEvents.innerHTML = ""; els.fishingWindows.innerHTML = "";
 }
 
+const COASTAL_ALIASES = [
+  // SP
+  { keys: ['sp', 'sao paulo', 'são paulo', 'santos', 'baixada santista'], spot: { name: 'Santos (Porto & Praias)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9619, longitude: -46.3042 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'sao sebastiao', 'são sebastião', 'litoral norte'], spot: { name: 'São Sebastião (Litoral Norte)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.8111, longitude: -45.4014 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'guaruja', 'guarujá'], spot: { name: 'Guarujá (Praia da Enseada)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9931, longitude: -46.2564 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'ubatuba'], spot: { name: 'Ubatuba (Itamambuca / Grande)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.4339, longitude: -45.0839 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'ilhabela'], spot: { name: 'Ilhabela (Litoral Norte)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.7781, longitude: -45.3581 } },
+  // RJ
+  { keys: ['rj', 'rio', 'rio de janeiro', 'copacabana', 'maracana', 'guanabara'], spot: { name: 'Rio de Janeiro (Copacabana / Ilha Fiscal)', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9064, longitude: -43.1822 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'arraial', 'arraial do cabo', 'buzios', 'búzios', 'cabo frio', 'regiao dos lagos'], spot: { name: 'Arraial do Cabo / Búzios', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9661, longitude: -42.0278 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'angra', 'angra dos reis', 'ilha grande', 'paraty'], spot: { name: 'Angra dos Reis / Ilha Grande', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -23.0111, longitude: -44.3186 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'niteroi', 'niterói', 'itaipu', 'icarai'], spot: { name: 'Niterói (Icaraí / Itaipu)', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9035, longitude: -43.1111 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'macae', 'macaé', 'imbetiba'], spot: { name: 'Macaé (Terminal de Imbetiba)', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.3842, longitude: -41.7719 } },
+  // PE
+  { keys: ['pe', 'recife', 'pernambuco', 'boa viagem'], spot: { name: 'Recife (Boa Viagem / Porto)', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -8.0539, longitude: -34.8711 } },
+  { keys: ['pe', 'suape', 'porto de galinhas', 'pernambuco'], spot: { name: 'Porto de Suape / Galinhas', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -8.3944, longitude: -34.9592 } },
+  { keys: ['pe', 'noronha', 'fernando de noronha'], spot: { name: 'Fernando de Noronha', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -3.8372, longitude: -32.4033 } },
+  // BA
+  { keys: ['ba', 'salvador', 'bahia', 'barra', 'rio vermelho'], spot: { name: 'Salvador (Farol da Barra)', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9714, longitude: -38.5014 } },
+  { keys: ['ba', 'ilheus', 'ilhéus', 'bahia'], spot: { name: 'Ilhéus (Porto do Malhado)', admin1: 'Bahia, BA', country_code: 'BR', latitude: -14.7828, longitude: -39.0292 } },
+  // SC
+  { keys: ['sc', 'florianopolis', 'florianópolis', 'floripa', 'santa catarina'], spot: { name: 'Florianópolis (Joaquina / Campeche)', admin1: 'Santa Catarina, SC', country_code: 'BR', latitude: -27.5969, longitude: -48.5556 } },
+  { keys: ['sc', 'itajai', 'itajaí', 'balneario camboriu', 'camboriu'], spot: { name: 'Porto de Itajaí / Balneário', admin1: 'Santa Catarina, SC', country_code: 'BR', latitude: -26.9111, longitude: -48.6583 } },
+  // RN
+  { keys: ['rn', 'natal', 'rio grande do norte', 'ponta negra'], spot: { name: 'Natal (Ponta Negra / Porto)', admin1: 'Rio Grande do Norte, RN', country_code: 'BR', latitude: -5.7792, longitude: -35.2047 } },
+  { keys: ['rn', 'pipa', 'tibau do sul'], spot: { name: 'Pipa (Tibau do Sul)', admin1: 'Rio Grande do Norte, RN', country_code: 'BR', latitude: -6.2294, longitude: -35.0489 } },
+  // CE
+  { keys: ['ce', 'fortaleza', 'ceara', 'ceará', 'mucuripe', 'iracema'], spot: { name: 'Fortaleza (Porto de Mucuripe)', admin1: 'Ceará, CE', country_code: 'BR', latitude: -3.7150, longitude: -38.4767 } },
+  // ES
+  { keys: ['es', 'vitoria', 'vitória', 'espirito santo', 'espírito santo'], spot: { name: 'Vitória (Praia de Camburi)', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.3222, longitude: -40.3375 } },
+  { keys: ['es', 'guarapari'], spot: { name: 'Guarapari', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.6711, longitude: -40.4981 } },
+  // PB
+  { keys: ['pb', 'joao pessoa', 'joão pessoa', 'paraiba', 'paraíba', 'bessa'], spot: { name: 'Praia do Bessa (João Pessoa)', admin1: 'Paraíba, PB', country_code: 'BR', latitude: -7.0633, longitude: -34.8428 } },
+  { keys: ['pb', 'cabedelo', 'intermares', 'poco'], spot: { name: 'Intermares (Cabedelo)', admin1: 'Cabedelo, PB', country_code: 'BR', latitude: -7.0319, longitude: -34.8375 } }
+];
+
+function normalizeStr(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
 async function searchLocations(term) {
   els.searchResults.innerHTML = `<p class="location-note">Buscando...</p>`;
+  const norm = normalizeStr(term);
+  const aliasMatches = COASTAL_ALIASES
+    .filter(item => item.keys.some(k => norm === k || (norm.length >= 2 && k.includes(norm)) || (k.length >= 3 && norm.includes(k))))
+    .map(item => item.spot);
+
   try {
     const data = await fetchJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(term)}&count=6&language=pt&format=json`);
-    const results = data.results || [];
-    els.searchResults.innerHTML = results.length ? results.map((item, index) => `<button type="button" class="result-button" data-result="${index}" role="option"><span><strong>${item.name}</strong><br><small>${[item.admin1, item.country].filter(Boolean).join(", ")}</small></span><span aria-hidden="true">＋</span></button>`).join("") : `<p class="location-note">Nenhum local encontrado. Tente uma cidade próxima.</p>`;
-    els.searchResults.querySelectorAll("button").forEach(button => button.addEventListener("click", () => selectLocation(results[Number(button.dataset.result)])));
-  } catch { els.searchResults.innerHTML = `<p class="location-note">A busca falhou. Tente novamente em instantes.</p>`; }
+    const rawResults = data.results || [];
+    const brResults = rawResults.filter(r => r.country_code === 'BR');
+    const otherResults = rawResults.filter(r => r.country_code !== 'BR');
+
+    const combined = [...aliasMatches];
+    for (const r of [...brResults, ...otherResults]) {
+      if (!combined.some(c => Math.abs(c.latitude - r.latitude) < 0.05 && Math.abs(c.longitude - r.longitude) < 0.05)) {
+        combined.push({
+          name: r.name,
+          admin1: [r.admin1, r.country].filter(Boolean).join(', '),
+          country_code: r.country_code || 'BR',
+          latitude: r.latitude,
+          longitude: r.longitude
+        });
+      }
+    }
+
+    const finalResults = combined.slice(0, 8);
+    els.searchResults.innerHTML = finalResults.length ? finalResults.map((item, index) => `<button type="button" class="result-button" data-result="${index}" role="option"><span><strong>${item.name}</strong><br><small>${[item.admin1, item.country_code].filter(Boolean).join(", ")}</small></span><span aria-hidden="true">＋</span></button>`).join("") : `<p class="location-note">Nenhum local encontrado. Tente uma cidade próxima.</p>`;
+    els.searchResults.querySelectorAll("button").forEach(button => button.addEventListener("click", () => selectLocation(finalResults[Number(button.dataset.result)])));
+  } catch {
+    if (aliasMatches.length) {
+      els.searchResults.innerHTML = aliasMatches.map((item, index) => `<button type="button" class="result-button" data-result="${index}" role="option"><span><strong>${item.name}</strong><br><small>${item.admin1}</small></span><span aria-hidden="true">＋</span></button>`).join("");
+      els.searchResults.querySelectorAll("button").forEach(button => button.addEventListener("click", () => selectLocation(aliasMatches[Number(button.dataset.result)])));
+    } else {
+      els.searchResults.innerHTML = `<p class="location-note">A busca falhou. Tente novamente em instantes.</p>`;
+    }
+  }
 }
 
 function selectLocation(location) {
