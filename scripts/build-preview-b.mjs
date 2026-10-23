@@ -136,6 +136,26 @@ const speciesPanelHtml = `
 
 html = replace(html, '</section>\n      </main>\n\n      <main id="rankingPanel"', `</section>\n      </main>${speciesPanelHtml}\n\n      <main id="rankingPanel"`);
 
+// Replace rip-current banner with YouTube Channel recommendation for novice fishermen
+const ytRecommendationHtml = `<aside class="tips-youtube-card" aria-labelledby="youtubeChannelTitle">
+          <div class="tips-youtube-content">
+            <div class="tips-youtube-badge">
+              <span class="youtube-play-icon" aria-hidden="true">▶</span>
+              <span>CANAL RECOMENDADO NO YOUTUBE · DICAS PARA NOVATOS</span>
+            </div>
+            <h2 id="youtubeChannelTitle">Aprenda na prática com Júlio Marinho Pesca</h2>
+            <p>Canal que ajuda pescadores novatos a evoluírem na pesca de praia: arremessos, montagens de chicotes, leitura do mar, nós e equipamentos essenciais direto na areia.</p>
+          </div>
+          <a class="tips-youtube-btn" href="https://www.youtube.com/@juliomarinhopesca" target="_blank" rel="noreferrer" aria-label="Acessar o canal Júlio Marinho Pesca no YouTube">
+            <span class="yt-btn-icon" aria-hidden="true">▶</span>
+            <span>Acessar canal no YouTube ↗</span>
+          </a>
+        </aside>`;
+
+const safetyAsideRegex = /<aside class="tips-safety" aria-labelledby="tipsSafetyTitle">[\s\S]*?<\/aside>/;
+if (!safetyAsideRegex.test(html)) throw new Error('Bloco tips-safety não encontrado no HTML.');
+html = html.replace(safetyAsideRegex, ytRecommendationHtml);
+
 // Animated loading overlay shown while a newly chosen fishing spot is loading
 const locationLoaderHtml = `<div id="locationLoader" class="loc-loader" role="status" aria-live="polite" hidden>
         <div class="loc-loader-card">

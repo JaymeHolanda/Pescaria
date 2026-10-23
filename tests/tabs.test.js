@@ -42,7 +42,7 @@ test('HTML local e Pages têm imagem correta e não exibem chance de captura', (
     assert.ok(html.indexOf('id="forecastTab"') < html.indexOf('id="tipsTab"'));
     assert.ok(html.indexOf('id="tipsTab"') < html.indexOf('id="rankingTab"'));
     assert.match(html, path.includes('dist') ? /src="\.\/assets\/valoes-praia\.jpg"/ : /src="\.\/dist\/assets\/valoes-praia\.jpg"/);
-    assert.match(html, /Não entre nos canais/);
+    assert.match(html, /juliomarinhopesca/);
   }
 });
 
