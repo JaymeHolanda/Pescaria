@@ -1107,3 +1107,273 @@ body::before { opacity: .1; background-size: 36px 36px; }
 @media (prefers-reduced-motion: reduce) {
   .catch-item:hover, .species-card:hover, .window-card.spring-tide-window:hover { transform: none !important; }
 }
+
+/* ===== Aba Espécies: região + fotos (iNaturalist) ===== */
+.species-intro { margin-bottom: 4px; }
+.species-region-note { color: #9fc4cc !important; }
+.species-region-group button { display: inline-flex; align-items: center; gap: 6px; }
+.species-region-group button[data-region-filter="auto"] { border-color: rgba(77, 225, 193, 0.38); color: #d8fff4; }
+.species-region-group button[data-region-filter="auto"][aria-pressed="true"] { box-shadow: 0 0 0 4px rgba(77, 225, 193, 0.12), 0 8px 24px rgba(77, 225, 193, 0.25); }
+.species-region-group button[data-region-filter="all"] { margin-left: auto; }
+
+.species-card {
+  position: relative;
+  overflow: hidden;
+  animation: speciesCardIn .45s cubic-bezier(.2, .7, .2, 1) backwards;
+  animation-delay: var(--stagger, 0ms);
+}
+.species-card::before {
+  content: "";
+  position: absolute;
+  inset: -40% -30% auto auto;
+  width: 60%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(77, 225, 193, 0.10), transparent 65%);
+  pointer-events: none;
+}
+@keyframes speciesCardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.species-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 44%);
+  gap: 18px;
+  align-items: center;
+}
+.species-card-title { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.species-card-title .species-scientific { margin: -8px 0 0; }
+
+.species-photo {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(135deg, rgba(20, 60, 70, 0.9), rgba(6, 26, 36, 0.9));
+  border: 1px solid rgba(151, 218, 214, 0.16);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+.species-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity .5s ease, transform .9s cubic-bezier(.2, .7, .2, 1);
+}
+.species-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, transparent 55%, rgba(4, 18, 26, 0.85));
+  pointer-events: none;
+}
+.species-photo[data-state="ready"] img { opacity: 1; transform: scale(1); }
+.species-card:hover .species-photo[data-state="ready"] img { transform: scale(1.05); }
+
+/* shimmer enquanto a foto chega */
+.species-photo[data-state="idle"]::before,
+.species-photo[data-state="loading"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(100deg, transparent 20%, rgba(160, 255, 235, 0.10) 45%, transparent 70%);
+  background-size: 220% 100%;
+  animation: speciesShimmer 1.3s linear infinite;
+}
+@keyframes speciesShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+.species-photo-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transition: opacity .3s ease;
+}
+.species-photo-fallback svg { width: 58%; fill: rgba(77, 225, 193, 0.20); }
+.species-photo-fallback svg circle { fill: rgba(4, 18, 26, 0.9); }
+.species-photo[data-state="ready"] .species-photo-fallback { opacity: 0; }
+.species-photo[data-state="fallback"] .species-photo-fallback svg { fill: rgba(77, 225, 193, 0.32); }
+
+.species-photo figcaption {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 7px;
+  z-index: 3;
+  font-size: .6rem;
+  line-height: 1.3;
+  color: rgba(225, 245, 242, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity .3s ease .2s;
+}
+.species-photo[data-state="ready"] figcaption { opacity: 1; }
+.species-photo figcaption a { color: inherit; text-decoration: none; }
+.species-photo figcaption a:hover { color: #ffffff; text-decoration: underline; }
+.species-photo-note { margin-top: 18px; }
+.species-photo-note a { color: var(--aqua-soft); }
+
+/* ===== Spinner da busca e do botão de local ===== */
+.search-loading { display: flex; align-items: center; gap: 10px; }
+.mini-spinner {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(77, 225, 193, 0.22);
+  border-top-color: var(--aqua);
+  animation: locSpin .7s linear infinite;
+}
+.location-button.is-loading .pin { display: inline-block; animation: locSpin 1s linear infinite; color: var(--aqua); }
+@keyframes locSpin { to { transform: rotate(360deg); } }
+
+/* ===== Overlay de carregamento da localidade ===== */
+.loc-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: radial-gradient(circle at 50% 40%, rgba(10, 48, 58, 0.72), rgba(3, 14, 20, 0.86));
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  animation: locFadeIn .25s ease both;
+}
+.loc-loader[hidden] { display: none; }
+.loc-loader.is-leaving { animation: locFadeOut .3s ease both; }
+@keyframes locFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes locFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.loc-loader-card {
+  width: min(380px, 100%);
+  padding: 26px 26px 22px;
+  border-radius: 22px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(16, 52, 62, 0.96), rgba(6, 25, 34, 0.96));
+  border: 1px solid rgba(77, 225, 193, 0.28);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(77, 225, 193, 0.05);
+  animation: locCardIn .45s cubic-bezier(.2, .8, .2, 1.1) both;
+}
+.loc-loader.is-leaving .loc-loader-card { animation: locCardOut .3s ease both; }
+@keyframes locCardIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes locCardOut { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+
+.loc-loader-scene {
+  height: 120px;
+  margin: -6px -8px 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(101, 198, 255, 0.10), rgba(77, 225, 193, 0.04));
+}
+.loc-loader-scene svg { width: 100%; height: 100%; display: block; }
+.loc-sun { fill: var(--lime); filter: drop-shadow(0 0 10px rgba(223, 247, 109, 0.55)); animation: locPulse 2.4s ease-in-out infinite; }
+.loc-line { fill: none; stroke: rgba(230, 255, 248, 0.55); stroke-width: 1.4; stroke-dasharray: 3 3; }
+.loc-bobber { transform-origin: 118px 60px; animation: locBob 1.6s ease-in-out infinite; }
+.loc-bobber circle { fill: #ff8a65; stroke: #fff; stroke-width: 1.5; }
+.loc-bobber path { stroke: #fff; stroke-width: 2; }
+.loc-fish path { fill: var(--aqua); opacity: .9; }
+.loc-fish { animation: locJump 2.8s ease-in-out infinite; transform-box: fill-box; }
+.loc-wave path { fill: url(#locLoaderSea); }
+.loc-wave-back { opacity: .55; animation: locWave 3.6s linear infinite; }
+.loc-wave-front { animation: locWave 2.4s linear infinite reverse; }
+.loc-wave-front path { fill: rgba(77, 225, 193, 0.38); }
+@keyframes locWave { from { transform: translateX(0); } to { transform: translateX(120px); } }
+@keyframes locBob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(5px) rotate(5deg); } }
+@keyframes locPulse { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }
+@keyframes locJump {
+  0%, 55% { transform: translate(0, 30px) rotate(0); opacity: 0; }
+  62% { opacity: 1; }
+  72% { transform: translate(40px, -24px) rotate(-25deg); }
+  86% { transform: translate(84px, 10px) rotate(30deg); opacity: 1; }
+  100% { transform: translate(100px, 40px) rotate(40deg); opacity: 0; }
+}
+
+.loc-loader-card .eyebrow { margin: 0 0 6px; font-size: .64rem; }
+.loc-loader-name {
+  display: block;
+  font: 800 1.28rem Manrope, sans-serif;
+  letter-spacing: -.03em;
+  color: #ffffff;
+  margin-bottom: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.loc-loader-steps {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+.loc-loader-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(151, 218, 214, 0.10);
+  color: #7f9fa8;
+  font-size: .8rem;
+  font-weight: 600;
+}
+.loc-loader-steps li span {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(77, 225, 193, 0.25);
+  border-top-color: var(--aqua);
+  animation: locSpin .8s linear infinite;
+}
+.loc-loader.is-active .loc-loader-steps li { animation: locStepDone .3s ease forwards; }
+.loc-loader.is-active .loc-loader-steps li span { animation: locSpin .8s linear infinite, locCheck .3s ease forwards; }
+.loc-loader.is-active .loc-loader-steps li:nth-child(1), .loc-loader.is-active .loc-loader-steps li:nth-child(1) span { animation-delay: 0s, .45s; }
+.loc-loader.is-active .loc-loader-steps li:nth-child(1) { animation-delay: .45s; }
+.loc-loader.is-active .loc-loader-steps li:nth-child(2) { animation-delay: .8s; }
+.loc-loader.is-active .loc-loader-steps li:nth-child(2) span { animation-delay: 0s, .8s; }
+.loc-loader.is-active .loc-loader-steps li:nth-child(3) { animation-delay: 1.15s; }
+.loc-loader.is-active .loc-loader-steps li:nth-child(3) span { animation-delay: 0s, 1.15s; }
+@keyframes locStepDone { to { color: #e6fff8; border-color: rgba(77, 225, 193, 0.32); background: rgba(77, 225, 193, 0.07); } }
+@keyframes locCheck { to { border-color: var(--aqua); background: var(--aqua); box-shadow: 0 0 10px rgba(77, 225, 193, 0.6); } }
+
+.loc-loader-bar {
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(77, 225, 193, 0.12);
+}
+.loc-loader-bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--aqua), var(--lime));
+  animation: locBar 1.1s ease-in-out infinite;
+}
+@keyframes locBar { from { transform: translateX(-110%); } to { transform: translateX(260%); } }
+
+@media (max-width: 620px) {
+  .species-card-head { grid-template-columns: 1fr; }
+  .species-photo { order: -1; aspect-ratio: 16 / 9; }
+  .species-region-group button[data-region-filter="all"] { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .species-card, .loc-loader, .loc-loader-card { animation: none !important; }
+  .loc-wave, .loc-bobber, .loc-fish, .loc-sun, .loc-loader-bar span { animation: none !important; }
+  .loc-fish { opacity: 0; }
+  .species-photo img { transition: opacity .2s ease; transform: none !important; }
+}

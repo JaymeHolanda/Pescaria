@@ -46,6 +46,30 @@ test('HTML local e Pages têm imagem correta e não exibem chance de captura', (
   }
 });
 
+test('aba Espécies fica entre Dicas e Ranking, separada do painel de dicas', () => {
+  const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
+  assert.ok(html.indexOf('id="tipsTab"') < html.indexOf('id="speciesTab"'));
+  assert.ok(html.indexOf('id="speciesTab"') < html.indexOf('id="rankingTab"'));
+  const tipsPanel = html.slice(html.indexOf('<main id="tipsPanel"'), html.indexOf('<main id="speciesPanel"'));
+  assert.ok(tipsPanel.length > 0);
+  assert.doesNotMatch(tipsPanel, /speciesCatalogGrid/);
+  assert.match(html, /<main id="speciesPanel"[^>]*>[\s\S]*id="speciesCatalogGrid"/);
+  assert.match(html, /id="locationLoader"/);
+
+  const elements = {};
+  for (const name of ['forecast', 'tips', 'species', 'ranking']) {
+    elements[`${name}Tab`] = { attributes: {}, listeners: {}, setAttribute(k, v) { this.attributes[k] = v; }, addEventListener(k, fn) { this.listeners[k] = fn; }, focus() { this.focused = true; } };
+    elements[`${name}Panel`] = { hidden: name !== 'forecast' };
+  }
+  initTabs({ getElementById: id => elements[id] });
+  elements.tipsTab.listeners.keydown({ key: 'ArrowRight', preventDefault() {} });
+  assert.equal(elements.speciesPanel.hidden, false);
+  assert.equal(elements.tipsPanel.hidden, true);
+  elements.speciesTab.listeners.keydown({ key: 'ArrowRight', preventDefault() {} });
+  assert.equal(elements.rankingPanel.hidden, false);
+  assert.equal(elements.speciesPanel.hidden, true);
+});
+
 test('entradas HTML e dependências usam versões atuais para evitar cache antigo', () => {
   const revision = file => createHash('sha256').update(readFileSync(new URL(`../dist/${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')).digest('hex').slice(0, 12);
   for (const path of ['../dist/index.html', '../index.html']) {

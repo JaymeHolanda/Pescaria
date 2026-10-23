@@ -16,6 +16,10 @@ let html = baseHtml;
 html = replace(html, '<link rel="stylesheet" href="./styles.css" />', '<link rel="manifest" href="./manifest.webmanifest" />\n    <link rel="stylesheet" href="./styles.css" />\n    <link rel="stylesheet" href="./versao-b.css" />');
 html = replace(html, '<title>Maré Certa — planeje sua pescaria</title>', '<title>Maré Certa — sua próxima pescaria</title>');
 html = replace(html, '<body>', '<body class="preview-b">');
+html = replace(html, '<link rel="preconnect" href="https://geocoding-api.open-meteo.com" />', '<link rel="preconnect" href="https://geocoding-api.open-meteo.com" />\n    <link rel="preconnect" href="https://api.inaturalist.org" />\n    <link rel="preconnect" href="https://inaturalist-open-data.s3.amazonaws.com" />');
+
+// Aba própria para espécies, entre "Dicas de pesca" e "Ranking"
+html = replace(html, '<button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>', '<button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>\n        <button id="speciesTab" role="tab" aria-controls="speciesPanel" aria-selected="false" tabindex="-1" type="button">Espécies</button>');
 
 // Quick Spot Bar right below topbar
 html = replace(html, '<nav class="view-tabs"', `<div class="spot-quick-strip" aria-label="Praias e pontos rápidos">
@@ -83,19 +87,27 @@ html = replace(html, '<div class="legend"><span class="dot high"></span> Alta <s
 html = html.replace(/(<svg id="tideChart"[^>]*><\/svg>)/, '$1\n              <div id="chartTooltip" class="b-chart-tooltip" hidden></div>');
 html = replace(html, '<div class="tide-events"', `<div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré hora a hora</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas (3h antes da alta)</span><span><i class="solunar-bar-icon"></i> Período Solunar Maior</span><span>Toque na curva ou deslize</span></div></div>\n            <div class="tide-events"`);
 
-// Inject Interactive Species & Bait Catalog into #tipsPanel
+// Interactive Species & Bait Catalog in its own #speciesPanel (filtered by the coastal region of the chosen spot)
 const speciesCatalogHtml = `
         <section id="speciesCatalogSection" class="species-catalog-section" aria-labelledby="speciesCatalogTitle">
           <div class="species-catalog-header card">
             <div class="species-header-top">
               <div>
-                <p class="eyebrow">GUIA DE CAMPO · LITORAL BRASILEIRO</p>
+                <p class="eyebrow">GUIA DE CAMPO · <span id="speciesRegionEyebrow">LITORAL BRASILEIRO</span></p>
                 <h2 id="speciesCatalogTitle">Catálogo de espécies, iscas e montagens.</h2>
-                <p>Consulte onde cada peixe costuma encostar na praia, as iscas mais produtivas, numeração de anzol e o tamanho mínimo para pesca consciente.</p>
+                <p id="speciesRegionNote" class="species-region-note">Mostrando espécies do litoral brasileiro.</p>
               </div>
-              <span id="speciesCatalogCount" class="ranking-count">8 espécies de praia listadas</span>
+              <span id="speciesCatalogCount" class="ranking-count">Carregando espécies…</span>
             </div>
             <div class="species-filters-bar">
+              <div class="species-filter-group species-region-group" role="group" aria-label="Filtrar por região do litoral">
+                <button type="button" data-region-filter="auto" aria-pressed="true"><span aria-hidden="true">📍</span> <span id="speciesAutoRegionLabel">Sua região</span></button>
+                <button type="button" data-region-filter="norte" aria-pressed="false">Norte</button>
+                <button type="button" data-region-filter="nordeste" aria-pressed="false">Nordeste</button>
+                <button type="button" data-region-filter="sudeste" aria-pressed="false">Sudeste</button>
+                <button type="button" data-region-filter="sul" aria-pressed="false">Sul</button>
+                <button type="button" data-region-filter="all" aria-pressed="false">Todo o litoral</button>
+              </div>
               <label class="species-search-wrap">
                 <span class="sr-only">Buscar espécie ou isca</span>
                 <input id="speciesSearchInput" type="search" placeholder="Buscar peixe, isca ou dica (ex.: pampo, corrupto, valão)…" autocomplete="off" />
@@ -118,9 +130,47 @@ const speciesCatalogHtml = `
             </div>
           </div>
           <div id="speciesCatalogGrid" class="species-catalog-grid" aria-live="polite"></div>
+          <p class="chart-note species-photo-note">Fotos: comunidade <a href="https://www.inaturalist.org/" target="_blank" rel="noreferrer">iNaturalist</a>, licenças Creative Commons, com crédito em cada foto. A distribuição regional é uma referência geral e não garante a presença da espécie.</p>
         </section>`;
 
-html = replace(html, '</section>\n      </main>\n\n      <main id="rankingPanel"', `</section>${speciesCatalogHtml}\n      </main>\n\n      <main id="rankingPanel"`);
+const speciesPanelHtml = `
+
+      <main id="speciesPanel" role="tabpanel" aria-labelledby="speciesTab" hidden>
+        <section class="intro tips-intro species-intro" aria-labelledby="speciesTitle">
+          <div><p class="eyebrow">ESPÉCIES DA SUA REGIÃO</p><h1 id="speciesTitle">Quem encosta<br><em>na sua praia.</em></h1></div>
+          <div class="intro-aside"><p>Peixes comuns no trecho do litoral do local escolhido, com iscas, anzol, melhor maré e tamanho mínimo para pesca consciente.</p><p class="tips-note">Troque o local de pesca no topo e a lista se ajusta à nova região.</p></div>
+        </section>${speciesCatalogHtml}
+      </main>`;
+
+html = replace(html, '</section>\n      </main>\n\n      <main id="rankingPanel"', `</section>\n      </main>${speciesPanelHtml}\n\n      <main id="rankingPanel"`);
+
+// Animated loading overlay shown while a newly chosen fishing spot is loading
+const locationLoaderHtml = `<div id="locationLoader" class="loc-loader" role="status" aria-live="polite" hidden>
+        <div class="loc-loader-card">
+          <div class="loc-loader-scene" aria-hidden="true">
+            <svg viewBox="0 0 240 120">
+              <defs><linearGradient id="locLoaderSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4de1c1" stop-opacity=".55"/><stop offset="1" stop-color="#4de1c1" stop-opacity="0"/></linearGradient></defs>
+              <circle class="loc-sun" cx="196" cy="30" r="13"/>
+              <path class="loc-line" d="M42 6 Q 90 20 118 58"/>
+              <g class="loc-bobber"><circle cx="118" cy="60" r="7"/><path d="M111 60 h14"/></g>
+              <g class="loc-fish"><path d="M0 0c8-8 22-10 34-4l9-6-2 12 2 12-9-6C22 14 8 8 0 0z" transform="translate(60 92)"/></g>
+              <g class="loc-wave loc-wave-back"><path d="M-240 70 q30-12 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 V120 H-240z"/></g>
+              <g class="loc-wave loc-wave-front"><path d="M-240 78 q30-10 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 V120 H-240z"/></g>
+            </svg>
+          </div>
+          <p class="eyebrow">ATUALIZANDO LOCAL DE PESCA</p>
+          <strong id="locationLoaderName" class="loc-loader-name">—</strong>
+          <ol class="loc-loader-steps">
+            <li><span></span>Tábua de maré</li>
+            <li><span></span>Vento &amp; ondas</li>
+            <li><span></span>Janelas &amp; espécies</li>
+          </ol>
+          <div class="loc-loader-bar"><span></span></div>
+        </div>
+      </div>
+
+      <footer>`;
+html = replace(html, '<footer>', locationLoaderHtml);
 
 // Inject Community KPIs & Fisherman Achievements into #rankingPanel
 const achievementsHtml = `<section id="achievementsSection" class="b-achievements-section" aria-label="Estatísticas e Conquistas">

@@ -15,8 +15,10 @@ import {
   computeAchievements,
   findNearestBrazilianHarbor,
   parseTabuaMareResponse,
-  buildHarborTideDay
+  buildHarborTideDay,
+  coastalRegionFor
 } from '../src/preview-b/model.js';
+import { parseTaxonPhoto } from '../src/preview-b/species-photos.js';
 
 const day = (...times) => ({ events: times.map(time => ({ time, type: 'high' })) });
 
@@ -78,12 +80,44 @@ test('consultor de equipamento recomenda chumbada e montagem conforme ondas e ve
 });
 
 test('catálogo de espécies filtra por zona, isca e termo de busca', () => {
-  assert.equal(SPECIES_CATALOG.length, 8);
+  assert.equal(SPECIES_CATALOG.length, 13);
+  assert.ok(SPECIES_CATALOG.every(s => s.photoTaxon && Array.isArray(s.regions) && s.regions.length));
   const byBait = filterSpeciesCatalog(SPECIES_CATALOG, { bait: 'Tatuíra' });
   assert.ok(byBait.some(s => s.id === 'pampo'));
   assert.ok(byBait.some(s => s.id === 'sargo'));
   const byZone = filterSpeciesCatalog(SPECIES_CATALOG, { zone: 'beira' });
   assert.ok(byZone.every(s => s.zone === 'beira'));
+});
+
+test('região costeira vem do local escolhido e filtra as espécies', () => {
+  assert.equal(coastalRegionFor({ latitude: -7.115, longitude: -34.8631, country_code: 'BR' }), 'nordeste');
+  assert.equal(coastalRegionFor({ latitude: -22.9064, longitude: -43.1822 }), 'sudeste');
+  assert.equal(coastalRegionFor({ latitude: -27.5969, longitude: -48.5556 }), 'sul');
+  assert.equal(coastalRegionFor({ latitude: -1.45, longitude: -48.5 }), 'norte');
+  assert.equal(coastalRegionFor({ latitude: -3.715, longitude: -38.4767 }), 'nordeste');
+  assert.equal(coastalRegionFor({ latitude: 38.7, longitude: -9.1, country_code: 'PT' }), null);
+  assert.equal(coastalRegionFor({}), null);
+
+  const sul = filterSpeciesCatalog(SPECIES_CATALOG, { region: 'sul' });
+  assert.ok(sul.some(s => s.id === 'anchova'));
+  assert.ok(!sul.some(s => s.id === 'camurupim'));
+  const nordeste = filterSpeciesCatalog(SPECIES_CATALOG, { region: 'nordeste' });
+  assert.ok(nordeste.some(s => s.id === 'camurupim'));
+  assert.ok(!nordeste.some(s => s.id === 'anchova'));
+  assert.equal(filterSpeciesCatalog(SPECIES_CATALOG, { region: 'all' }).length, SPECIES_CATALOG.length);
+});
+
+test('foto do iNaturalist usa a imagem média da espécie exata e mantém o crédito', () => {
+  const payload = { results: [
+    { id: 1, name: 'Trachinotus carolinus', default_photo: { medium_url: 'https://x/1/medium.jpg', attribution: '(c) A' } },
+    { id: 114269, name: 'Trachinotus goodei', default_photo: { url: 'https://x/2/square.jpg', attribution: '(c) Kevin Bryant, some rights reserved (CC BY-NC-SA)' } }
+  ] };
+  const photo = parseTaxonPhoto(payload, 'Trachinotus goodei');
+  assert.equal(photo.url, 'https://x/2/medium.jpg');
+  assert.match(photo.attribution, /Kevin Bryant/);
+  assert.equal(photo.link, 'https://www.inaturalist.org/taxa/114269');
+  assert.equal(parseTaxonPhoto({ results: [] }, 'X'), null);
+  assert.equal(parseTaxonPhoto(null, 'X'), null);
 });
 
 test('conquistas e amplitude de maré calculam estatísticas e medalhas corretamente', () => {

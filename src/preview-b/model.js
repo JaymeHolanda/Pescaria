@@ -180,11 +180,36 @@ export function tideAmplitudeInfo(points = [], events = []) {
   return { min, max, amplitude, category };
 }
 
+export const COASTAL_REGIONS = {
+  norte: { id: 'norte', label: 'Norte', long: 'litoral Norte e costa amazônica' },
+  nordeste: { id: 'nordeste', label: 'Nordeste', long: 'litoral Nordeste' },
+  sudeste: { id: 'sudeste', label: 'Sudeste', long: 'litoral Sudeste' },
+  sul: { id: 'sul', label: 'Sul', long: 'litoral Sul' }
+};
+
+/**
+ * Classifica um ponto do litoral brasileiro em uma das quatro regiões costeiras.
+ * Retorna null para locais fora do Brasil ou sem coordenadas válidas.
+ */
+export function coastalRegionFor(location) {
+  const lat = Number(location?.latitude), lon = Number(location?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const country = String(location?.country_code || 'BR').toUpperCase();
+  if (country !== 'BR') return null;
+  if (lat > 5.5 || lat < -34.5 || lon > -28 || lon < -74) return null;
+  if (lat > -3.2 && lon < -42) return 'norte';
+  if (lat >= -18.3) return 'nordeste';
+  if (lat >= -25.3) return 'sudeste';
+  return 'sul';
+}
+
 export const SPECIES_CATALOG = [
   {
     id: 'pampo',
     name: 'Pampo-galhudo / Pampinho',
     scientific: 'Trachinotus goodei · carolinus',
+    photoTaxon: 'Trachinotus goodei',
+    regions: ['nordeste', 'sudeste', 'sul'],
     zone: 'beira',
     zoneLabel: 'Beira & 1º Valão',
     baits: ['Tatuíra', 'Corrupto', 'Camarão'],
@@ -197,6 +222,8 @@ export const SPECIES_CATALOG = [
     id: 'betara',
     name: 'Betara / Papa-terra',
     scientific: 'Menticirrhus americanus',
+    photoTaxon: 'Menticirrhus americanus',
+    regions: ['norte', 'nordeste', 'sudeste', 'sul'],
     zone: 'canais',
     zoneLabel: 'Canais & Poços',
     baits: ['Camarão', 'Minhoca de praia', 'Corrupto'],
@@ -209,6 +236,8 @@ export const SPECIES_CATALOG = [
     id: 'robalo',
     name: 'Robalo-flecha / Peva',
     scientific: 'Centropomus undecimalis · parallelus',
+    photoTaxon: 'Centropomus undecimalis',
+    regions: ['norte', 'nordeste', 'sudeste', 'sul'],
     zone: 'estruturas',
     zoneLabel: 'Estuários & Pedras',
     baits: ['Camarão', 'Sardinha', 'Artificial'],
@@ -221,6 +250,8 @@ export const SPECIES_CATALOG = [
     id: 'corvina',
     name: 'Corvina-de-linha',
     scientific: 'Micropogonias furnieri',
+    photoTaxon: 'Micropogonias furnieri',
+    regions: ['nordeste', 'sudeste', 'sul'],
     zone: 'fundo',
     zoneLabel: '2º Valão & Fundo',
     baits: ['Camarão', 'Corrupto', 'Sardinha'],
@@ -233,6 +264,8 @@ export const SPECIES_CATALOG = [
     id: 'xareu',
     name: 'Xaréu / Xarelete',
     scientific: 'Caranx hippos · latus',
+    photoTaxon: 'Caranx hippos',
+    regions: ['norte', 'nordeste', 'sudeste'],
     zone: 'canais',
     zoneLabel: 'Canais & Poços',
     baits: ['Sardinha', 'Camarão', 'Artificial'],
@@ -245,6 +278,8 @@ export const SPECIES_CATALOG = [
     id: 'sargo',
     name: 'Sargo-de-dente',
     scientific: 'Archosargus probatocephalus',
+    photoTaxon: 'Archosargus probatocephalus',
+    regions: ['nordeste', 'sudeste', 'sul'],
     zone: 'estruturas',
     zoneLabel: 'Estuários & Pedras',
     baits: ['Tatuíra', 'Camarão', 'Corrupto'],
@@ -257,6 +292,8 @@ export const SPECIES_CATALOG = [
     id: 'bagre',
     name: 'Bagre-marinho / Bandeirado',
     scientific: 'Genidens barbus · Bagre marinus',
+    photoTaxon: 'Genidens barbus',
+    regions: ['norte', 'nordeste', 'sudeste', 'sul'],
     zone: 'fundo',
     zoneLabel: '2º Valão & Fundo',
     baits: ['Sardinha', 'Camarão', 'Minhoca de praia'],
@@ -269,6 +306,8 @@ export const SPECIES_CATALOG = [
     id: 'tibiro',
     name: 'Tibiro / Guaivira',
     scientific: 'Oligoplites saurus',
+    photoTaxon: 'Oligoplites saurus',
+    regions: ['norte', 'nordeste', 'sudeste'],
     zone: 'beira',
     zoneLabel: 'Beira & 1º Valão',
     baits: ['Camarão', 'Sardinha', 'Artificial'],
@@ -276,17 +315,88 @@ export const SPECIES_CATALOG = [
     minSize: '25 cm',
     bestTide: 'Maré alta com água limpa a esverdeada',
     tip: 'Caça na superfície e meia-água. Filete de sardinha ou camarão com flutuador branco é imbatível.'
+  },
+  {
+    id: 'anchova',
+    name: 'Anchova / Enchova',
+    scientific: 'Pomatomus saltatrix',
+    photoTaxon: 'Pomatomus saltatrix',
+    regions: ['sudeste', 'sul'],
+    zone: 'canais',
+    zoneLabel: 'Canais & Poços',
+    baits: ['Sardinha', 'Artificial'],
+    hook: 'Chinu #6 a #8 com empate de aço curto',
+    minSize: '35 cm',
+    bestTide: 'Enchente com mar mexido e água verde, ao amanhecer',
+    tip: 'Dentes afiadíssimos cortam náilon fino: use empate de aço. Costuma passar em cardumes junto às frentes frias.'
+  },
+  {
+    id: 'espada',
+    name: 'Peixe-espada',
+    scientific: 'Trichiurus lepturus',
+    photoTaxon: 'Trichiurus lepturus',
+    regions: ['nordeste', 'sudeste', 'sul'],
+    zone: 'estruturas',
+    zoneLabel: 'Estuários & Pedras',
+    baits: ['Sardinha', 'Artificial'],
+    hook: 'Maruseigo #16 a #18 com cabo de aço fino',
+    minSize: '50 cm',
+    bestTide: 'Noite com maré enchendo perto de canais e píeres',
+    tip: 'Ataca iscas brilhantes em meia-água. Filé de sardinha bem esticado no anzol e recolhimento lento funcionam melhor.'
+  },
+  {
+    id: 'carapeba',
+    name: 'Carapeba',
+    scientific: 'Eugerres brasilianus',
+    photoTaxon: 'Eugerres brasilianus',
+    regions: ['nordeste', 'sudeste'],
+    zone: 'estruturas',
+    zoneLabel: 'Estuários & Pedras',
+    baits: ['Camarão', 'Minhoca de praia'],
+    hook: 'Maruseigo #10 a #12 (pernada fina)',
+    minSize: '20 cm',
+    bestTide: 'Início da vazante na boca de mangues e rios',
+    tip: 'Boca pequena e mordida delicada: use isca miúda e linha leve. Muito comum em estuários com fundo de lama e areia.'
+  },
+  {
+    id: 'pescada-amarela',
+    name: 'Pescada-amarela',
+    scientific: 'Cynoscion acoupa',
+    photoTaxon: 'Cynoscion acoupa',
+    regions: ['norte', 'nordeste'],
+    zone: 'fundo',
+    zoneLabel: '2º Valão & Fundo',
+    baits: ['Camarão', 'Sardinha', 'Artificial'],
+    hook: 'Chinu #8 ou Circle Hook #2/0',
+    minSize: '45 cm',
+    bestTide: 'Marés de sizígia, na virada da maré em canais fundos',
+    tip: 'Prefere água barrenta e correnteza. Camarão vivo arrastado rente ao fundo é a isca mais produtiva.'
+  },
+  {
+    id: 'camurupim',
+    name: 'Camurupim / Pirapema',
+    scientific: 'Megalops atlanticus',
+    photoTaxon: 'Megalops atlanticus',
+    regions: ['norte', 'nordeste'],
+    zone: 'estruturas',
+    zoneLabel: 'Estuários & Pedras',
+    baits: ['Sardinha', 'Artificial', 'Camarão'],
+    hook: 'Circle Hook #4/0 a #6/0 com líder grosso',
+    minSize: 'Pesque e solte',
+    bestTide: 'Maré enchendo em barras de rio, ao amanhecer',
+    tip: 'Espécie vulnerável: prefira o pesque e solte. Saltos acrobáticos exigem paciência e fricção suave.'
   }
 ];
 
-export function filterSpeciesCatalog(catalog = SPECIES_CATALOG, { query = '', bait = 'all', zone = 'all' } = {}) {
+export function filterSpeciesCatalog(catalog = SPECIES_CATALOG, { query = '', bait = 'all', zone = 'all', region = 'all' } = {}) {
   const q = normalize(query);
   const b = normalize(bait);
   return catalog.filter(item => {
     const matchesQuery = !q || normalize(item.name).includes(q) || normalize(item.scientific).includes(q) || normalize(item.tip).includes(q) || item.baits.some(x => normalize(x).includes(q));
     const matchesBait = !b || b === 'all' || item.baits.some(x => normalize(x).includes(b));
     const matchesZone = !zone || zone === 'all' || item.zone === zone;
-    return matchesQuery && matchesBait && matchesZone;
+    const matchesRegion = !region || region === 'all' || !Array.isArray(item.regions) || item.regions.includes(region);
+    return matchesQuery && matchesBait && matchesZone && matchesRegion;
   });
 }
 

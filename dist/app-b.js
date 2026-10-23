@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js?v=e2046439115a';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js?v=b51d6bc911fb';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js?v=f155a29720da';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor } from './preview-b.js?v=1b320e329092';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js?v=0e3b0e0cea25';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
@@ -17,8 +17,39 @@ const els = {
   uvStrip: $(".uv-strip"), uvContext: $("#uvContext"), uvIndex: $("#uvIndex"), uvLevel: $("#uvLevel"), dayTemperature: $("#dayTemperature"),
   summaryTitle: $("#summaryTitle"), summaryDate: $("#summaryDate"), summaryCards: $("#summaryCards"),
   tideSource: $("#tideSource"),
-  dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton")
+  dataStatus: $("#dataStatus"), todayLabel: $("#todayLabel"), errorBox: $("#errorBox"), errorMessage: $("#errorMessage"), retryButton: $("#retryButton"),
+  locationLoader: $("#locationLoader"), locationLoaderName: $("#locationLoaderName")
 };
+
+const LOADER_MIN_MS = 1100;
+let loaderShownAt = 0;
+let loaderHideTimer;
+
+function showLocationLoader(location) {
+  if (!els.locationLoader) return;
+  clearTimeout(loaderHideTimer);
+  const region = location?.admin1 || location?.country_code || "";
+  if (els.locationLoaderName) els.locationLoaderName.textContent = [location?.name, region].filter(Boolean).join(", ");
+  els.locationLoader.hidden = false;
+  els.locationLoader.classList.remove("is-leaving");
+  // Reinicia as animações dos passos a cada nova busca
+  els.locationLoader.classList.remove("is-active");
+  void els.locationLoader.offsetWidth;
+  els.locationLoader.classList.add("is-active");
+  els.locationButton.classList.add("is-loading");
+  loaderShownAt = performance.now();
+}
+
+function hideLocationLoader() {
+  if (!els.locationLoader || els.locationLoader.hidden) return;
+  const wait = Math.max(0, LOADER_MIN_MS - (performance.now() - loaderShownAt));
+  clearTimeout(loaderHideTimer);
+  loaderHideTimer = setTimeout(() => {
+    els.locationLoader.classList.add("is-leaving");
+    els.locationButton.classList.remove("is-loading");
+    loaderHideTimer = setTimeout(() => { els.locationLoader.hidden = true; els.locationLoader.classList.remove("is-leaving", "is-active"); }, 320);
+  }, wait);
+}
 
 function loadLocation() {
   try { return JSON.parse(localStorage.getItem("mare-certa-location")) || DEFAULT_LOCATION; }
@@ -82,6 +113,7 @@ function saveLocation(location) {
   try { localStorage.setItem("mare-certa-location", JSON.stringify(location)); } catch {}
   updateLocationLabel();
   renderSpotQuickBar();
+  setSpeciesLocation(location);
 }
 
 function updateLocationLabel() {
@@ -146,6 +178,7 @@ function loadForecastCache(loc) {
 async function loadForecast() {
   if (state.aborter) state.aborter.abort();
   state.aborter = new AbortController();
+  const currentAborter = state.aborter;
   const { latitude, longitude } = state.location;
   const common = `latitude=${latitude}&longitude=${longitude}&timezone=auto&forecast_days=7`;
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?${common}&past_days=1&wind_speed_unit=kmh&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation_probability,precipitation,weather_code&current=wind_speed_10m,wind_direction_10m&daily=moon_phase,wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max,uv_index_max,temperature_2m_min,temperature_2m_max`;
@@ -219,7 +252,10 @@ async function loadForecast() {
     els.errorBox.hidden = false;
     els.dataStatus.textContent = "Atualização pendente";
     renderUnavailable();
-  } finally { setLoading(false); }
+  } finally {
+    // Uma busca mais nova pode ter cancelado esta: só a requisição atual encerra o carregamento
+    if (state.aborter === currentAborter) { setLoading(false); hideLocationLoader(); }
+  }
 }
 
 function setLoading(loading) {
@@ -450,7 +486,7 @@ function normalizeStr(s) {
 }
 
 async function searchLocations(term) {
-  els.searchResults.innerHTML = `<p class="location-note">Buscando...</p>`;
+  els.searchResults.innerHTML = `<p class="location-note search-loading"><span class="mini-spinner" aria-hidden="true"></span>Buscando locais…</p>`;
   const norm = normalizeStr(term);
   const aliasMatches = COASTAL_ALIASES
     .filter(item => item.keys.some(k => norm === k || (norm.length >= 2 && k.includes(norm)) || (k.length >= 3 && norm.includes(k))))
@@ -489,6 +525,7 @@ async function searchLocations(term) {
 }
 
 function selectLocation(location) {
+  showLocationLoader(location);
   saveLocation(location); closeLocationPanel(); els.searchResults.innerHTML = ""; els.locationSearch.value = ""; loadForecast();
 }
 

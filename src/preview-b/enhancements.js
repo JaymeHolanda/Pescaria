@@ -9,8 +9,11 @@ import {
   recommendTackle,
   tideAmplitudeInfo,
   SPECIES_CATALOG,
-  filterSpeciesCatalog
+  filterSpeciesCatalog,
+  COASTAL_REGIONS,
+  coastalRegionFor
 } from './model.js';
+import { loadSpeciesPhoto } from './species-photos.js';
 
 export {
   forecastDays,
@@ -21,6 +24,8 @@ export {
   tideAmplitudeInfo,
   SPECIES_CATALOG,
   filterSpeciesCatalog,
+  COASTAL_REGIONS,
+  coastalRegionFor,
   findNearestBrazilianHarbor,
   parseTabuaMareResponse,
   buildHarborTideDay,
@@ -382,76 +387,165 @@ function renderSolunarAndTackle({ date, weather, marine, location, selectedDay =
   return solunar;
 }
 
-export function initSpeciesCatalogUI() {
-  const container = $('#speciesCatalogGrid');
-  const searchInput = $('#speciesSearchInput');
-  const zoneButtons = document.querySelectorAll('[data-zone-filter]');
-  const baitButtons = document.querySelectorAll('[data-bait-filter]');
-  const countEl = $('#speciesCatalogCount');
-  if (!container) return;
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
-  let currentZone = 'all';
-  let currentBait = 'all';
-  let currentQuery = '';
+const FISH_FALLBACK_SVG = '<svg viewBox="0 0 120 60" aria-hidden="true"><path d="M8 30c14-18 40-24 64-14l18-12-4 26 4 26-18-12C48 54 22 48 8 30z"/><circle cx="26" cy="27" r="3"/></svg>';
 
-  const renderCatalog = () => {
-    const filtered = filterSpeciesCatalog(SPECIES_CATALOG, {
-      query: currentQuery,
-      zone: currentZone,
-      bait: currentBait
-    });
-    if (countEl) {
-      countEl.textContent = `${filtered.length} espécie${filtered.length === 1 ? '' : 's'} de praia listada${filtered.length === 1 ? '' : 's'}`;
+const speciesState = { location: null, autoRegion: null, region: 'auto', zone: 'all', bait: 'all', query: '' };
+let renderSpeciesCatalog = () => {};
+let photoObserver = null;
+
+function storedLocation() {
+  try { return JSON.parse(localStorage.getItem('mare-certa-location')); } catch { return null; }
+}
+
+function locationLabel(location) {
+  if (!location) return '';
+  return [location.name, location.admin1].filter(Boolean).join(', ');
+}
+
+function hydratePhoto(figure) {
+  if (!figure || figure.dataset.state !== 'idle') return;
+  figure.dataset.state = 'loading';
+  loadSpeciesPhoto(figure.dataset.taxon).then(photo => {
+    if (!figure.isConnected) return;
+    if (!photo) { figure.dataset.state = 'fallback'; return; }
+    const img = figure.querySelector('img');
+    const credit = figure.querySelector('figcaption');
+    img.onload = () => { figure.dataset.state = 'ready'; };
+    img.onerror = () => { figure.dataset.state = 'fallback'; };
+    img.src = photo.url;
+    if (credit) credit.innerHTML = `<a href="${escapeHtml(photo.link)}" target="_blank" rel="noreferrer">📷 ${escapeHtml(photo.attribution)} · iNaturalist</a>`;
+  });
+}
+
+function observePhotos(container) {
+  const figures = container.querySelectorAll('.species-photo[data-state="idle"]');
+  if (typeof IntersectionObserver === 'undefined') { figures.forEach(hydratePhoto); return; }
+  photoObserver ??= new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      photoObserver.unobserve(entry.target);
+      hydratePhoto(entry.target);
     }
-    if (!filtered.length) {
-      container.innerHTML = `<p class="empty-note">Nenhuma espécie encontrada para este filtro. Tente limpar a busca.</p>`;
-      return;
-    }
-    container.innerHTML = filtered.map(sp => `
-      <article class="species-card card">
+  }, { rootMargin: '200px 0px' });
+  figures.forEach(figure => photoObserver.observe(figure));
+}
+
+function speciesCardHtml(sp, index) {
+  const size = /^\d/.test(sp.minSize) ? `📏 Mín. ${sp.minSize}` : `♻️ ${sp.minSize}`;
+  return `
+      <article class="species-card card" style="--stagger:${Math.min(index, 8) * 55}ms">
         <div class="species-card-top">
           <span class="species-zone-badge">${sp.zoneLabel}</span>
-          <span class="species-size-badge" title="Tamanho mínimo recomendado para preservação">📏 Mín. ${sp.minSize}</span>
+          <span class="species-size-badge" title="Tamanho mínimo recomendado para preservação">${size}</span>
         </div>
-        <h3>${sp.name}</h3>
-        <p class="species-scientific"><em>${sp.scientific}</em></p>
-        <div class="species-baits">
-          <small>ISCAS RECOMENDADAS</small>
-          <div class="species-bait-pills">
-            ${sp.baits.map(b => `<span class="bait-pill">${b}</span>`).join('')}
+        <div class="species-card-head">
+          <div class="species-card-title">
+            <h3>${sp.name}</h3>
+            <p class="species-scientific"><em>${sp.scientific}</em></p>
+            <div class="species-baits">
+              <small>ISCAS RECOMENDADAS</small>
+              <div class="species-bait-pills">
+                ${sp.baits.map(b => `<span class="bait-pill">${b}</span>`).join('')}
+              </div>
+            </div>
           </div>
+          <figure class="species-photo" data-state="idle" data-taxon="${escapeHtml(sp.photoTaxon || sp.scientific.split('·')[0].trim())}">
+            <span class="species-photo-fallback">${FISH_FALLBACK_SVG}</span>
+            <img alt="Foto de ${escapeHtml(sp.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+            <figcaption></figcaption>
+          </figure>
         </div>
         <div class="species-specs">
           <div><small>ANZOL / MONTAGEM</small><strong>${sp.hook}</strong></div>
           <div><small>MELHOR MOMENTO</small><strong>${sp.bestTide}</strong></div>
         </div>
         <p class="species-tip">💡 <strong>Dica de praia:</strong> ${sp.tip}</p>
-      </article>
-    `).join('');
+      </article>`;
+}
+
+/** Atualiza o catálogo de espécies para a região costeira do novo local de pesca. */
+export function setSpeciesLocation(location) {
+  speciesState.location = location || null;
+  speciesState.autoRegion = coastalRegionFor(location);
+  speciesState.region = 'auto';
+  renderSpeciesCatalog();
+}
+
+export function initSpeciesCatalogUI() {
+  const container = $('#speciesCatalogGrid');
+  const searchInput = $('#speciesSearchInput');
+  const zoneButtons = document.querySelectorAll('[data-zone-filter]');
+  const baitButtons = document.querySelectorAll('[data-bait-filter]');
+  const regionButtons = document.querySelectorAll('[data-region-filter]');
+  const countEl = $('#speciesCatalogCount');
+  if (!container) return;
+
+  const effectiveRegion = () => speciesState.region === 'auto' ? (speciesState.autoRegion || 'all') : speciesState.region;
+
+  renderSpeciesCatalog = () => {
+    const region = effectiveRegion();
+    const regionInfo = COASTAL_REGIONS[region];
+    const autoInfo = COASTAL_REGIONS[speciesState.autoRegion];
+    const autoLabel = $('#speciesAutoRegionLabel');
+    if (autoLabel) autoLabel.textContent = autoInfo ? `Sua região · ${autoInfo.label}` : 'Sua região';
+    regionButtons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.regionFilter === speciesState.region)));
+    const eyebrow = $('#speciesRegionEyebrow');
+    if (eyebrow) eyebrow.textContent = regionInfo ? regionInfo.long.toUpperCase() : 'LITORAL BRASILEIRO';
+    const note = $('#speciesRegionNote');
+    if (note) {
+      const place = locationLabel(speciesState.location);
+      note.textContent = regionInfo
+        ? `Mostrando espécies comuns no ${regionInfo.long}${speciesState.region === 'auto' && place ? ` · perto de ${place}` : ''}.`
+        : speciesState.region === 'auto' && place ? `Não identificamos a região costeira de ${place}. Mostrando todo o litoral.` : 'Mostrando espécies de todo o litoral brasileiro.';
+    }
+
+    const filtered = filterSpeciesCatalog(SPECIES_CATALOG, {
+      query: speciesState.query,
+      zone: speciesState.zone,
+      bait: speciesState.bait,
+      region
+    });
+    if (countEl) {
+      countEl.textContent = `${filtered.length} espécie${filtered.length === 1 ? '' : 's'}${regionInfo ? ` no ${regionInfo.label}` : ' no litoral'}`;
+    }
+    if (!filtered.length) {
+      container.innerHTML = `<p class="empty-note">Nenhuma espécie encontrada para este filtro. Tente limpar a busca ou escolher "Todo o litoral".</p>`;
+      return;
+    }
+    container.innerHTML = filtered.map(speciesCardHtml).join('');
+    observePhotos(container);
   };
 
   if (searchInput) {
     searchInput.addEventListener('input', () => {
-      currentQuery = searchInput.value;
-      renderCatalog();
+      speciesState.query = searchInput.value;
+      renderSpeciesCatalog();
     });
   }
+  regionButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      speciesState.region = btn.dataset.regionFilter;
+      renderSpeciesCatalog();
+    });
+  });
   zoneButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      currentZone = btn.dataset.zoneFilter;
+      speciesState.zone = btn.dataset.zoneFilter;
       zoneButtons.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
-      renderCatalog();
+      renderSpeciesCatalog();
     });
   });
   baitButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      currentBait = btn.dataset.baitFilter;
+      speciesState.bait = btn.dataset.baitFilter;
       baitButtons.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
-      renderCatalog();
+      renderSpeciesCatalog();
     });
   });
 
-  renderCatalog();
+  setSpeciesLocation(speciesState.location || storedLocation() || { name: 'João Pessoa', admin1: 'Paraíba', country_code: 'BR', latitude: -7.115, longitude: -34.8631 });
 }
 
 export function renderPreview(data) {
