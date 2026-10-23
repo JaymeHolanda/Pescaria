@@ -80,13 +80,25 @@ test('consultor de equipamento recomenda chumbada e montagem conforme ondas e ve
 });
 
 test('catálogo de espécies filtra por zona, isca e termo de busca', () => {
-  assert.equal(SPECIES_CATALOG.length, 13);
+  assert.equal(SPECIES_CATALOG.length, 28);
   assert.ok(SPECIES_CATALOG.every(s => s.photoTaxon && Array.isArray(s.regions) && s.regions.length));
   const byBait = filterSpeciesCatalog(SPECIES_CATALOG, { bait: 'Tatuíra' });
   assert.ok(byBait.some(s => s.id === 'pampo'));
   assert.ok(byBait.some(s => s.id === 'sargo'));
   const byZone = filterSpeciesCatalog(SPECIES_CATALOG, { zone: 'beira' });
   assert.ok(byZone.every(s => s.zone === 'beira'));
+
+  // Espécies destacadas de João Pessoa / Nordeste
+  const pbSpecies = filterSpeciesCatalog(SPECIES_CATALOG, { region: 'nordeste' });
+  assert.ok(pbSpecies.some(s => s.id === 'cioba'));
+  assert.ok(pbSpecies.some(s => s.id === 'cavala'));
+  assert.ok(pbSpecies.some(s => s.id === 'badejo'));
+  assert.ok(pbSpecies.some(s => s.id === 'guarajuba'));
+  assert.ok(pbSpecies.some(s => s.id === 'pitangola'));
+  assert.ok(pbSpecies.some(s => s.id === 'coro'));
+  assert.ok(pbSpecies.some(s => s.id === 'porquinho'));
+  assert.ok(pbSpecies.some(s => s.id === 'arabaiana'));
+  assert.ok(pbSpecies.some(s => s.id === 'tainha'));
 });
 
 test('região costeira vem do local escolhido e filtra as espécies', () => {

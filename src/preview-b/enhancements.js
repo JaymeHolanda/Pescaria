@@ -468,8 +468,7 @@ function speciesCardHtml(sp, index) {
 /** Atualiza o catálogo de espécies para a região costeira do novo local de pesca. */
 export function setSpeciesLocation(location) {
   speciesState.location = location || null;
-  speciesState.autoRegion = coastalRegionFor(location);
-  speciesState.region = 'auto';
+  speciesState.region = coastalRegionFor(location) || 'all';
   renderSpeciesCatalog();
 }
 
@@ -478,27 +477,22 @@ export function initSpeciesCatalogUI() {
   const searchInput = $('#speciesSearchInput');
   const zoneButtons = document.querySelectorAll('[data-zone-filter]');
   const baitButtons = document.querySelectorAll('[data-bait-filter]');
-  const regionButtons = document.querySelectorAll('[data-region-filter]');
   const countEl = $('#speciesCatalogCount');
   if (!container) return;
 
-  const effectiveRegion = () => speciesState.region === 'auto' ? (speciesState.autoRegion || 'all') : speciesState.region;
-
   renderSpeciesCatalog = () => {
-    const region = effectiveRegion();
+    const region = speciesState.region || 'all';
     const regionInfo = COASTAL_REGIONS[region];
-    const autoInfo = COASTAL_REGIONS[speciesState.autoRegion];
-    const autoLabel = $('#speciesAutoRegionLabel');
-    if (autoLabel) autoLabel.textContent = autoInfo ? `Sua região · ${autoInfo.label}` : 'Sua região';
-    regionButtons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.regionFilter === speciesState.region)));
+    const place = locationLabel(speciesState.location);
     const eyebrow = $('#speciesRegionEyebrow');
-    if (eyebrow) eyebrow.textContent = regionInfo ? regionInfo.long.toUpperCase() : 'LITORAL BRASILEIRO';
+    if (eyebrow) {
+      eyebrow.textContent = place ? `COSTA DE ${place.toUpperCase()}` : (regionInfo ? regionInfo.long.toUpperCase() : 'LITORAL BRASILEIRO');
+    }
     const note = $('#speciesRegionNote');
     if (note) {
-      const place = locationLabel(speciesState.location);
-      note.textContent = regionInfo
-        ? `Mostrando espécies comuns no ${regionInfo.long}${speciesState.region === 'auto' && place ? ` · perto de ${place}` : ''}.`
-        : speciesState.region === 'auto' && place ? `Não identificamos a região costeira de ${place}. Mostrando todo o litoral.` : 'Mostrando espécies de todo o litoral brasileiro.';
+      note.textContent = place
+        ? `Peixes mais comuns encontrados no litoral de ${place} e proximidades. A lista se atualiza automaticamente ao trocar o local de pesca no topo.`
+        : (regionInfo ? `Mostrando espécies comuns no ${regionInfo.long}.` : 'Consulte onde cada peixe costuma encostar na praia, as iscas mais produtivas e o tamanho mínimo para pesca consciente.');
     }
 
     const filtered = filterSpeciesCatalog(SPECIES_CATALOG, {
@@ -508,10 +502,10 @@ export function initSpeciesCatalogUI() {
       region
     });
     if (countEl) {
-      countEl.textContent = `${filtered.length} espécie${filtered.length === 1 ? '' : 's'}${regionInfo ? ` no ${regionInfo.label}` : ' no litoral'}`;
+      countEl.textContent = `${filtered.length} espécies da região listadas`;
     }
     if (!filtered.length) {
-      container.innerHTML = `<p class="empty-note">Nenhuma espécie encontrada para este filtro. Tente limpar a busca ou escolher "Todo o litoral".</p>`;
+      container.innerHTML = `<p class="empty-note">Nenhuma espécie encontrada para este filtro na região de ${escapeHtml(place || 'sua costa')}. Tente limpar a busca ou mudar os filtros de isca e zona.</p>`;
       return;
     }
     container.innerHTML = filtered.map(speciesCardHtml).join('');
@@ -524,12 +518,6 @@ export function initSpeciesCatalogUI() {
       renderSpeciesCatalog();
     });
   }
-  regionButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      speciesState.region = btn.dataset.regionFilter;
-      renderSpeciesCatalog();
-    });
-  });
   zoneButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       speciesState.zone = btn.dataset.zoneFilter;

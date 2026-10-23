@@ -87,7 +87,7 @@ html = replace(html, '<div class="legend"><span class="dot high"></span> Alta <s
 html = html.replace(/(<svg id="tideChart"[^>]*><\/svg>)/, '$1\n              <div id="chartTooltip" class="b-chart-tooltip" hidden></div>');
 html = replace(html, '<div class="tide-events"', `<div id="chartTools" class="b-chart-tools" hidden><div class="b-chart-readout"><label for="chartScrub">Explore a maré hora a hora</label><output id="chartReadout" for="chartScrub">—</output></div><input id="chartScrub" type="range" min="0" max="1" value="0" step="1" aria-label="Horário na curva de maré"><div class="b-chart-legend"><span><i></i> Janelas sugeridas (3h antes da alta)</span><span><i class="solunar-bar-icon"></i> Período Solunar Maior</span><span>Toque na curva ou deslize</span></div></div>\n            <div class="tide-events"`);
 
-// Interactive Species & Bait Catalog in its own #speciesPanel (filtered by the coastal region of the chosen spot)
+// Interactive Species & Bait Catalog in its own #speciesPanel (automatically filtered by the coastal region of the chosen spot)
 const speciesCatalogHtml = `
         <section id="speciesCatalogSection" class="species-catalog-section" aria-labelledby="speciesCatalogTitle">
           <div class="species-catalog-header card">
@@ -95,19 +95,11 @@ const speciesCatalogHtml = `
               <div>
                 <p class="eyebrow">GUIA DE CAMPO · <span id="speciesRegionEyebrow">LITORAL BRASILEIRO</span></p>
                 <h2 id="speciesCatalogTitle">Catálogo de espécies, iscas e montagens.</h2>
-                <p id="speciesRegionNote" class="species-region-note">Mostrando espécies do litoral brasileiro.</p>
+                <p id="speciesRegionNote" class="species-region-note">Consulte onde cada peixe costuma encostar na praia, as iscas mais produtivas, numeração de anzol e o tamanho mínimo para pesca consciente.</p>
               </div>
               <span id="speciesCatalogCount" class="ranking-count">Carregando espécies…</span>
             </div>
             <div class="species-filters-bar">
-              <div class="species-filter-group species-region-group" role="group" aria-label="Filtrar por região do litoral">
-                <button type="button" data-region-filter="auto" aria-pressed="true"><span aria-hidden="true">📍</span> <span id="speciesAutoRegionLabel">Sua região</span></button>
-                <button type="button" data-region-filter="norte" aria-pressed="false">Norte</button>
-                <button type="button" data-region-filter="nordeste" aria-pressed="false">Nordeste</button>
-                <button type="button" data-region-filter="sudeste" aria-pressed="false">Sudeste</button>
-                <button type="button" data-region-filter="sul" aria-pressed="false">Sul</button>
-                <button type="button" data-region-filter="all" aria-pressed="false">Todo o litoral</button>
-              </div>
               <label class="species-search-wrap">
                 <span class="sr-only">Buscar espécie ou isca</span>
                 <input id="speciesSearchInput" type="search" placeholder="Buscar peixe, isca ou dica (ex.: pampo, corrupto, valão)…" autocomplete="off" />
@@ -130,7 +122,7 @@ const speciesCatalogHtml = `
             </div>
           </div>
           <div id="speciesCatalogGrid" class="species-catalog-grid" aria-live="polite"></div>
-          <p class="chart-note species-photo-note">Fotos: comunidade <a href="https://www.inaturalist.org/" target="_blank" rel="noreferrer">iNaturalist</a>, licenças Creative Commons, com crédito em cada foto. A distribuição regional é uma referência geral e não garante a presença da espécie.</p>
+          <p class="chart-note species-photo-note">Fotos: comunidade <a href="https://www.inaturalist.org/" target="_blank" rel="noreferrer">iNaturalist</a>, licenças Creative Commons, com crédito em cada foto. A lista é filtrada automaticamente pela região do local selecionado no topo.</p>
         </section>`;
 
 const speciesPanelHtml = `
