@@ -13,7 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E" />
     <link rel="manifest" href="./dist/manifest.webmanifest" />
     <link rel="stylesheet" href="./dist/styles.css?v=150638ac77fa" />
-    <link rel="stylesheet" href="./dist/versao-b.css?v=df008c557a8e" />
+    <link rel="stylesheet" href="./dist/versao-b.css?v=18ab1119cddf" />
     <title>Maré Certa — sua próxima pescaria</title>
   </head>
   <body class="preview-b">
@@ -109,12 +109,17 @@
 
 
 
-        <section id="windowsB" class="window-section" aria-labelledby="windowTitle">
-          <div class="window-copy">
-            <p class="eyebrow">JANELAS DE PESCA</p>
-            <h2 id="windowTitle">Janelas sugeridas pela maré.</h2>
-            <p>Cada janela começa três horas antes da maré alta: na região de João Pessoa, usamos a tábua oficial de Cabedelo; nos demais locais, uma estimativa do modelo. É uma regra de planejamento, não garantia de captura. Confira as condições antes de sair.</p>
+        <div class="b-forecast-with-sidebar">
+          <div class="b-forecast-main">
+        <section id="windowsB" class="window-section card" aria-labelledby="windowTitle">
+          <div class="card-heading window-head">
+            <div>
+              <p class="eyebrow">JANELAS DE PESCA</p>
+              <h2 id="windowTitle">Janelas sugeridas pela maré.</h2>
+            </div>
+            <span class="window-rule-pill">3h antes da maré alta</span>
           </div>
+          <p class="window-subnote">Cada janela começa três horas antes do pico da maré alta. A nota combina vento, ondas e rajadas para indicar a facilidade da pescaria da areia.</p>
           <div id="fishingWindows" class="window-list">
             <div class="window-card skeleton"></div><div class="window-card skeleton"></div>
           </div>
@@ -209,6 +214,54 @@
             <p id="marineFocusNote" class="marine-note"></p>
           </div>
         </section>
+        </div>
+          <aside id="partnerSidebar" class="b-partner-sidebar" aria-label="Patrocinador Oficial e Publicidade">
+            <article class="card partner-sidebar-card chumbada-sidebar-card">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">PATROCINADOR OFICIAL</p>
+                  <h3 class="partner-card-title">Chumbada Oficial</h3>
+                </div>
+                <span class="partner-pill">Surfcasting</span>
+              </div>
+              <a class="partner-logo-frame" href="https://www.instagram.com/chumbada_oficial/" target="_blank" rel="noreferrer" aria-label="Conhecer Chumbada Oficial">
+                <img src="./dist/assets/chumbada-oficial-sidebar.png" width="300" height="300" loading="lazy" alt="Chumbada Oficial — Chumbadas de Alta Performance" />
+              </a>
+              <div class="partner-card-body">
+                <p>Chumbadas projetadas para atingir o 2º valão com máxima fixação na areia, mesmo com correnteza forte.</p>
+                <a class="partner-cta-btn" href="https://www.instagram.com/chumbada_oficial/" target="_blank" rel="noreferrer">
+                  <span>Conhecer Catálogo Oficial</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </article>
+
+            <article class="card partner-sidebar-card adsense-sidebar-card" aria-label="Espaço Publicitário Parceiro">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">PUBLICIDADE RECOMENDADA</p>
+                  <h3 class="partner-card-title">Equipamento Parceiro</h3>
+                </div>
+                <span class="ad-tag">Anúncio</span>
+              </div>
+              <div class="adsense-slot-container" id="adsenseSidebarSlot">
+                <!-- Tag Google AdSense pronta para veiculação de anúncios em produção -->
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-0000000000000000"
+                     data-ad-slot="0000000000"
+                     data-ad-format="rectangle"
+                     data-full-width-responsive="true"></ins>
+                <div class="native-ad-preview">
+                  <span class="native-ad-eyebrow">PESCA DE PRAIA &amp; COSTEIRA</span>
+                  <strong class="native-ad-title">Varas, Molinetes e Linhas</strong>
+                  <p class="native-ad-text">Confira os materiais e ofertas selecionados para a sua próxima pescaria.</p>
+                  <span class="native-ad-cta">Ver ofertas de parceiros ↗</span>
+                </div>
+              </div>
+            </article>
+          </aside>
+        </div>
         <section id="errorBox" class="error-box" hidden>
           <strong>Não conseguimos atualizar os dados agora.</strong>
           <span id="errorMessage">Confira sua conexão e tente novamente.</span>
@@ -309,6 +362,21 @@
           <p>Registre suas capturas e acompanhe o ranking da comunidade. A classificação considera a quantidade total de peixes registrados.</p>
         </section>
         <p id="communityMessage" class="community-message" role="status">Conectando à comunidade...</p>
+        <section id="proClubBar" class="card pro-club-bar" aria-label="Clube Pescador PRO e Assinatura Mercado Pago">
+          <div class="pro-club-copy">
+            <div class="pro-club-badges">
+              <span class="eyebrow">REDE SOCIAL DO PESCADOR · CLUBE PRO</span>
+              <span id="proCurrentStatusPill" class="pro-status-pill is-free">🔒 Conta Gratuita (Modo Leitura no Feed)</span>
+            </div>
+            <h2>Publique a foto do seu troféu, responda pescadores e conquiste seguidores.</h2>
+            <p>Assinantes PRO postam 1 foto otimizada por captura (AWS S3 WebP), comentam nos posts da comunidade e exibem o selo 👑 PRO por apenas <strong>R$ 5/mês no plano anual</strong> (ou R$ 15/mês avulso) via Mercado Pago.</p>
+          </div>
+          <div class="pro-club-actions">
+            <button id="openProModalBtn" class="primary-button pro-cta-btn" type="button">⚡ Assinar PRO · R$ 5/mês</button>
+            <button id="proSandboxToggleBtn" class="pro-sandbox-btn" type="button">🧪 Sandbox Local: Simular Assinante PRO Ativo</button>
+          </div>
+        </section>
+
         <section id="achievementsSection" class="b-achievements-section" aria-label="Estatísticas e Conquistas">
           <div class="b-stats-strip">
             <article class="b-stat-card card"><span class="eyebrow">PEIXES NA COMUNIDADE</span><strong id="statTotalFish">0</strong><small>Total acumulado no ranking</small></article>
@@ -318,7 +386,7 @@
           </div>
           <div class="card b-badges-panel">
             <div class="card-heading">
-              <div><p class="eyebrow">GAMIFICAÇÃO · CONQUISTAS DO PESCADOR</p><h2>Medalhas costeiras</h2></div>
+              <div><p class="eyebrow">GAMIFICAÇÃO · CONQUISTAS DO PESCADOR</p><h2>Medalhas costeiras (Achievements)</h2></div>
               <p id="badgesSubtitle" class="ranking-count">Registre suas capturas para desbloquear</p>
             </div>
             <div id="badgesGrid" class="b-badges-grid"></div>
@@ -348,6 +416,22 @@
               <div class="form-grid"><label>Quantidade<input name="quantity" type="number" min="1" max="1000" step="1" value="1" required /></label><label>Peso total (kg)<input name="weight" type="number" min="0" max="10000" step="0.01" placeholder="Opcional" /></label></div>
               <label>Data da pescaria<input name="date" type="date" required /></label>
               <label>Local<input name="location" maxlength="100" required placeholder="Praia, rio ou cidade" /></label>
+              <div class="trophy-upload-box">
+                <div class="trophy-upload-top">
+                  <span>📸 Foto do seu troféu (máx. 1 foto)</span>
+                  <span id="photoProLockBadge" class="photo-pro-badge locked">🔒 Recurso PRO · R$ 5/mês</span>
+                </div>
+                <input id="capturePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                <button id="capturePhotoTriggerBtn" class="trophy-upload-btn" type="button">
+                  <span>Selecionar ou Tirar Foto do Peixe</span>
+                  <small>Compressão automática WebP 1080p p/ Amazon S3</small>
+                </button>
+                <div id="capturePhotoPreviewWrap" class="trophy-photo-preview" hidden>
+                  <img id="capturePhotoPreviewImg" src="" alt="Prévia comprimida da foto do troféu" />
+                  <button id="removeCapturePhotoBtn" class="text-button" type="button">Remover foto</button>
+                </div>
+                <small id="capturePhotoStatus" class="photo-compression-status">1 foto do troféu por captura · Compressão WebP automática p/ AWS S3</small>
+              </div>
               <button class="primary-button" type="submit">Salvar captura</button>
               <button id="cancelCaptureEdit" class="text-button" type="button" hidden>Cancelar edição</button>
               <p class="chart-note">Seu nome, espécie, quantidade, peso, data e local ficam visíveis à comunidade.</p>
@@ -355,9 +439,9 @@
             <p id="captureMessage" class="form-message" role="status"></p>
           </section>
         </div>
-        <section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Encontre uma pescaria.</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<input id="filterLocation" type="search" placeholder="Ex.: Intermares" autocomplete="off"></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o diário…</p></section>
+        <section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Encontre uma pescaria no feed.</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<input id="filterLocation" type="search" placeholder="Ex.: Intermares" autocomplete="off"></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o feed social…</p></section>
         <section id="myCapturesSection" class="card catches-card" aria-labelledby="myCapturesTitle" hidden><div class="card-heading"><div><p class="eyebrow">SEU DIÁRIO</p><h2 id="myCapturesTitle">Minhas capturas</h2></div></div><div id="myCaptures" class="recent-catches"></div></section>
-        <section class="card catches-card" aria-labelledby="catchesTitle"><div class="card-heading"><div><p class="eyebrow">DIÁRIO DA COMUNIDADE</p><h2 id="catchesTitle">Capturas recentes</h2></div></div><div id="recentCatches" class="recent-catches"></div></section>
+        <section class="card catches-card" aria-labelledby="catchesTitle"><div class="card-heading"><div><p class="eyebrow">FEED SOCIAL DA COMUNIDADE · TROFÉUS, RESPOSTAS & SEGUIDORES</p><h2 id="catchesTitle">Feed de capturas & troféus</h2></div></div><div id="recentCatches" class="recent-catches"></div></section>
       </main>
 
       <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountTitle">
@@ -385,6 +469,51 @@
         </div>
       </dialog>
 
+      <dialog id="proPaywallDialog" class="account-dialog pro-paywall-dialog" aria-labelledby="proPaywallTitle">
+        <button id="closeProPaywall" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="pro-paywall-head">
+          <span class="pro-crown-pill">👑 CLUBE PESCADOR PRO · MERCADO PAGO</span>
+          <h2 id="proPaywallTitle">Faça parte da elite da pesca costeira.</h2>
+          <p id="proPaywallReason" class="pro-paywall-reason">Desbloqueie fotos de troféus, comentários no feed, seguidores e o selo Pescador PRO.</p>
+        </div>
+
+        <ul class="pro-benefits-list">
+          <li>📸 <strong>1 Foto do Troféu por Captura:</strong> Upload ultrarrápido com compressão WebP automática no Amazon S3.</li>
+          <li>💬 <strong>Chat &amp; Respostas nos Posts:</strong> Pergunte qual isca, anzol ou praia nos troféus de outros pescadores.</li>
+          <li>➕ <strong>Seguir Pescadores &amp; Achievements:</strong> Monte sua rede costeira e exiba suas medalhas no topo do feed.</li>
+          <li>👑 <strong>Selo Oficial PRO:</strong> Destaque dourado ao lado do seu nome no Ranking e nos comentários.</li>
+        </ul>
+
+        <div class="pro-plans-grid" role="group" aria-label="Escolha seu plano Mercado Pago">
+          <button type="button" class="pro-plan-card selected" data-pro-plan-select="annual" aria-pressed="true">
+            <span class="pro-plan-ribbon">MAIS ESCOLHIDO · ECONOMIZE 67%</span>
+            <h3>Plano Anual</h3>
+            <div class="pro-plan-price">
+              <strong>R$ 5,00</strong>
+              <span>/ mês</span>
+            </div>
+            <small>Cobrado R$ 60,00 / ano via PIX ou Cartão no Mercado Pago</small>
+          </button>
+
+          <button type="button" class="pro-plan-card" data-pro-plan-select="monthly" aria-pressed="false">
+            <span class="pro-plan-ribbon secondary">SEM FIDELIDADE</span>
+            <h3>Plano Mensal</h3>
+            <div class="pro-plan-price">
+              <strong>R$ 15,00</strong>
+              <span>/ mês</span>
+            </div>
+            <small>Cobrança mensal avulsa via PIX ou Cartão no Mercado Pago</small>
+          </button>
+        </div>
+
+        <div class="pro-checkout-actions">
+          <button id="mpCheckoutApproveBtn" class="primary-button mp-checkout-btn" type="button">
+            💳 Pagar com Mercado Pago · R$ 5/mês (R$ 60/ano PIX ou Cartão)
+          </button>
+          <p class="pro-mp-note">🔒 Ambiente Local de Testes (Sandbox): clique no botão acima para simular a aprovação imediata do Mercado Pago sem cobrança real.</p>
+        </div>
+      </dialog>
+
       <div id="locationLoader" class="loc-loader" role="status" aria-live="polite" hidden>
         <div class="loc-loader-card">
           <div class="loc-loader-scene" aria-hidden="true">
@@ -409,14 +538,32 @@
         </div>
       </div>
 
+      <section class="footer-partner-section" aria-label="Patrocinador Oficial da Comunidade">
+        <div class="footer-partner-card card">
+          <div class="footer-partner-copy">
+            <span class="eyebrow">⚓ PARCEIRO OFICIAL · SURFCASTING</span>
+            <h3>Chumbada Oficial — Precisão e Alcance na Pesca de Praia</h3>
+            <p>Apoio oficial à comunidade de pescadores do Maré Certa. Chumbadas projetadas para atingir o 2º valão com máxima fixação na areia.</p>
+          </div>
+          <div class="footer-partner-action">
+            <a class="footer-partner-logo-box" href="https://www.instagram.com/chumbada_oficial/" target="_blank" rel="noreferrer" aria-label="Visitar Chumbada Oficial">
+              <img src="./dist/assets/chumbada-oficial-footer.png" width="220" height="70" loading="lazy" alt="Logo Chumbada Oficial" />
+            </a>
+            <a class="partner-cta-btn footer-cta-btn" href="https://www.instagram.com/chumbada_oficial/" target="_blank" rel="noreferrer">
+              <span>Ver Catálogo ↗</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
       <footer>
         <div class="brand footer-brand">MARÉ <b>CERTA</b></div>
         <p>Dados meteorológicos e marítimos por <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> e DWD.</p>
         <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
       </footer>
     </div>
-    <script type="module" src="./dist/app-b.js?v=80331ed95f21"></script>
+    <script type="module" src="./dist/app-b.js?v=7c3f4cf0e32d"></script>
     <script type="module" src="./dist/tabs.js?v=4c84b55dc424"></script>
-    <script type="module" src="./dist/ranking-b.js?v=b0645363ba5d"></script>
+    <script type="module" src="./dist/ranking-b.js?v=36963ca98410"></script>
   </body>
 </html>

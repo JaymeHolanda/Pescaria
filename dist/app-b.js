@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js?v=e2046439115a';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js?v=b51d6bc911fb';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js?v=f155a29720da';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js?v=ad94f3855ab8';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js?v=3ea5c3a39ab9';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
@@ -406,7 +406,12 @@ function renderEvents(events) {
 
 function renderWindows(events, moon, date) {
   const springTide = moon.name === 'Lua nova' || moon.name === 'Lua cheia';
-  const springBadge = springTide ? '<span class="spring-tide-badge">' + moon.name + ' · Marés de sizígia</span><p class="spring-tide-note">Período associado a maior amplitude entre maré alta e baixa.</p>' : '';
+  const neapTide = moon.name === 'Quarto crescente' || moon.name === 'Quarto minguante';
+  const tideBadge = springTide
+    ? '<span class="spring-tide-badge">' + moon.name + ' · Marés de sizígia</span><p class="spring-tide-note">Período associado a maior amplitude entre maré alta e baixa.</p>'
+    : neapTide
+      ? '<span class="spring-tide-badge neap-tide-badge">' + moon.name + ' · Marés de quadratura</span><p class="spring-tide-note">Período associado a menor amplitude entre maré alta e baixa.</p>'
+      : '<span class="spring-tide-badge normal-tide-badge">' + moon.name + ' · Ciclo Lunar</span><p class="spring-tide-note">Amplitude de maré intermediária para pesca costeira.</p>';
   const highs = events.filter(e => e.type === "high").slice(0, 2);
   if (!highs.length) { els.fishingWindows.innerHTML = `<div class="window-card"><span class="window-label">SEM JANELA CALCULADA</span><strong>Dados insuficientes</strong><small>Tente outro dia ou um ponto mais próximo da costa.</small></div>`; return; }
   const solunar = solunarPeriods(date, moon.phase, state.location?.longitude ?? -34.8631);
@@ -415,9 +420,9 @@ function renderWindows(events, moon, date) {
     const wind = windowMarineSummary(window, state.weather.hourly, state.marine.hourly).values.wind_speed_10m;
     const windMean = Number.isFinite(wind) ? wind.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km/h' : 'Indisponível';
     const sync = checkSolunarSync(window, solunar);
-    const syncHtml = sync ? `<span class="window-solunar-chip">⚡ ${sync.badge}</span>` : '';
+    const syncHtml = sync ? `<span class="window-solunar-chip">⚡ ${sync.badge}</span>` : `<span class="window-solunar-chip is-neutral">🕒 Janela Sugerida</span>`;
     const peakNote = Number.isFinite(event.level) ? `<small class="window-peak-note">Preamar prevista: ${event.level.toFixed(2).replace('.', ',')} m às ${event.hour}</small>` : '';
-    return `<div class="window-card ${springTide ? 'spring-tide-window' : ''}">${springBadge}${syncHtml}<span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${peakNote}<p class="window-wind"><span aria-hidden="true">↗</span> Vento médio <b>${windMean}</b></p><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
+    return `<div class="window-card ${springTide ? 'spring-tide-window' : ''}">${tideBadge}${syncHtml}<span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${peakNote}<p class="window-wind"><span aria-hidden="true">↗</span> Vento médio <b>${windMean}</b></p><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
   }).join("");
 }
 

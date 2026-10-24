@@ -228,3 +228,35 @@ test('São Paulo e Santos encontram porto paulista e preenchem resumo marítimo 
   assert.equal(Number(summary.values.swell_wave_height.toFixed(1)), 0.9);
   assert.equal(Number(summary.values.sea_surface_temperature.toFixed(1)), 23.5);
 });
+
+
+test('Clube PRO Mercado Pago e compressão de foto WebP para S3 validam planos e dimensões', async () => {
+  const {
+    PRO_PLANS,
+    calculateImageDimensions,
+    formatCompressionSavings,
+    canUseProSocialFeature
+  } = await import('../src/preview-b/model.js');
+
+  assert.equal(PRO_PLANS.annual.priceMonthly, 5);
+  assert.equal(PRO_PLANS.annual.billingTotal, 60);
+  assert.equal(PRO_PLANS.monthly.priceMonthly, 15);
+
+  const dims = calculateImageDimensions(4000, 3000, 1080);
+  assert.equal(dims.width, 1080);
+  assert.equal(dims.height, 810);
+  assert.equal(dims.scaled, true);
+
+  const smallDims = calculateImageDimensions(800, 600, 1080);
+  assert.equal(smallDims.width, 800);
+  assert.equal(smallDims.height, 600);
+  assert.equal(smallDims.scaled, false);
+
+  const summary = formatCompressionSavings(4.2 * 1024 * 1024, 84 * 1024);
+  assert.match(summary, /Otimizada p\/ S3 \(WebP\)/);
+  assert.match(summary, /-98%/);
+
+  assert.equal(canUseProSocialFeature({ active: false }), false);
+  assert.equal(canUseProSocialFeature({ active: true, expiresAt: Date.now() + 60000 }), true);
+  assert.equal(canUseProSocialFeature({ active: true, expiresAt: Date.now() - 60000 }), false);
+});

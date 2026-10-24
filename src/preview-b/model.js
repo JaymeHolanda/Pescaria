@@ -703,3 +703,55 @@ export function computeAchievements(capturesObj = {}, uid = null) {
     badges
   };
 }
+
+
+export const PRO_PLANS = {
+  annual: {
+    id: 'annual',
+    name: 'Anual · Clube Pescador PRO',
+    priceMonthly: 5,
+    billingTotal: 60,
+    periodLabel: 'por mês (cobrado R$ 60/ano)',
+    discountBadge: 'MAIS ESCOLHIDO · ECONOMIZE 67%',
+    gateway: 'Mercado Pago (PIX ou Cartão em até 12x)'
+  },
+  monthly: {
+    id: 'monthly',
+    name: 'Mensal · Clube Pescador PRO',
+    priceMonthly: 15,
+    billingTotal: 15,
+    periodLabel: 'por mês avulso',
+    discountBadge: 'SEM FIDELIDADE',
+    gateway: 'Mercado Pago (PIX ou Cartão)'
+  }
+};
+
+export function calculateImageDimensions(width, height, maxDimension = 1080) {
+  const w = Math.max(1, Number(width) || 1);
+  const h = Math.max(1, Number(height) || 1);
+  const limit = Math.max(64, Number(maxDimension) || 1080);
+  if (w <= limit && h <= limit) return { width: Math.round(w), height: Math.round(h), scaled: false };
+  const ratio = w >= h ? limit / w : limit / h;
+  return {
+    width: Math.max(1, Math.round(w * ratio)),
+    height: Math.max(1, Math.round(h * ratio)),
+    scaled: true
+  };
+}
+
+export function formatCompressionSavings(originalBytes, compressedBytes) {
+  const orig = Math.max(1, Number(originalBytes) || 1);
+  const comp = Math.max(1, Number(compressedBytes) || 1);
+  const savedPct = Math.max(0, Math.min(99, Math.round((1 - comp / orig) * 100)));
+  const fmt = bytes => bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `Otimizada p/ S3 (WebP): ${fmt(orig)} → ${fmt(comp)} (-${savedPct}%)`;
+}
+
+export function canUseProSocialFeature(sub = {}) {
+  if (!sub || typeof sub !== 'object') return false;
+  if (sub.active !== true) return false;
+  if (sub.expiresAt && Number.isFinite(sub.expiresAt) && sub.expiresAt < Date.now()) return false;
+  return true;
+}
