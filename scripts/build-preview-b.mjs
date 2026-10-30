@@ -633,7 +633,7 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
 
             <details class="profile-edit-accordion" open>
               <summary>✏️ Editar Perfil, Localidade, Redes Sociais &amp; Telefone</summary>
-              <form id="extendedProfileForm" class="extended-profile-form">
+              <form id="extendedProfileForm" class="extended-profile-form" autocomplete="off">
                 <div class="form-grid">
                   <label>Nome público
                     <input name="extDisplayName" maxlength="40" minlength="2" required placeholder="Seu nome no ranking e feed" />
@@ -642,7 +642,7 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
                     <label for="extLocationInput">Localidade (Cidade / Praia principal)
                       <div class="input-with-action-row">
                         <div class="autocomplete-wrapper">
-                          <input name="extLocation" id="extLocationInput" list="coastalSpotsDatalist" maxlength="80" autocomplete="off" placeholder="Digite para buscar praia ou cidade (Ex.: Santos, Bessa, Ubatuba...)" />
+                          <input name="extLocation" id="extLocationInput" type="search" maxlength="80" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" placeholder="Digite para buscar praia ou cidade (Ex.: Santos, Bessa, Ubatuba...)" />
                           <div id="extLocationResults" class="ext-loc-dropdown" hidden role="listbox"></div>
                         </div>
                         <button type="button" id="extUseForecastLocBtn" class="ext-loc-preset-btn" title="Preencher com o local atual selecionado na Previsão">📍 Praia Atual</button>

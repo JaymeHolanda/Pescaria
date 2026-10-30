@@ -2805,6 +2805,15 @@ footer a:hover {
   width: 100%;
 }
 
+#extLocationInput::-webkit-calendar-picker-indicator,
+#extLocationInput::-webkit-search-decoration,
+#extLocationInput::-webkit-search-cancel-button,
+#extLocationInput::-webkit-search-results-button,
+#extLocationInput::-webkit-search-results-decoration {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
 .ext-loc-dropdown {
   position: absolute;
   top: calc(100% + 4px);
