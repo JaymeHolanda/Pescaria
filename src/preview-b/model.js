@@ -735,7 +735,8 @@ export const PRO_PLANS = {
     billingTotal: 99.9,
     periodLabel: 'por mês (cobrado R$ 99,90/ano)',
     discountBadge: 'MAIS ESCOLHIDO · 44% DE DESCONTO',
-    gateway: 'Mercado Pago (PIX ou Cartão em até 12x)'
+    gateway: 'Mercado Pago (PIX ou Cartão em até 12x)',
+    paymentUrl: 'https://mpago.la/2UDPJo9'
   },
   monthly: {
     id: 'monthly',
@@ -744,7 +745,8 @@ export const PRO_PLANS = {
     billingTotal: 14.9,
     periodLabel: 'por mês avulso',
     discountBadge: 'SEM FIDELIDADE',
-    gateway: 'Mercado Pago (PIX ou Cartão)'
+    gateway: 'Mercado Pago (PIX ou Cartão)',
+    paymentUrl: 'https://mpago.la/2VrN9v1'
   }
 };
 

@@ -935,6 +935,7 @@ export function isUserPro(uid = null, email = null) {
 
 export function setProSubscription(active, planId = 'annual') {
   const plan = PRO_PLANS[planId] || PRO_PLANS.annual;
+  const user = (typeof auth !== 'undefined' && auth?.currentUser) || null;
   const sub = {
     active: Boolean(active),
     planId: plan.id,
@@ -943,10 +944,23 @@ export function setProSubscription(active, planId = 'annual') {
     billingTotal: plan.billingTotal,
     activatedAt: Date.now(),
     expiresAt: Date.now() + (plan.id === 'annual' ? 365 : 30) * 86400000,
-    gateway: 'Mercado Pago (Sandbox Local)'
+    gateway: 'Mercado Pago'
   };
   try {
     localStorage.setItem(STORAGE_PRO_KEY, JSON.stringify(sub));
+    if (user?.uid) {
+      update(ref(database, `mareCerta/extendedProfiles/${user.uid}`), {
+        isPro: Boolean(active),
+        proPlan: plan.id,
+        proActivatedAt: Date.now()
+      }).catch(() => {});
+      update(ref(database, `mareCerta/vipGrants/${user.uid}`), {
+        active: Boolean(active),
+        planName: plan.name,
+        grantedAt: Date.now(),
+        reason: 'Mercado Pago'
+      }).catch(() => {});
+    }
   } catch {}
   updateProStatusUI();
   window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: sub }));
@@ -2117,8 +2131,36 @@ export function initProSocialFeatures() {
         }
         return;
       }
+      const plan = PRO_PLANS[selectedPlanId] || PRO_PLANS.annual;
+      if (plan.paymentUrl) {
+        try {
+          localStorage.setItem('mare-certa-pending-mp-checkout', JSON.stringify({
+            uid: auth.currentUser.uid,
+            planId: plan.id,
+            timestamp: Date.now()
+          }));
+        } catch {}
+        window.open(plan.paymentUrl, '_blank');
+        const summaryEl = $('mpSelectedPlanSummary');
+        if (summaryEl) {
+          summaryEl.innerHTML = `⏳ <strong>Abrindo checkout do Mercado Pago…</strong><br><small>Conclua seu PIX ou Cartão no Mercado Pago. Ao retornar, clique no botão de confirmação abaixo se desejar validar imediatamente!</small>`;
+        }
+        const confirmBtn = $('mpConfirmPaymentManualBtn');
+        if (confirmBtn) confirmBtn.hidden = false;
+        return;
+      }
       setProSubscription(true, selectedPlanId);
       $('proPaywallDialog')?.close();
+    });
+  }
+
+  const confirmBtn = $('mpConfirmPaymentManualBtn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', () => {
+      if (!auth.currentUser) return;
+      setProSubscription(true, selectedPlanId);
+      $('proPaywallDialog')?.close();
+      alert('🎉 Parabéns! Sua assinatura Clube Pescador PRO foi confirmada com sucesso!');
     });
   }
 
@@ -2205,6 +2247,26 @@ export function initFirebaseRealtimeSync() {
         saveSocialState(state);
       }
     }, () => {});
+    // 5. Verifica se o usuário retornou de um checkout aprovado do Mercado Pago
+    try {
+      if (typeof window !== 'undefined' && window.location?.search) {
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('status') || params.get('collection_status');
+        if (status === 'approved') {
+          const pendingRaw = localStorage.getItem('mare-certa-pending-mp-checkout');
+          let planId = 'annual';
+          try {
+            if (pendingRaw) planId = JSON.parse(pendingRaw).planId || 'annual';
+          } catch {}
+          setProSubscription(true, planId);
+          localStorage.removeItem('mare-certa-pending-mp-checkout');
+          setTimeout(() => {
+            alert('🎉 Pagamento aprovado no Mercado Pago! Bem-vindo ao Clube Pescador PRO!');
+          }, 350);
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    } catch {}
   } catch (err) {
     console.warn('Realtime database sync fallback', err);
   }
