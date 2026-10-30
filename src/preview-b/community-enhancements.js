@@ -4,13 +4,15 @@ import {
   calculateImageDimensions,
   formatCompressionSavings,
   canUseProSocialFeature,
+  getProRemainingDays,
+  formatProDurationLabel,
   resolveLocationByQuery,
   searchCoastalLocations,
   COASTAL_ALIASES,
   PRESET_SPOTS
 } from './model.js';
 
-export { resolveLocationByQuery, searchCoastalLocations, COASTAL_ALIASES, PRESET_SPOTS };
+export { resolveLocationByQuery, searchCoastalLocations, COASTAL_ALIASES, PRESET_SPOTS, getProRemainingDays, formatProDurationLabel };
 import { ref, set, update, push, remove, onValue } from 'firebase/database';
 import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
 import { database, storage, auth } from '../firebase.js';
@@ -349,7 +351,12 @@ export function getFisherExtendedProfile(uid, baseProfile = {}) {
     social2: ext.social2 || '',
     phone: ext.phone || '',
     avatarUrl: ext.avatarUrl || '',
-    extraTrophyPhotos: Array.isArray(ext.extraTrophyPhotos) ? ext.extraTrophyPhotos : []
+    extraTrophyPhotos: Array.isArray(ext.extraTrophyPhotos) ? ext.extraTrophyPhotos : [],
+    isPro: Boolean(ext.isPro),
+    proPlan: ext.proPlan || null,
+    proDurationDays: ext.proDurationDays || 0,
+    proActivatedAt: ext.proActivatedAt || null,
+    proExpiresAt: ext.proExpiresAt || null
   };
 }
 
@@ -406,15 +413,17 @@ export async function uploadTrophyPhotoToFirebaseStorage(captureId, photoDataUrl
   }
 }
 
-export function loadAdminVipGrants() {
+export function loadAdminVipGrants(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_ADMIN_VIP_KEY) || 'null');
     if (raw && typeof raw === 'object') {
       const merged = { ...DEFAULT_ADMIN_VIP_GRANTS, ...raw };
-      // Filter out explicitly revoked entries (active === false)
+      // Filter out explicitly revoked entries (active === false) or expired subscriptions
       const activeOnly = {};
       for (const [k, val] of Object.entries(merged)) {
-        if (val && val.active !== false) activeOnly[k] = val;
+        if (!val || val.active === false) continue;
+        if (val.expiresAt && Number.isFinite(val.expiresAt) && now >= val.expiresAt) continue;
+        activeOnly[k] = val;
       }
       return activeOnly;
     }
@@ -444,16 +453,22 @@ export function saveAdminVipGrants(grantsMap) {
   }
 }
 
-export function isUserAdminGrantedPro(uid = null, email = null) {
-  const grants = loadAdminVipGrants();
+export function isUserAdminGrantedPro(uid = null, email = null, now = Date.now()) {
+  const grants = loadAdminVipGrants(now);
   const targetUid = uid || adminContext.currentUser?.uid || 'local-current-user';
   const targetEmail = String(email || adminContext.currentUser?.email || '').trim().toLowerCase();
 
-  if (targetUid && grants[targetUid]?.active) return grants[targetUid];
-  if (targetEmail && grants[targetEmail]?.active) return grants[targetEmail];
+  const isValidGrant = grant => {
+    if (!grant || grant.active === false) return false;
+    if (grant.expiresAt && Number.isFinite(grant.expiresAt) && now >= grant.expiresAt) return false;
+    return true;
+  };
+
+  if (targetUid && isValidGrant(grants[targetUid])) return grants[targetUid];
+  if (targetEmail && isValidGrant(grants[targetEmail])) return grants[targetEmail];
 
   for (const grant of Object.values(grants)) {
-    if (!grant || grant.active === false) continue;
+    if (!isValidGrant(grant)) continue;
     if (targetUid && grant.uid && grant.uid === targetUid) return grant;
     if (targetEmail && grant.email && String(grant.email).trim().toLowerCase() === targetEmail) return grant;
   }
@@ -906,64 +921,191 @@ export function getUserModerationStatus(uid = null, email = null, now = Date.now
   };
 }
 
-export function getProSubscription(uid = null, email = null) {
-  const adminGrant = isUserAdminGrantedPro(uid, email);
+export function getProSubscription(uid = null, email = null, now = Date.now()) {
+  const adminGrant = isUserAdminGrantedPro(uid, email, now);
   if (adminGrant) {
+    if (adminGrant.isPaidSubscription) {
+      const plan = PRO_PLANS[adminGrant.planId] || PRO_PLANS.annual;
+      const durationDays = adminGrant.durationDays || plan.durationDays || (plan.id === 'annual' ? 365 : 30);
+      const activatedAt = adminGrant.activatedAt || adminGrant.grantedAt || now;
+      const expiresAt = adminGrant.expiresAt || (activatedAt + durationDays * 86400000);
+      const isExpired = now >= expiresAt;
+      const paidSub = {
+        active: !isExpired,
+        expired: isExpired,
+        planId: plan.id,
+        planName: plan.name,
+        durationDays,
+        priceMonthly: plan.priceMonthly,
+        billingTotal: plan.billingTotal,
+        activatedAt,
+        expiresAt,
+        isFreeGrant: false,
+        gateway: 'Mercado Pago'
+      };
+      paidSub.remainingDays = getProRemainingDays(paidSub, now);
+      return paidSub;
+    }
     return {
       active: true,
+      expired: false,
       planId: 'vip_admin',
       planName: adminGrant.roleLabel || 'PRO Cortesia (Liberado pelo Admin)',
+      durationDays: 3650,
+      remainingDays: 3650,
       priceMonthly: 0,
       billingTotal: 0,
-      activatedAt: adminGrant.grantedAt || Date.now(),
-      expiresAt: Date.now() + 10 * 365 * 86400000,
+      activatedAt: adminGrant.grantedAt || now,
+      expiresAt: now + 10 * 365 * 86400000,
       isFreeGrant: true,
       gateway: 'Cortesia Admin (Sem Custo)'
     };
   }
   try {
     const sub = JSON.parse(localStorage.getItem(STORAGE_PRO_KEY) || 'null');
-    if (sub && typeof sub === 'object') return sub;
+    if (sub && typeof sub === 'object') {
+      const hasExpiry = sub.expiresAt && Number.isFinite(sub.expiresAt);
+      const isExpired = Boolean(hasExpiry && now >= sub.expiresAt);
+      const isActive = sub.active === true && !isExpired;
+      const normalized = {
+        ...sub,
+        active: isActive,
+        expired: isExpired
+      };
+      normalized.remainingDays = getProRemainingDays(normalized, now);
+      return normalized;
+    }
   } catch {}
-  return { active: false, planId: null, expiresAt: null, gateway: 'Mercado Pago' };
-}
-
-export function isUserPro(uid = null, email = null) {
-  if (isUserAdminGrantedPro(uid, email)) return true;
-  return canUseProSocialFeature(getProSubscription(uid, email));
-}
-
-export function setProSubscription(active, planId = 'annual') {
-  const plan = PRO_PLANS[planId] || PRO_PLANS.annual;
-  const user = (typeof auth !== 'undefined' && auth?.currentUser) || null;
-  const sub = {
-    active: Boolean(active),
-    planId: plan.id,
-    planName: plan.name,
-    priceMonthly: plan.priceMonthly,
-    billingTotal: plan.billingTotal,
-    activatedAt: Date.now(),
-    expiresAt: Date.now() + (plan.id === 'annual' ? 365 : 30) * 86400000,
+  return {
+    active: false,
+    expired: false,
+    planId: null,
+    durationDays: 0,
+    remainingDays: 0,
+    expiresAt: null,
     gateway: 'Mercado Pago'
   };
+}
+
+export function isUserPro(uid = null, email = null, now = Date.now()) {
+  if (isUserAdminGrantedPro(uid, email, now)) return true;
+  return canUseProSocialFeature(getProSubscription(uid, email, now), now);
+}
+
+export function setProSubscription(active, planId = 'annual', customNow = Date.now(), options = {}) {
+  const plan = PRO_PLANS[planId] || PRO_PLANS.annual;
+  const planDurationDays = plan.durationDays || (plan.id === 'annual' ? 365 : 30);
+  const activatedAt = Number.isFinite(customNow) ? customNow : Date.now();
+  const user = (typeof auth !== 'undefined' && auth?.currentUser) || adminContext.currentUser || null;
+  const targetUid = user?.uid || 'local-current-user';
+  const targetEmail = String(user?.email || '').trim().toLowerCase();
+
+  let durationDays = planDurationDays;
+  let expiresAt = active ? activatedAt + planDurationDays * 86400000 : activatedAt;
+  let stackedFrom = null;
+  let effectivePlanId = plan.id;
+  let effectivePlanName = plan.name;
+
+  // Se o usuário já possui um plano PRO pago ativo (ex: Mensal 30 dias) e faz upgrade para Anual (365 dias),
+  // acumula os dias restantes (ex: 30 + 365 = 395 dias -> 1 ano + 1 mês)
+  if (active && options.stack !== false) {
+    const existingSub = getProSubscription(targetUid, targetEmail, activatedAt);
+    if (existingSub && existingSub.active === true && !existingSub.isFreeGrant && existingSub.expiresAt > activatedAt) {
+      const prevRemDays = getProRemainingDays(existingSub, activatedAt);
+      const prevRemMs = Math.max(0, existingSub.expiresAt - activatedAt);
+      durationDays = prevRemDays + planDurationDays;
+      expiresAt = activatedAt + prevRemMs + planDurationDays * 86400000;
+      stackedFrom = existingSub.planId;
+      if (existingSub.planId === 'annual' || plan.id === 'annual') {
+        effectivePlanId = 'annual';
+        effectivePlanName = durationDays >= 390
+          ? 'Anual + Mensal Acumulado (1 ano + 1 mês)'
+          : PRO_PLANS.annual.name;
+      }
+    }
+  }
+
+  const sub = {
+    active: Boolean(active),
+    expired: !active,
+    planId: effectivePlanId,
+    planName: effectivePlanName,
+    stackedFrom,
+    durationDays,
+    priceMonthly: plan.priceMonthly,
+    billingTotal: plan.billingTotal,
+    activatedAt,
+    expiresAt,
+    paymentId: options.paymentId || null,
+    gateway: 'Mercado Pago'
+  };
+  sub.remainingDays = getProRemainingDays(sub, activatedAt);
+
   try {
     localStorage.setItem(STORAGE_PRO_KEY, JSON.stringify(sub));
-    if (user?.uid) {
+
+    // Also update local & cloud extendedProfiles and vipGrants with exact expiration timestamp & days
+    const rawVip = loadRawAdminVipGrantsMap();
+    rawVip[targetUid] = {
+      ...(rawVip[targetUid] || {}),
+      key: targetUid,
+      uid: targetUid,
+      email: targetEmail,
+      displayName: user?.displayName || rawVip[targetUid]?.displayName || 'Assinante PRO',
+      active: Boolean(active),
+      planId: effectivePlanId,
+      planName: effectivePlanName,
+      stackedFrom,
+      durationDays,
+      grantedAt: activatedAt,
+      activatedAt,
+      expiresAt,
+      paymentId: options.paymentId || null,
+      isPaidSubscription: true,
+      reason: 'Mercado Pago'
+    };
+    localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(rawVip));
+
+    const extMap = loadFisherExtendedProfiles();
+    extMap[targetUid] = {
+      ...(extMap[targetUid] || {}),
+      isPro: Boolean(active),
+      proPlan: effectivePlanId,
+      proDurationDays: durationDays,
+      proActivatedAt: activatedAt,
+      proExpiresAt: expiresAt
+    };
+    localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(extMap));
+
+    if (typeof window !== 'undefined' && user?.uid) {
       update(ref(database, `mareCerta/extendedProfiles/${user.uid}`), {
         isPro: Boolean(active),
-        proPlan: plan.id,
-        proActivatedAt: Date.now()
+        proPlan: effectivePlanId,
+        proDurationDays: durationDays,
+        proActivatedAt: activatedAt,
+        proExpiresAt: expiresAt
       }).catch(() => {});
       update(ref(database, `mareCerta/vipGrants/${user.uid}`), {
+        uid: user.uid,
+        email: targetEmail,
         active: Boolean(active),
-        planName: plan.name,
-        grantedAt: Date.now(),
+        planId: effectivePlanId,
+        planName: effectivePlanName,
+        stackedFrom,
+        durationDays,
+        grantedAt: activatedAt,
+        activatedAt,
+        expiresAt,
+        paymentId: options.paymentId || null,
+        isPaidSubscription: true,
         reason: 'Mercado Pago'
       }).catch(() => {});
     }
   } catch {}
   updateProStatusUI();
-  window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: sub }));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: sub }));
+  }
   return sub;
 }
 
@@ -1091,6 +1233,97 @@ export function renderAchievementsAndStats(captures = {}, currentUid = null) {
   }
 }
 
+export function syncProModalPlanCards(now = Date.now()) {
+  const pro = isUserPro(null, null, now);
+  const sub = getProSubscription(null, null, now);
+  const rem = sub.remainingDays || getProRemainingDays(sub, now);
+
+  const annualCard = typeof document !== 'undefined' ? document.querySelector('[data-pro-plan-select="annual"]') : null;
+  const monthlyCard = typeof document !== 'undefined' ? document.querySelector('[data-pro-plan-select="monthly"]') : null;
+  const summaryEl = $('mpSelectedPlanSummary');
+  const checkoutBtn = $('mpCheckoutApproveBtn');
+  const titleEl = $('proPaywallTitle');
+  const reasonBanner = $('proPaywallReason');
+
+  if (pro && sub.planId === 'monthly') {
+    // Usuário já possui o Plano Mensal ativo -> bloqueia recompra do Mensal e seleciona o Anual somando 1 ano + 1 mês
+    selectedPlanId = 'annual';
+    if (monthlyCard) {
+      monthlyCard.classList.remove('selected');
+      monthlyCard.classList.add('is-active-current-plan');
+      monthlyCard.setAttribute('aria-pressed', 'false');
+      monthlyCard.disabled = true;
+      const ribbon = monthlyCard.querySelector('.pro-plan-ribbon');
+      if (ribbon) ribbon.textContent = `✓ SEU PLANO ATUAL (ATIVO · ${rem} DIAS)`;
+    }
+    if (annualCard) {
+      annualCard.classList.add('selected');
+      annualCard.classList.remove('is-active-current-plan');
+      annualCard.setAttribute('aria-pressed', 'true');
+      annualCard.disabled = false;
+      const ribbon = annualCard.querySelector('.pro-plan-ribbon');
+      if (ribbon) ribbon.textContent = `⚡ UPGRADE · SOMA 1 ANO + 1 MÊS (${rem + 365} DIAS)`;
+    }
+    if (titleEl) titleEl.textContent = '👑 Seu Plano Mensal está Ativo!';
+    if (reasonBanner) {
+      reasonBanner.textContent = `✅ Reconhecemos seu Plano Mensal ativo (${rem} dias restantes). Caso queira o PRO Anual agora, os períodos serão somados: 1 ano + 1 mês (${rem + 365} dias de PRO)!`;
+    }
+    if (summaryEl) {
+      summaryEl.innerHTML = `👑 <strong>Plano Mensal reconhecido como ATIVO (${rem} dias).</strong><br>Ao adquirir o <strong>Plano Anual (R$ 99,90)</strong>, você soma +365 dias e fica com <strong>1 ano + 1 mês (${rem + 365} dias no total)</strong>!`;
+    }
+    if (checkoutBtn) checkoutBtn.hidden = false;
+  } else if (pro) {
+    // Usuário já possui Plano Anual (ou 1 ano + 1 mês / Cortesia) ativo
+    const durationText = formatProDurationLabel(sub, now);
+    if (annualCard) {
+      annualCard.classList.add('selected', 'is-active-current-plan');
+      annualCard.setAttribute('aria-pressed', 'true');
+      const ribbon = annualCard.querySelector('.pro-plan-ribbon');
+      if (ribbon) ribbon.textContent = `✓ SEU PLANO ATUAL (ATIVO · ${durationText.toUpperCase()})`;
+    }
+    if (monthlyCard) {
+      monthlyCard.classList.remove('selected', 'is-active-current-plan');
+      monthlyCard.setAttribute('aria-pressed', 'false');
+      monthlyCard.disabled = true;
+      const ribbon = monthlyCard.querySelector('.pro-plan-ribbon');
+      if (ribbon) ribbon.textContent = 'JÁ COBERTO PELO SEU PLANO ANUAL';
+    }
+    if (titleEl) titleEl.textContent = '👑 Sua Conta já é Assinante PRO!';
+    if (reasonBanner) {
+      reasonBanner.textContent = `✅ Seu acesso Clube Pescador PRO está ativo (${durationText} restantes). Todos os recursos sociais e fotos já estão liberados!`;
+    }
+    if (summaryEl) {
+      summaryEl.innerHTML = `✅ <strong>Assinatura PRO Ativa:</strong> ${escapeHtml(sub.planName || 'Anual')} · Tempo restante: <strong>${escapeHtml(durationText)}</strong>.`;
+    }
+    if (checkoutBtn) checkoutBtn.hidden = true;
+  } else {
+    // Usuário Gratuito (ou assinatura expirada)
+    if (annualCard) {
+      annualCard.classList.remove('is-active-current-plan');
+      annualCard.disabled = false;
+      annualCard.classList.toggle('selected', selectedPlanId === 'annual');
+      annualCard.setAttribute('aria-pressed', String(selectedPlanId === 'annual'));
+      const ribbon = annualCard.querySelector('.pro-plan-ribbon');
+      if (ribbon) ribbon.textContent = 'MAIS ESCOLHIDO · 44% DE DESCONTO';
+    }
+    if (monthlyCard) {
+      monthlyCard.classList.remove('is-active-current-plan');
+      monthlyCard.disabled = false;
+      monthlyCard.classList.toggle('selected', selectedPlanId === 'monthly');
+      monthlyCard.setAttribute('aria-pressed', String(selectedPlanId === 'monthly'));
+      const ribbon = monthlyCard.querySelector('.pro-plan-ribbon');
+      if (ribbon) ribbon.textContent = 'SEM FIDELIDADE · 30 DIAS';
+    }
+    if (titleEl) titleEl.textContent = 'Faça parte da elite da pesca costeira.';
+    if (summaryEl) {
+      summaryEl.innerHTML = selectedPlanId === 'annual'
+        ? 'Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90 por 365 dias via PIX ou Cartão em até 12x)'
+        : 'Plano Mensal selecionado: <strong>R$ 14,90/mês</strong> (cobrança avulsa por 30 dias via PIX ou Cartão)';
+    }
+    if (checkoutBtn) checkoutBtn.hidden = false;
+  }
+}
+
 export function openProPaywallModal(reason = 'social') {
   if (!auth.currentUser) {
     const accBtn = $('accountButton');
@@ -1105,8 +1338,9 @@ export function openProPaywallModal(reason = 'social') {
   }
   const dialog = $('proPaywallDialog');
   if (!dialog) return;
+  const pro = isUserPro();
   const reasonBanner = $('proPaywallReason');
-  if (reasonBanner) {
+  if (reasonBanner && !pro) {
     const messages = {
       foto: '📸 Para publicar a foto do seu troféu e participar da nossa família de pescadores, ative o Clube PRO.',
       comentar: '💬 Para comentar, perguntar iscas e responder outros pescadores no feed, ative o Clube Pescador PRO.',
@@ -1116,6 +1350,7 @@ export function openProPaywallModal(reason = 'social') {
     };
     reasonBanner.textContent = messages[reason] || messages.social;
   }
+  syncProModalPlanCards();
   dialog.showModal();
 }
 
@@ -1128,7 +1363,15 @@ function updateProStatusUI() {
     if (pro && sub.isFreeGrant) {
       statusPill.textContent = `👑 Membro PRO Cortesia (${sub.planName || 'Liberado pelo Admin · Sem Custo'})`;
     } else if (pro) {
-      statusPill.textContent = `👑 Assinante PRO Ativo (${sub.planId === 'monthly' ? 'R$ 14,90/mês' : 'Anual · R$ 8,33/mês'})`;
+      const durationText = formatProDurationLabel(sub);
+      const planLabel = sub.planId === 'monthly'
+        ? 'Plano Mensal Ativo'
+        : sub.stackedFrom === 'monthly'
+          ? 'Plano Anual + Mensal Ativo'
+          : 'Plano Anual Ativo';
+      statusPill.textContent = `👑 ${planLabel} · Restam ${durationText}`;
+    } else if (sub.expired) {
+      statusPill.textContent = '🔒 Assinatura Expirada · Conta Gratuita (Renove seu PRO)';
     } else {
       statusPill.textContent = '🔒 Conta Gratuita (Modo Leitura no Feed)';
     }
@@ -1144,7 +1387,18 @@ function updateProStatusUI() {
 
   const openModalBtn = $('openProModalBtn');
   if (openModalBtn) {
-    openModalBtn.textContent = pro ? '👑 Gerenciar Assinatura PRO' : '⚡ Assinar PRO · R$ 8,33/mês';
+    if (pro && sub.planId === 'monthly') {
+      const rem = sub.remainingDays || getProRemainingDays(sub);
+      openModalBtn.textContent = `👑 PRO Mensal Ativo (${rem}d) · Upgrade Anual (+1 Ano)`;
+      openModalBtn.disabled = false;
+    } else if (pro) {
+      const durationText = formatProDurationLabel(sub);
+      openModalBtn.textContent = `👑 PRO Ativo (${durationText})`;
+      openModalBtn.disabled = false;
+    } else {
+      openModalBtn.textContent = '⚡ Assinar PRO · R$ 8,33/mês';
+      openModalBtn.disabled = false;
+    }
   }
 
   const photoLockBadge = $('photoProLockBadge');
@@ -1152,6 +1406,8 @@ function updateProStatusUI() {
     photoLockBadge.textContent = pro ? '👑 Foto Liberada · Membro PRO' : '🔒 Recurso da Família PRO';
     photoLockBadge.className = `photo-pro-badge ${pro ? 'unlocked' : 'locked'}`;
   }
+
+  syncProModalPlanCards();
 }
 
 export function generateTrophyFallbackIllustration(capture) {
@@ -2103,17 +2359,9 @@ export function initProSocialFeatures() {
 
   document.querySelectorAll('[data-pro-plan-select]').forEach(cardBtn => {
     cardBtn.addEventListener('click', () => {
+      if (cardBtn.disabled || cardBtn.classList.contains('is-active-current-plan')) return;
       selectedPlanId = cardBtn.dataset.proPlanSelect || 'annual';
-      document.querySelectorAll('[data-pro-plan-select]').forEach(el => {
-        el.classList.toggle('selected', el.dataset.proPlanSelect === selectedPlanId);
-        el.setAttribute('aria-pressed', String(el.dataset.proPlanSelect === selectedPlanId));
-      });
-      const summaryEl = $('mpSelectedPlanSummary');
-      if (summaryEl) {
-        summaryEl.innerHTML = selectedPlanId === 'annual'
-          ? 'Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90/ano via PIX ou Cartão em até 12x)'
-          : 'Plano Mensal selecionado: <strong>R$ 14,90/mês</strong> (cobrança avulsa via PIX ou Cartão)';
-      }
+      syncProModalPlanCards();
     });
   });
 
@@ -2136,6 +2384,7 @@ export function initProSocialFeatures() {
         try {
           localStorage.setItem('mare-certa-pending-mp-checkout', JSON.stringify({
             uid: auth.currentUser.uid,
+            email: auth.currentUser.email || '',
             planId: plan.id,
             timestamp: Date.now()
           }));
@@ -2143,24 +2392,10 @@ export function initProSocialFeatures() {
         window.open(plan.paymentUrl, '_blank');
         const summaryEl = $('mpSelectedPlanSummary');
         if (summaryEl) {
-          summaryEl.innerHTML = `⏳ <strong>Abrindo checkout do Mercado Pago…</strong><br><small>Conclua seu PIX ou Cartão no Mercado Pago. Ao retornar, clique no botão de confirmação abaixo se desejar validar imediatamente!</small>`;
+          summaryEl.innerHTML = `⏳ <strong>Aguardando pagamento no Mercado Pago…</strong><br><small>Conclua seu PIX ou Cartão na aba do Mercado Pago. Seu acesso PRO será ativado automaticamente assim que o Mercado Pago confirmar a aprovação da transação!</small>`;
         }
-        const confirmBtn = $('mpConfirmPaymentManualBtn');
-        if (confirmBtn) confirmBtn.hidden = false;
         return;
       }
-      setProSubscription(true, selectedPlanId);
-      $('proPaywallDialog')?.close();
-    });
-  }
-
-  const confirmBtn = $('mpConfirmPaymentManualBtn');
-  if (confirmBtn) {
-    confirmBtn.addEventListener('click', () => {
-      if (!auth.currentUser) return;
-      setProSubscription(true, selectedPlanId);
-      $('proPaywallDialog')?.close();
-      alert('🎉 Parabéns! Sua assinatura Clube Pescador PRO foi confirmada com sucesso!');
     });
   }
 
@@ -2212,12 +2447,37 @@ export function initFirebaseRealtimeSync() {
       if (val && typeof val === 'object') {
         const local = loadRawAdminVipGrantsMap();
         const merged = { ...local, ...val };
+        // Limpa ativação de teste sem pagamento na conta russia33de4a@qr.kashre.com
+        for (const [k, grant] of Object.entries(merged)) {
+          const gEmail = String(grant?.email || '').trim().toLowerCase();
+          if (
+            (gEmail === 'russia33de4a@qr.kashre.com' || k.toLowerCase() === 'russia33de4a@qr.kashre.com' || (grant?.reason === 'Mercado Pago' && !grant?.paymentId)) &&
+            grant?.active !== false &&
+            grant?.reason === 'Mercado Pago' &&
+            !grant?.paymentId
+          ) {
+            merged[k] = { ...grant, active: false, revokedAt: Date.now() };
+            update(ref(database, `mareCerta/vipGrants/${k}`), { active: false, revokedAt: Date.now() }).catch(() => {});
+            update(ref(database, `mareCerta/extendedProfiles/${k}`), { isPro: false }).catch(() => {});
+          }
+        }
         try { localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(merged)); } catch {}
         updateProStatusUI();
         window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
         window.dispatchEvent(new CustomEvent('mare-certa:vip-grants-changed', { detail: merged }));
       }
     }, () => {});
+
+    // Limpa assinatura local sem paymentId caso tenha sido ativada pelo botão de teste antigo
+    try {
+      const localSub = JSON.parse(localStorage.getItem(STORAGE_PRO_KEY) || 'null');
+      const cleanupDone = localStorage.getItem('mare-certa-mp-fake-btn-cleaned-v1');
+      if (!cleanupDone && localSub && localSub.active && !localSub.paymentId && !localSub.isFreeGrant) {
+        localStorage.removeItem(STORAGE_PRO_KEY);
+        localStorage.setItem('mare-certa-mp-fake-btn-cleaned-v1', '1');
+        updateProStatusUI();
+      }
+    } catch {}
 
     // 4. Sincroniza perfis estendidos da nuvem
     onValue(ref(database, 'mareCerta/extendedProfiles'), snapshot => {
@@ -2247,18 +2507,19 @@ export function initFirebaseRealtimeSync() {
         saveSocialState(state);
       }
     }, () => {});
-    // 5. Verifica se o usuário retornou de um checkout aprovado do Mercado Pago
+    // 5. Verifica se o usuário retornou de um checkout aprovado do Mercado Pago (com status=approved + payment_id oficial)
     try {
       if (typeof window !== 'undefined' && window.location?.search) {
         const params = new URLSearchParams(window.location.search);
         const status = params.get('status') || params.get('collection_status');
-        if (status === 'approved') {
+        const paymentId = params.get('payment_id') || params.get('collection_id') || params.get('preference_id');
+        if (status === 'approved' && paymentId) {
           const pendingRaw = localStorage.getItem('mare-certa-pending-mp-checkout');
           let planId = 'annual';
           try {
             if (pendingRaw) planId = JSON.parse(pendingRaw).planId || 'annual';
           } catch {}
-          setProSubscription(true, planId);
+          setProSubscription(true, planId, Date.now(), { paymentId });
           localStorage.removeItem('mare-certa-pending-mp-checkout');
           setTimeout(() => {
             alert('🎉 Pagamento aprovado no Mercado Pago! Bem-vindo ao Clube Pescador PRO!');

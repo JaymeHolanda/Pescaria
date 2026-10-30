@@ -4553,6 +4553,18 @@ a.profile-social-pill:hover {
   font-weight: 600;
 }
 
+.pro-plan-card.is-active-current-plan {
+  border-color: #4de1c1 !important;
+  background: rgba(77, 225, 193, 0.14) !important;
+  cursor: default;
+  box-shadow: 0 0 0 1px rgba(77, 225, 193, 0.35), 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+.pro-plan-card.is-active-current-plan .pro-plan-ribbon {
+  background: linear-gradient(90deg, #10b981, #34d399) !important;
+  color: #032218 !important;
+  font-weight: 800;
+}
+
 @media (max-width: 720px) {
   .admin-kpi-strip,
   .admin-form-grid {

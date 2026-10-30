@@ -775,9 +775,6 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
           <div id="mpSelectedPlanSummary" class="mp-selected-plan-summary">
             Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90/ano via PIX ou Cartão em até 12x)
           </div>
-          <button id="mpConfirmPaymentManualBtn" class="mp-confirm-manual-btn" type="button" hidden>
-            ✓ Já paguei no Mercado Pago! Ativar meu PRO agora
-          </button>
         </div>
       </dialog>
 

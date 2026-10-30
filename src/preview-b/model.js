@@ -733,6 +733,7 @@ export const PRO_PLANS = {
     name: 'Anual · Clube Pescador PRO',
     priceMonthly: 8.33,
     billingTotal: 99.9,
+    durationDays: 365,
     periodLabel: 'por mês (cobrado R$ 99,90/ano)',
     discountBadge: 'MAIS ESCOLHIDO · 44% DE DESCONTO',
     gateway: 'Mercado Pago (PIX ou Cartão em até 12x)',
@@ -743,6 +744,7 @@ export const PRO_PLANS = {
     name: 'Mensal · Clube Pescador PRO',
     priceMonthly: 14.9,
     billingTotal: 14.9,
+    durationDays: 30,
     periodLabel: 'por mês avulso',
     discountBadge: 'SEM FIDELIDADE',
     gateway: 'Mercado Pago (PIX ou Cartão)',
@@ -773,11 +775,29 @@ export function formatCompressionSavings(originalBytes, compressedBytes) {
   return `Otimizada p/ S3 (WebP): ${fmt(orig)} → ${fmt(comp)} (-${savedPct}%)`;
 }
 
-export function canUseProSocialFeature(sub = {}) {
+export function canUseProSocialFeature(sub = {}, now = Date.now()) {
   if (!sub || typeof sub !== 'object') return false;
   if (sub.active !== true) return false;
-  if (sub.expiresAt && Number.isFinite(sub.expiresAt) && sub.expiresAt < Date.now()) return false;
+  if (sub.expiresAt && Number.isFinite(sub.expiresAt) && now >= sub.expiresAt) return false;
   return true;
+}
+
+export function getProRemainingDays(sub = {}, now = Date.now()) {
+  if (!sub || typeof sub !== 'object' || sub.active !== true) return 0;
+  if (!sub.expiresAt || !Number.isFinite(sub.expiresAt)) return 0;
+  const diffMs = sub.expiresAt - now;
+  if (diffMs <= 0) return 0;
+  return Math.max(0, Math.ceil(diffMs / 86400000));
+}
+
+export function formatProDurationLabel(sub = {}, now = Date.now()) {
+  const rem = sub?.remainingDays ?? getProRemainingDays(sub, now);
+  if (rem <= 0) return '0 dias';
+  if (rem >= 390) {
+    const extraMonths = Math.max(1, Math.round((rem - 365) / 30));
+    return `1 ano + ${extraMonths} ${extraMonths === 1 ? 'mês' : 'meses'} (${rem} dias)`;
+  }
+  return `${rem} dia${rem === 1 ? '' : 's'}`;
 }
 
 

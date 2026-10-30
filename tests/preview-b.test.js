@@ -714,3 +714,130 @@ test('Vinculação da Localização do Perfil com o Padrão de Pesca da Main Pag
   assert.ok(css.includes('.ext-sync-checkbox'));
   assert.ok(css.includes('.set-profile-loc-btn'));
 });
+
+test('Mercado Pago: links oficiais (Mensal 30d e Anual 365d), soma de 1 ano + 1 mês no upgrade e retorno ao Gratuito após expiração', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { PRO_PLANS, canUseProSocialFeature, getProRemainingDays, formatProDurationLabel } = await import('../src/preview-b/model.js');
+  const {
+    setProSubscription,
+    getProSubscription,
+    isUserPro,
+    setAdminCommunityContext,
+    getFisherExtendedProfile
+  } = await import('../src/preview-b/community-enhancements.js');
+
+  // Garante que o botão antigo de ativar PRO sem pagar ("Já paguei no Mercado Pago!") foi removido do HTML
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.doesNotMatch(html, /mpConfirmPaymentManualBtn/);
+
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k)
+  };
+
+  // 1. Confirma links oficiais e duração em dias configurados nos planos
+  assert.equal(PRO_PLANS.monthly.paymentUrl, 'https://mpago.la/2VrN9v1');
+  assert.equal(PRO_PLANS.monthly.durationDays, 30);
+  assert.equal(PRO_PLANS.annual.paymentUrl, 'https://mpago.la/2UDPJo9');
+  assert.equal(PRO_PLANS.annual.durationDays, 365);
+
+  const baseTime = 1793400000000;
+  const testUser = { uid: 'fisher-mp-test', email: 'mp@marecerta.com.br', displayName: 'Pescador MP' };
+  setAdminCommunityContext(testUser, {}, {});
+
+  // Inicialmente na conta gratuita
+  assert.equal(isUserPro(testUser.uid, testUser.email, baseTime), false);
+
+  // 2. Ciclo completo do Plano MENSAL (30 dias -> volta ao gratuito no 31º dia)
+  const monthlySub = setProSubscription(true, 'monthly', baseTime);
+  assert.equal(monthlySub.active, true);
+  assert.equal(monthlySub.planId, 'monthly');
+  assert.equal(monthlySub.durationDays, 30);
+  assert.equal(monthlySub.expiresAt, baseTime + 30 * 86400000);
+  assert.equal(getProRemainingDays(monthlySub, baseTime), 30);
+
+  // Verifica se o banco (extendedProfiles) gravou os 30 dias e a data de expiração
+  const extMonthly = getFisherExtendedProfile(testUser.uid);
+  assert.equal(extMonthly.isPro, true);
+  assert.equal(extMonthly.proPlan, 'monthly');
+  assert.equal(extMonthly.proDurationDays, 30);
+  assert.equal(extMonthly.proExpiresAt, baseTime + 30 * 86400000);
+
+  // Dia 15 do plano mensal: ainda ativo (restam 15 dias)
+  const day15 = baseTime + 15 * 86400000;
+  assert.equal(isUserPro(testUser.uid, testUser.email, day15), true);
+  const subAtDay15 = getProSubscription(testUser.uid, testUser.email, day15);
+  assert.equal(subAtDay15.active, true);
+  assert.equal(subAtDay15.remainingDays, 15);
+
+  // Dia 30 exato e Dia 31: expira automaticamente e volta para o plano GRATUITO
+  const day30 = baseTime + 30 * 86400000;
+  const day31 = baseTime + 31 * 86400000;
+  assert.equal(canUseProSocialFeature(monthlySub, day30), false);
+  assert.equal(isUserPro(testUser.uid, testUser.email, day30), false);
+  assert.equal(isUserPro(testUser.uid, testUser.email, day31), false);
+  const subAtDay31 = getProSubscription(testUser.uid, testUser.email, day31);
+  assert.equal(subAtDay31.active, false);
+  assert.equal(subAtDay31.expired, true);
+  assert.equal(subAtDay31.remainingDays, 0);
+
+  // 3. Ciclo completo do Plano ANUAL avulso após expiração (365 dias -> volta ao gratuito após 365 dias)
+  const annualSub = setProSubscription(true, 'annual', day31);
+  assert.equal(annualSub.active, true);
+  assert.equal(annualSub.planId, 'annual');
+  assert.equal(annualSub.durationDays, 365);
+  assert.equal(annualSub.expiresAt, day31 + 365 * 86400000);
+  assert.equal(getProRemainingDays(annualSub, day31), 365);
+
+  // Verifica se o banco (extendedProfiles) gravou os 365 dias e a data de expiração
+  const extAnnual = getFisherExtendedProfile(testUser.uid);
+  assert.equal(extAnnual.isPro, true);
+  assert.equal(extAnnual.proPlan, 'annual');
+  assert.equal(extAnnual.proDurationDays, 365);
+  assert.equal(extAnnual.proExpiresAt, day31 + 365 * 86400000);
+
+  // Dia 200 do plano anual: ainda ativo (restam 165 dias)
+  const annualDay200 = day31 + 200 * 86400000;
+  assert.equal(isUserPro(testUser.uid, testUser.email, annualDay200), true);
+  const subAtDay200 = getProSubscription(testUser.uid, testUser.email, annualDay200);
+  assert.equal(subAtDay200.active, true);
+  assert.equal(subAtDay200.remainingDays, 165);
+
+  // Dia 365 exato e Dia 366 do plano anual: expira automaticamente e volta para o plano GRATUITO
+  const annualDay365 = day31 + 365 * 86400000;
+  const annualDay366 = day31 + 366 * 86400000;
+  assert.equal(canUseProSocialFeature(annualSub, annualDay365), false);
+  assert.equal(isUserPro(testUser.uid, testUser.email, annualDay365), false);
+  assert.equal(isUserPro(testUser.uid, testUser.email, annualDay366), false);
+  const subAtDay366 = getProSubscription(testUser.uid, testUser.email, annualDay366);
+  assert.equal(subAtDay366.active, false);
+  assert.equal(subAtDay366.expired, true);
+  assert.equal(subAtDay366.remainingDays, 0);
+
+  // 4. SOMA DE PLANOS (Upgrade Mensal -> Anual = 1 ano + 1 mês = 395 dias)
+  const upgradeStartTime = annualDay366 + 86400000;
+  const activeMonthly = setProSubscription(true, 'monthly', upgradeStartTime);
+  assert.equal(activeMonthly.durationDays, 30);
+
+  // Estando com o Mensal ativo (30 dias), compra o Anual (+365 dias) -> fica com 395 dias (1 ano + 1 mês)
+  const stackedSub = setProSubscription(true, 'annual', upgradeStartTime);
+  assert.equal(stackedSub.active, true);
+  assert.equal(stackedSub.planId, 'annual');
+  assert.equal(stackedSub.stackedFrom, 'monthly');
+  assert.equal(stackedSub.durationDays, 395);
+  assert.equal(stackedSub.remainingDays, 395);
+  assert.equal(stackedSub.expiresAt, upgradeStartTime + 395 * 86400000);
+  assert.match(formatProDurationLabel(stackedSub, upgradeStartTime), /1 ano \+ 1 mês \(395 dias\)/);
+
+  // No dia 380 ainda está PRO (faltam 15 dias do período acumulado de 395 dias)
+  const day380 = upgradeStartTime + 380 * 86400000;
+  assert.equal(isUserPro(testUser.uid, testUser.email, day380), true);
+  assert.equal(getProSubscription(testUser.uid, testUser.email, day380).remainingDays, 15);
+
+  // No dia 395/396 expira e retorna ao plano Gratuito
+  const day396 = upgradeStartTime + 396 * 86400000;
+  assert.equal(isUserPro(testUser.uid, testUser.email, day396), false);
+  assert.equal(getProSubscription(testUser.uid, testUser.email, day396).active, false);
+});
