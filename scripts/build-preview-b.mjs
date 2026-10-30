@@ -1298,6 +1298,11 @@ writeFileSync('dist/sw.js', swCode);
 let ranking = read('src/ranking.js');
 ranking = replace(
   ranking,
+  "import { ref, runTransaction, onValue, push, remove, serverTimestamp } from 'firebase/database';",
+  "import { ref, runTransaction, onValue, push, remove, serverTimestamp, update } from 'firebase/database';"
+);
+ranking = replace(
+  ranking,
   "import { auth, database } from './firebase.js';",
   `import { auth, database } from './firebase.js';
 import { filterCaptures } from './preview-b/model.js';
@@ -1321,7 +1326,8 @@ import {
   setAdminCommunityContext,
   renderAdminProPanel,
   validateTextAgainstModeration,
-  getUserModerationStatus
+  getUserModerationStatus,
+  uploadTrophyPhotoToFirebaseStorage
 } from './preview-b/community-enhancements.js';`
 );
 ranking = replace(
@@ -1368,10 +1374,20 @@ ranking = replace(
   ranking,
   "if (!result.committed) throw new CaptureValidationError('Esta captura não está mais disponível para edição.');",
   `if (!result.committed) throw new CaptureValidationError('Esta captura não está mais disponível para edição.');
-      if ($('captureCommentInput')) saveCaptureCaption(edit.id, $('captureCommentInput').value);
+      const editCaptionVal = $('captureCommentInput') ? $('captureCommentInput').value.trim().slice(0, 300) : '';
+      if ($('captureCommentInput')) {
+        saveCaptureCaption(edit.id, editCaptionVal);
+        update(ref(database, 'mareCerta/captures/' + edit.id), { caption: editCaptionVal }).catch(() => {});
+      }
       const pendingPhotoEdit = getPendingTrophyPhoto();
       if (pendingPhotoEdit) {
         saveLocalS3Photo(edit.id, pendingPhotoEdit);
+        uploadTrophyPhotoToFirebaseStorage(edit.id, pendingPhotoEdit.dataUrl).then(url => {
+          const finalPhotoUrl = url || pendingPhotoEdit.dataUrl;
+          if (finalPhotoUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: finalPhotoUrl }).catch(() => {});
+        }).catch(() => {
+          if (pendingPhotoEdit.dataUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: pendingPhotoEdit.dataUrl }).catch(() => {});
+        });
         clearPendingTrophyPhoto();
       }`
 );
@@ -1384,12 +1400,20 @@ ranking = replace(
   ranking,
   "await push(ref(database, 'mareCerta/captures'), capture);",
   `const pushedRef = await push(ref(database, 'mareCerta/captures'), capture);
+      const newCaptionVal = $('captureCommentInput') ? $('captureCommentInput').value.trim().slice(0, 300) : '';
       if ($('captureCommentInput') && pushedRef?.key) {
-        saveCaptureCaption(pushedRef.key, $('captureCommentInput').value);
+        saveCaptureCaption(pushedRef.key, newCaptionVal);
+        if (newCaptionVal) update(ref(database, 'mareCerta/captures/' + pushedRef.key), { caption: newCaptionVal }).catch(() => {});
       }
       const pendingPhoto = getPendingTrophyPhoto();
       if (pendingPhoto && pushedRef?.key) {
         saveLocalS3Photo(pushedRef.key, pendingPhoto);
+        uploadTrophyPhotoToFirebaseStorage(pushedRef.key, pendingPhoto.dataUrl).then(url => {
+          const finalPhotoUrl = url || pendingPhoto.dataUrl;
+          if (finalPhotoUrl) update(ref(database, 'mareCerta/captures/' + pushedRef.key), { photoUrl: finalPhotoUrl }).catch(() => {});
+        }).catch(() => {
+          if (pendingPhoto.dataUrl) update(ref(database, 'mareCerta/captures/' + pushedRef.key), { photoUrl: pendingPhoto.dataUrl }).catch(() => {});
+        });
         clearPendingTrophyPhoto();
       }`
 );

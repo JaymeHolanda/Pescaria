@@ -5,6 +5,9 @@ import {
   formatCompressionSavings,
   canUseProSocialFeature
 } from './model.js';
+import { ref, set, update, push, remove, onValue } from 'firebase/database';
+import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
+import { database, storage } from '../firebase.js';
 
 const $ = id => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 
@@ -254,6 +257,11 @@ export function deletePostComment(captureId, commentId) {
   const list = Array.isArray(state.comments[captureId]) ? state.comments[captureId] : [];
   state.comments[captureId] = list.filter(c => c.id !== commentId);
   saveSocialState(state);
+  if (typeof window !== 'undefined') {
+    try {
+      remove(ref(database, `mareCerta/comments/${captureId}/${commentId}`)).catch(() => {});
+    } catch {}
+  }
   return state.comments[captureId];
 }
 
@@ -332,6 +340,9 @@ export function saveFisherExtendedProfile(uid, updates = {}) {
     localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(raw));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('mare-certa:profile-updated', { detail: { uid, profile: raw[uid] } }));
+      try {
+        update(ref(database, `mareCerta/extendedProfiles/${uid}`), raw[uid]).catch(() => {});
+      } catch {}
     }
     return raw[uid];
   } catch {
@@ -354,6 +365,19 @@ export function saveLocalS3Photo(captureId, photoRecord) {
     map[captureId] = photoRecord;
     localStorage.setItem(STORAGE_PHOTOS_KEY, JSON.stringify(map));
   } catch {}
+}
+
+export async function uploadTrophyPhotoToFirebaseStorage(captureId, photoDataUrl) {
+  if (!photoDataUrl || typeof photoDataUrl !== 'string' || !photoDataUrl.startsWith('data:')) return null;
+  try {
+    const fileRef = storageRef(storage, `mareCerta/trophies/${captureId || Date.now()}.webp`);
+    await uploadString(fileRef, photoDataUrl, 'data_url');
+    const downloadUrl = await getDownloadURL(fileRef);
+    return downloadUrl;
+  } catch (err) {
+    console.warn('Fallback: foto salva localmente, upload no Firebase Storage não concluído:', err);
+    return null;
+  }
 }
 
 export function loadAdminVipGrants() {
@@ -388,6 +412,9 @@ export function saveAdminVipGrants(grantsMap) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
     window.dispatchEvent(new CustomEvent('mare-certa:vip-grants-changed', { detail: grantsMap }));
+    try {
+      set(ref(database, 'mareCerta/vipGrants'), grantsMap || {}).catch(() => {});
+    } catch {}
   }
 }
 
@@ -573,6 +600,9 @@ export function addProhibitedWord(word) {
     custom.push(clean);
     try {
       localStorage.setItem(STORAGE_PROHIBITED_WORDS_KEY, JSON.stringify(custom));
+      if (typeof window !== 'undefined') {
+        set(ref(database, 'mareCerta/moderation/prohibitedWords'), custom).catch(() => {});
+      }
     } catch {}
   }
   return loadProhibitedWords();
@@ -583,6 +613,9 @@ export function removeProhibitedWord(word) {
   const custom = loadCustomProhibitedWords().filter(w => w !== clean);
   try {
     localStorage.setItem(STORAGE_PROHIBITED_WORDS_KEY, JSON.stringify(custom));
+    if (typeof window !== 'undefined') {
+      set(ref(database, 'mareCerta/moderation/prohibitedWords'), custom).catch(() => {});
+    }
   } catch {}
   return loadProhibitedWords();
 }
@@ -631,6 +664,9 @@ export function saveAdminModerationMap(map) {
   } catch {}
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('mare-certa:moderation-changed', { detail: map }));
+    try {
+      set(ref(database, 'mareCerta/moderation/users'), map || {}).catch(() => {});
+    } catch {}
   }
 }
 
@@ -1646,17 +1682,23 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     if (!Array.isArray(state.comments[id])) state.comments[id] = [];
     const extMe = currentUid ? getFisherExtendedProfile(currentUid, profiles?.[currentUid]) : null;
     const authorName = extMe?.displayName || profiles?.[currentUid]?.displayName || 'Você (Pescador PRO)';
-    state.comments[id].push({
+    const commentObj = {
       id: `c-${Date.now()}`,
       author: authorName,
       authorUid: currentUid || 'me',
       isPro: true,
       time: 'agora mesmo',
       text
-    });
+    };
+    state.comments[id].push(commentObj);
     saveSocialState(state);
     commentInput.value = '';
     renderPostComments();
+    if (typeof window !== 'undefined') {
+      try {
+        push(ref(database, `mareCerta/comments/${id}`), commentObj).catch(() => {});
+      } catch {}
+    }
   });
 
   // Rebuild card structure in social order
@@ -1900,6 +1942,79 @@ export function initProSocialFeatures() {
   });
 
   updateProStatusUI();
+  initFirebaseRealtimeSync();
+}
+
+let firebaseSyncStarted = false;
+export function initFirebaseRealtimeSync() {
+  if (typeof window === 'undefined' || firebaseSyncStarted) return;
+  firebaseSyncStarted = true;
+
+  try {
+    // 1. Sincroniza moderação e banimentos da nuvem
+    onValue(ref(database, 'mareCerta/moderation/users'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        const local = loadAdminModerationMap();
+        const merged = { ...local, ...val };
+        try { localStorage.setItem(STORAGE_ADMIN_MODERATION_KEY, JSON.stringify(merged)); } catch {}
+        window.dispatchEvent(new CustomEvent('mare-certa:moderation-changed', { detail: merged }));
+      }
+    }, () => {});
+
+    // 2. Sincroniza palavras bloqueadas da nuvem
+    onValue(ref(database, 'mareCerta/moderation/prohibitedWords'), snapshot => {
+      const val = snapshot.val();
+      if (Array.isArray(val)) {
+        try { localStorage.setItem(STORAGE_PROHIBITED_WORDS_KEY, JSON.stringify(val)); } catch {}
+        renderAdminProhibitedWordsList();
+      }
+    }, () => {});
+
+    // 3. Sincroniza cortesias VIP da nuvem
+    onValue(ref(database, 'mareCerta/vipGrants'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        const local = loadRawAdminVipGrantsMap();
+        const merged = { ...local, ...val };
+        try { localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(merged)); } catch {}
+        updateProStatusUI();
+        window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
+        window.dispatchEvent(new CustomEvent('mare-certa:vip-grants-changed', { detail: merged }));
+      }
+    }, () => {});
+
+    // 4. Sincroniza perfis estendidos da nuvem
+    onValue(ref(database, 'mareCerta/extendedProfiles'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        const local = loadFisherExtendedProfiles();
+        const merged = { ...local, ...val };
+        try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(merged)); } catch {}
+      }
+    }, () => {});
+
+    // 5. Sincroniza comentários sociais da nuvem
+    onValue(ref(database, 'mareCerta/comments'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        const state = loadSocialState();
+        for (const [capId, commentsNode] of Object.entries(val)) {
+          if (!commentsNode || typeof commentsNode !== 'object') continue;
+          const remoteList = Object.entries(commentsNode).map(([k, c]) => ({ ...c, firebaseKey: k }));
+          const existing = state.comments[capId] || [];
+          const mapById = new Map();
+          for (const item of [...existing, ...remoteList]) {
+            if (item?.id) mapById.set(item.id, item);
+          }
+          state.comments[capId] = Array.from(mapById.values());
+        }
+        saveSocialState(state);
+      }
+    }, () => {});
+  } catch (err) {
+    console.warn('Realtime database sync fallback', err);
+  }
 }
 
 function drawCoverImage(ctx, img, x, y, w, h, radius = 24) {

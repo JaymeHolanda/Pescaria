@@ -26,8 +26,33 @@
           "date": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)" },
           "location": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 100" },
           "createdAt": { ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === now) || (data.exists() && newData.val() === data.val()))" },
+          "photoUrl": { ".validate": "newData.isString() && newData.val().length <= 450000" },
+          "caption": { ".validate": "newData.isString() && newData.val().length <= 500" },
           "$other": { ".validate": false }
         }
+      },
+      "comments": {
+        ".read": true,
+        "$captureId": {
+          "$commentId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['author', 'text'])"
+          }
+        }
+      },
+      "extendedProfiles": {
+        ".read": true,
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      },
+      "moderation": {
+        ".read": true,
+        ".write": "auth != null"
+      },
+      "vipGrants": {
+        ".read": true,
+        ".write": "auth != null"
       }
     }
   }
