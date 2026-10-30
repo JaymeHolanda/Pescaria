@@ -77,12 +77,11 @@ html = replace(
   html,
   '<div class="live-pill"><span></span> Previsão atualizada</div>',
   `<div class="topbar-right-actions">
-          <button id="pwaHeaderInstallBtn" class="pwa-header-install-btn" type="button" aria-label="Salvar Maré Certa como aplicativo na tela inicial">
-            <img src="./assets/pwa-app-icon.jpg" width="24" height="24" alt="" class="pwa-btn-icon-img" />
-            <span class="pwa-btn-copy">
-              <small>APLICATIVO</small>
-              <strong>📲 Salvar App</strong>
-            </span>
+          <button id="pwaHeaderInstallBtn" class="pwa-header-install-btn" type="button" aria-label="Instalar aplicativo Maré Certa na tela inicial">
+            <svg class="pwa-header-btn-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v10m0 0l-3.5-3.5m3.5 3.5l3.5-3.5M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/>
+            </svg>
+            <span>Instalar app</span>
           </button>
           <div class="live-pill"><span></span> Previsão atualizada</div>
         </div>`
@@ -102,7 +101,7 @@ html = replace(html, '<nav class="view-tabs"', `<aside id="pwaSmartBanner" class
           </div>
         </div>
         <div class="pwa-smart-banner-actions">
-          <button id="pwaBannerInstallBtn" class="primary-button pwa-banner-cta" type="button">📲 Adicionar à Tela Inicial</button>
+          <button id="pwaBannerInstallBtn" class="primary-button pwa-banner-cta" type="button">Adicionar à Tela Inicial</button>
           <button id="pwaBannerDismissBtn" class="pwa-banner-close" type="button" aria-label="Fechar sugestão de aplicativo">×</button>
         </div>
       </aside>

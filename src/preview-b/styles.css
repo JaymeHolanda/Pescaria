@@ -3521,55 +3521,40 @@ a.profile-social-pill:hover {
 .topbar-right-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .pwa-header-install-btn {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 13px 6px 8px;
+  gap: 7px;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(0, 71, 171, 0.45), rgba(8, 38, 62, 0.92));
-  border: 1px solid rgba(77, 225, 193, 0.38);
-  color: #ffffff;
+  background: rgba(9, 36, 48, 0.75);
+  border: 1px solid rgba(77, 225, 193, 0.25);
+  color: #bfe9e2;
+  font: 500 0.78rem / 1 'DM Sans', Manrope, sans-serif;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
-  text-align: left;
+  transition: all 0.18s ease;
+  white-space: nowrap;
 }
 .pwa-header-install-btn:hover {
-  border-color: var(--aqua);
-  background: linear-gradient(135deg, rgba(0, 88, 204, 0.65), rgba(11, 50, 78, 0.96));
+  background: rgba(77, 225, 193, 0.12);
+  border-color: rgba(77, 225, 193, 0.45);
+  color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(77, 225, 193, 0.22);
+}
+.pwa-header-install-btn:focus-visible {
+  outline: 2px solid var(--aqua);
+  outline-offset: 2px;
+}
+.pwa-header-btn-icon {
+  color: var(--aqua);
+  flex-shrink: 0;
+  display: block;
 }
 .pwa-header-install-btn.is-ready-pulse {
-  border-color: var(--foam);
-  box-shadow: 0 0 0 2px rgba(223, 247, 109, 0.22), 0 8px 20px rgba(77, 225, 193, 0.25);
-}
-.pwa-btn-icon-img {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  flex-shrink: 0;
-}
-.pwa-btn-copy {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-.pwa-btn-copy small {
-  font: 800 0.56rem Manrope, sans-serif;
-  letter-spacing: 0.09em;
-  color: var(--aqua);
-  text-transform: uppercase;
-}
-.pwa-btn-copy strong {
-  font: 700 0.78rem Manrope, sans-serif;
-  color: #ffffff;
-  white-space: nowrap;
+  border-color: rgba(77, 225, 193, 0.55);
+  box-shadow: 0 0 0 3px rgba(77, 225, 193, 0.14);
 }
 
 /* Smart App Banner below Topbar */
