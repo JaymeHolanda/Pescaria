@@ -64,7 +64,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Maré Certa" />
     <link rel="stylesheet" href="./styles.css?v=150638ac77fa" />
-    <link rel="stylesheet" href="./versao-b.css?v=50505b7fd3a0" />
+    <link rel="stylesheet" href="./versao-b.css?v=5830f49e939b" />
     <title>Tábua de Maré João Pessoa, PB Hoje e Amanhã | Horários e Pesca — Maré Certa</title>
   </head>
   <body class="preview-b">
@@ -92,6 +92,7 @@
             <button id="useGps" class="gps-button" type="button">Usar minha localização atual</button>
             <div id="searchResults" class="search-results" role="listbox" aria-label="Resultados de localização"></div>
             <p class="location-note">O local escolhido fica salvo neste aparelho.</p>
+            <button id="setAsProfileDefaultLocBtn" class="set-profile-loc-btn" type="button" hidden>⚓ Salvar esta praia como padrão no meu perfil</button>
           </div>
         </div>
 
@@ -581,7 +582,10 @@
                   <span class="pro-member-badge">👑 PRO</span>
                 </div>
                 <p id="profileEmail" class="my-profile-email"></p>
-                <p id="myProfileLocationBadge" class="my-profile-loc">📍 Adicione sua localidade abaixo</p>
+                <div class="my-profile-loc-container">
+                  <p id="myProfileLocationBadge" class="my-profile-loc">📍 Adicione sua localidade abaixo</p>
+                  <button type="button" id="myProfileForecastLinkBtn" class="profile-loc-link-btn" title="Abrir previsão da praia no Início" hidden>🎣 Ver previsão no Início</button>
+                </div>
                 <p id="myProfileBioLine" class="my-profile-bio">🏆 Destaque suas maiores conquistas na pesca.</p>
                 <div id="myProfileSocialLinksBar" class="fisher-profile-socials" hidden></div>
               </div>
@@ -613,9 +617,18 @@
                   <label>Nome público
                     <input name="extDisplayName" maxlength="40" minlength="2" required placeholder="Seu nome no ranking e feed" />
                   </label>
-                  <label>Localidade (Cidade / Praia principal)
-                    <input name="extLocation" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
-                  </label>
+                  <div class="form-group-loc">
+                    <label>Localidade (Cidade / Praia principal)
+                      <div class="input-with-action-row">
+                        <input name="extLocation" id="extLocationInput" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
+                        <button type="button" id="extUseForecastLocBtn" class="ext-loc-preset-btn" title="Preencher com o local atual selecionado na Previsão">📍 Praia Atual</button>
+                      </div>
+                    </label>
+                    <label class="ext-sync-checkbox">
+                      <input type="checkbox" id="extSyncForecastCheckbox" name="syncWithForecast" checked />
+                      <span>⚓ Vincular como local padrão de pesca na tela inicial</span>
+                    </label>
+                  </div>
                 </div>
                 <label>Maiores conquistas / Bio do pescador
                   <input name="extBio" maxlength="160" placeholder="Ex.: Robalo de 4,5 kg no 2º valão · Surfcasting" />
@@ -1083,8 +1096,8 @@
         </div>
       </footer>
     </div>
-    <script type="module" src="./app-b.js?v=a37292017dc5"></script>
+    <script type="module" src="./app-b.js?v=530a589a1500"></script>
     <script type="module" src="./tabs.js?v=4c84b55dc424"></script>
-    <script type="module" src="./ranking-b.js?v=478d63238f15"></script>
+    <script type="module" src="./ranking-b.js?v=f84a506a476e"></script>
   </body>
 </html>

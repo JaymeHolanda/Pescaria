@@ -2753,6 +2753,104 @@ footer a:hover {
   color: var(--aqua);
 }
 
+.my-profile-loc-container,
+.fisher-profile-loc-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 3px 0 0;
+}
+
+.profile-loc-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(4, 38, 54, 0.7);
+  border: 1px solid rgba(82, 226, 213, 0.4);
+  color: #72f5e7;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.profile-loc-link-btn:hover {
+  background: rgba(82, 226, 213, 0.2);
+  border-color: #52e2d5;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.input-with-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-action-row input {
+  flex: 1;
+}
+
+.ext-loc-preset-btn {
+  background: rgba(14, 46, 64, 0.85);
+  border: 1px solid rgba(82, 226, 213, 0.35);
+  color: #72f5e7;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.ext-loc-preset-btn:hover {
+  background: rgba(82, 226, 213, 0.22);
+  border-color: #52e2d5;
+  color: #ffffff;
+}
+
+.ext-sync-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #9cd4cf;
+  cursor: pointer;
+}
+
+.ext-sync-checkbox input[type="checkbox"] {
+  accent-color: var(--aqua);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.set-profile-loc-btn {
+  width: 100%;
+  margin-top: 8px;
+  background: rgba(82, 226, 213, 0.1);
+  border: 1px dashed rgba(82, 226, 213, 0.4);
+  color: #72f5e7;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.set-profile-loc-btn:hover {
+  background: rgba(82, 226, 213, 0.22);
+  border-color: #52e2d5;
+  color: #ffffff;
+}
+
 .my-profile-bio,
 .fisher-profile-bio {
   margin: 4px 0 0;

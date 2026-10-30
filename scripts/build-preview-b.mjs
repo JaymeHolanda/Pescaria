@@ -468,6 +468,12 @@ const enrichedFooterInnerHtml = `<div class="footer-layout">
 
 html = replace(html, '<footer>', locationLoaderAndFooterBannerHtml);
 html = replace(html, oldFooterInnerHtml, enrichedFooterInnerHtml);
+html = replace(
+  html,
+  '<p class="location-note">O local escolhido fica salvo neste aparelho.</p>',
+  `<p class="location-note">O local escolhido fica salvo neste aparelho.</p>
+            <button id="setAsProfileDefaultLocBtn" class="set-profile-loc-btn" type="button" hidden>⚓ Salvar esta praia como padrão no meu perfil</button>`
+);
 
 // Inject PRO Club Bar + Community KPIs & Fisherman Achievements into #rankingPanel
 const achievementsHtml = `<section id="proClubBar" class="card pro-club-bar" aria-label="Clube Pescador PRO e Assinatura Mercado Pago">
@@ -561,7 +567,10 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
                   <span class="pro-member-badge">👑 PRO</span>
                 </div>
                 <p id="profileEmail" class="my-profile-email"></p>
-                <p id="myProfileLocationBadge" class="my-profile-loc">📍 Adicione sua localidade abaixo</p>
+                <div class="my-profile-loc-container">
+                  <p id="myProfileLocationBadge" class="my-profile-loc">📍 Adicione sua localidade abaixo</p>
+                  <button type="button" id="myProfileForecastLinkBtn" class="profile-loc-link-btn" title="Abrir previsão da praia no Início" hidden>🎣 Ver previsão no Início</button>
+                </div>
                 <p id="myProfileBioLine" class="my-profile-bio">🏆 Destaque suas maiores conquistas na pesca.</p>
                 <div id="myProfileSocialLinksBar" class="fisher-profile-socials" hidden></div>
               </div>
@@ -593,9 +602,18 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
                   <label>Nome público
                     <input name="extDisplayName" maxlength="40" minlength="2" required placeholder="Seu nome no ranking e feed" />
                   </label>
-                  <label>Localidade (Cidade / Praia principal)
-                    <input name="extLocation" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
-                  </label>
+                  <div class="form-group-loc">
+                    <label>Localidade (Cidade / Praia principal)
+                      <div class="input-with-action-row">
+                        <input name="extLocation" id="extLocationInput" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
+                        <button type="button" id="extUseForecastLocBtn" class="ext-loc-preset-btn" title="Preencher com o local atual selecionado na Previsão">📍 Praia Atual</button>
+                      </div>
+                    </label>
+                    <label class="ext-sync-checkbox">
+                      <input type="checkbox" id="extSyncForecastCheckbox" name="syncWithForecast" checked />
+                      <span>⚓ Vincular como local padrão de pesca na tela inicial</span>
+                    </label>
+                  </div>
                 </div>
                 <label>Maiores conquistas / Bio do pescador
                   <input name="extBio" maxlength="160" placeholder="Ex.: Robalo de 4,5 kg no 2º valão · Surfcasting" />
@@ -1327,7 +1345,9 @@ import {
   renderAdminProPanel,
   validateTextAgainstModeration,
   getUserModerationStatus,
-  uploadTrophyPhotoToFirebaseStorage
+  uploadTrophyPhotoToFirebaseStorage,
+  applyLocationToMainPage,
+  resolveLocationByQuery
 } from './preview-b/community-enhancements.js';`
 );
 ranking = replace(
@@ -1359,6 +1379,11 @@ ranking = replace(
   "const ranking = makeRanking(profiles, captures);",
   `const activeCapturesForRanking = Object.fromEntries(Object.entries(captures).filter(([, cap]) => !getUserModerationStatus(cap?.uid).isRestricted));
   const ranking = makeRanking(profiles, activeCapturesForRanking);`
+);
+ranking = replace(
+  ranking,
+  "try { const local = JSON.parse(localStorage.getItem('mare-certa-location')); if (local?.name) form.elements.location.value = local.name; } catch {}",
+  "try { const ext = auth.currentUser ? getFisherExtendedProfile(auth.currentUser.uid) : null; const local = JSON.parse(localStorage.getItem('mare-certa-location') || 'null'); form.elements.location.value = ext?.location || local?.name || ''; } catch {}"
 );
 ranking = replace(
   ranking,
@@ -1442,7 +1467,21 @@ const demoSocialPostsSnippet = `  const demoCaptures = [
   setAdminCommunityContext(auth.currentUser, profiles, combinedCapturesMap);
   renderAdminProPanel();
   renderAchievementsAndStats(combinedCapturesMap, auth.currentUser?.uid || 'demo-fisher-1');
-  if (auth.currentUser) renderMyAccountProfile(auth.currentUser, profiles, combinedCapturesMap);
+  if (auth.currentUser) {
+    renderMyAccountProfile(auth.currentUser, profiles, combinedCapturesMap);
+    if ($('setAsProfileDefaultLocBtn')) $('setAsProfileDefaultLocBtn').hidden = false;
+    try {
+      const ext = getFisherExtendedProfile(auth.currentUser.uid);
+      if (ext?.location || ext?.preferredLocation) {
+        const target = ext.preferredLocation || resolveLocationByQuery(ext.location);
+        const cur = JSON.parse(localStorage.getItem('mare-certa-location') || 'null');
+        if (target && (!cur || cur.name === 'João Pessoa') && !sessionStorage.getItem('mare-certa-loc-synced-' + auth.currentUser.uid)) {
+          sessionStorage.setItem('mare-certa-loc-synced-' + auth.currentUser.uid, '1');
+          applyLocationToMainPage(target);
+        }
+      }
+    } catch {}
+  }
   const filters = { species: $('filterSpecies').value, location: $('filterLocation').value, from: $('filterFrom').value, to: $('filterTo').value };
   const filtered = filterCaptures(combinedWithDemos, filters);
   const recent = filtered.slice(0, 30);
@@ -1604,14 +1643,45 @@ if ($('extendedProfileForm')) {
       }
     }
 
+    const syncWithForecast = form.elements.syncWithForecast ? form.elements.syncWithForecast.checked : true;
+    let targetLoc = null;
+    if (locationVal) {
+      targetLoc = resolveLocationByQuery(locationVal);
+      if (!targetLoc) {
+        try {
+          const cur = JSON.parse(localStorage.getItem('mare-certa-location') || 'null');
+          if (cur && (cur.name.toLowerCase().includes(locationVal.toLowerCase()) || locationVal.toLowerCase().includes(cur.name.toLowerCase()))) {
+            targetLoc = cur;
+          }
+        } catch {}
+      }
+      if (!targetLoc) {
+        targetLoc = {
+          name: locationVal.split(/[·,]/)[0].trim(),
+          admin1: locationVal.split(/[·,]/)[1]?.trim() || 'Brasil',
+          country_code: 'BR',
+          latitude: -7.115,
+          longitude: -34.8631
+        };
+      }
+    }
+
     saveFisherExtendedProfile(user.uid, {
       displayName: newName,
       location: locationVal,
+      preferredLocation: targetLoc,
       bio: bioVal,
       instagram: instagramVal,
       social2: social2Val,
       phone: phoneVal
     });
+
+    if (syncWithForecast && targetLoc) {
+      try {
+        localStorage.setItem('mare-certa-last-active-uid', user.uid);
+        applyLocationToMainPage(targetLoc);
+      } catch {}
+    }
 
     if (newName !== user.displayName) {
       try {
@@ -1627,8 +1697,34 @@ if ($('extendedProfileForm')) {
       savedPill.hidden = false;
       setTimeout(() => { savedPill.hidden = true; }, 3500);
     }
-    message('profileStatus', '✓ Perfil completo atualizado com sucesso!');
+    message('profileStatus', '✓ Perfil completo atualizado e vinculado à tela inicial!');
     renderCommunity();
+  });
+}
+
+if ($('setAsProfileDefaultLocBtn')) {
+  $('setAsProfileDefaultLocBtn').addEventListener('click', () => {
+    const user = auth.currentUser;
+    if (!user) {
+      $('accountButton')?.click();
+      return;
+    }
+    try {
+      const curLoc = JSON.parse(localStorage.getItem('mare-certa-location') || 'null');
+      if (curLoc?.name) {
+        const locLabel = curLoc.admin1 ? (curLoc.name + ' · ' + curLoc.admin1) : curLoc.name;
+        saveFisherExtendedProfile(user.uid, {
+          location: locLabel,
+          preferredLocation: curLoc
+        });
+        localStorage.setItem('mare-certa-last-active-uid', user.uid);
+        const btn = $('setAsProfileDefaultLocBtn');
+        const origText = btn.textContent;
+        btn.textContent = '✓ Praia salva como padrão no seu perfil!';
+        setTimeout(() => { btn.textContent = origText; }, 3000);
+        renderCommunity();
+      }
+    } catch {}
   });
 }
 `;

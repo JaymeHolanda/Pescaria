@@ -3,8 +3,11 @@ import {
   PRO_PLANS,
   calculateImageDimensions,
   formatCompressionSavings,
-  canUseProSocialFeature
+  canUseProSocialFeature,
+  resolveLocationByQuery
 } from './model.js';
+
+export { resolveLocationByQuery };
 import { ref, set, update, push, remove, onValue } from 'firebase/database';
 import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
 import { database, storage } from '../firebase.js';
@@ -305,6 +308,21 @@ export function loadFisherExtendedProfiles() {
   }
 }
 
+export function applyLocationToMainPage(locationObj) {
+  if (!locationObj || !locationObj.name) return false;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('mare-certa-location', JSON.stringify(locationObj));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mare-certa:set-location', { detail: locationObj }));
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getFisherExtendedProfile(uid, baseProfile = {}) {
   const all = loadFisherExtendedProfiles();
   const ext = (uid && all[uid]) || {};
@@ -314,10 +332,15 @@ export function getFisherExtendedProfile(uid, baseProfile = {}) {
     if (savedLoc?.name) defaultLoc = savedLoc.admin1 ? `${savedLoc.name} · ${savedLoc.admin1}` : savedLoc.name;
   } catch {}
 
+  const locVal = (typeof ext.location === 'string' && ext.location.trim().length > 0)
+    ? ext.location.trim()
+    : defaultLoc;
+
   return {
     uid: uid || 'local-fisher',
     displayName: ext.displayName || baseProfile?.displayName || 'Pescador Costeiro',
-    location: ext.location ?? defaultLoc ?? '',
+    location: locVal,
+    preferredLocation: ext.preferredLocation || null,
     bio: ext.bio || '',
     instagram: ext.instagram || '',
     social2: ext.social2 || '',
@@ -1220,7 +1243,10 @@ export function openFisherProfileModal(fisherUid, profiles = {}, allCaptures = {
           <h2 id="fisherProfileTitle">${escapeHtml(ext.displayName)}</h2>
           <span class="pro-member-badge">👑 PRO</span>
         </div>
-        <p class="fisher-profile-loc">${ext.location ? `📍 ${escapeHtml(ext.location)}` : '📍 Litoral Brasileiro'}</p>
+        <div class="fisher-profile-loc-row">
+          <p class="fisher-profile-loc">${ext.location ? `📍 ${escapeHtml(ext.location)}` : '📍 Litoral Brasileiro'}</p>
+          ${ext.location ? `<button type="button" class="profile-loc-link-btn" data-public-forecast-loc="${escapeHtml(ext.location)}">🎣 Ver previsão de pesca</button>` : ''}
+        </div>
         ${ext.bio ? `<p class="fisher-profile-bio">“${escapeHtml(ext.bio)}”</p>` : ''}
         <div class="fisher-profile-socials">
           ${instaClean ? `<a href="https://instagram.com/${encodeURIComponent(instaClean)}" target="_blank" rel="noreferrer" class="profile-social-pill">📸 @${escapeHtml(instaClean)}</a>` : ''}
@@ -1313,6 +1339,20 @@ export function openFisherProfileModal(fisherUid, profiles = {}, allCaptures = {
     });
   }
 
+  const publicForecastBtn = body.querySelector('[data-public-forecast-loc]');
+  if (publicForecastBtn) {
+    publicForecastBtn.addEventListener('click', () => {
+      const locQuery = publicForecastBtn.dataset.publicForecastLoc;
+      const target = resolveLocationByQuery(locQuery);
+      if (target) {
+        applyLocationToMainPage(target);
+      }
+      dialog.close();
+      const forecastTab = $('forecastTab');
+      if (forecastTab) forecastTab.click();
+    });
+  }
+
   if (!dialog.open) dialog.showModal();
 }
 
@@ -1342,8 +1382,32 @@ export function renderMyAccountProfile(user, profiles = {}, allCaptures = {}) {
   }
 
   const locBadge = $('myProfileLocationBadge');
+  const locLinkBtn = $('myProfileForecastLinkBtn');
   if (locBadge) {
     locBadge.textContent = ext.location ? `📍 ${ext.location}` : '📍 Adicione sua cidade ou praia favorita abaixo';
+  }
+  if (locLinkBtn) {
+    if (ext.location) {
+      locLinkBtn.hidden = false;
+      const spotFirst = ext.location.split(/[·,]/)[0].trim();
+      locLinkBtn.textContent = `🎣 Ver previsão em ${spotFirst}`;
+      locLinkBtn.onclick = () => {
+        const target = ext.preferredLocation || resolveLocationByQuery(ext.location);
+        if (target) {
+          applyLocationToMainPage(target);
+        }
+        const accountDialog = $('accountDialog');
+        if (accountDialog) {
+          accountDialog.hidden = true;
+          accountDialog.classList.remove('is-open');
+          try { accountDialog.close(); } catch {}
+        }
+        const forecastTab = $('forecastTab');
+        if (forecastTab) forecastTab.click();
+      };
+    } else {
+      locLinkBtn.hidden = true;
+    }
   }
 
   const bioLine = $('myProfileBioLine');
@@ -1442,6 +1506,22 @@ export function renderMyAccountProfile(user, profiles = {}, allCaptures = {}) {
     if (extForm.elements.extInstagram) extForm.elements.extInstagram.value = ext.instagram || '';
     if (extForm.elements.extSocial2) extForm.elements.extSocial2.value = ext.social2 || '';
     if (extForm.elements.extPhone) extForm.elements.extPhone.value = ext.phone || '';
+  }
+
+  const btnUseForecast = $('extUseForecastLocBtn');
+  if (btnUseForecast) {
+    btnUseForecast.onclick = () => {
+      try {
+        const curLoc = JSON.parse(localStorage.getItem('mare-certa-location') || 'null');
+        if (curLoc?.name) {
+          const locString = curLoc.admin1 ? `${curLoc.name} · ${curLoc.admin1}` : curLoc.name;
+          if (extForm && extForm.elements.extLocation) {
+            extForm.elements.extLocation.value = locString;
+            extForm.elements.extLocation.focus();
+          }
+        }
+      } catch {}
+    };
   }
 }
 

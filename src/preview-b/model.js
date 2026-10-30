@@ -826,6 +826,43 @@ export function resolveSeoLocationBySlug(slug = '') {
   return fuzzy || null;
 }
 
+export function resolveLocationByQuery(query = '') {
+  const clean = String(query || '').trim();
+  if (!clean) return null;
+  const norm = normalize(clean);
+
+  // 1. Tenta match direto em PRESET_SPOTS
+  for (const preset of PRESET_SPOTS) {
+    const pNameNorm = normalize(preset.name);
+    const pAdminNorm = normalize(preset.admin1 || '');
+    if (norm.includes(pNameNorm) || pNameNorm.includes(norm) || (preset.id && norm.includes(preset.id))) {
+      return preset;
+    }
+    if (pAdminNorm && norm.includes(pAdminNorm)) {
+      return preset;
+    }
+  }
+
+  // 2. Tenta match em SEO_COASTAL_LOCATIONS
+  for (const seoLoc of SEO_COASTAL_LOCATIONS) {
+    const sNameNorm = normalize(seoLoc.name);
+    const sAdminNorm = normalize(seoLoc.admin1 || '');
+    const sSlugNorm = normalize(seoLoc.slug || '');
+    if (norm.includes(sNameNorm) || sNameNorm.includes(norm) || norm.includes(sSlugNorm)) {
+      return seoLoc;
+    }
+    if (sAdminNorm && norm.includes(sAdminNorm)) {
+      return seoLoc;
+    }
+  }
+
+  // 3. Tenta resolver por slug
+  const bySlug = resolveSeoLocationBySlug(clean);
+  if (bySlug) return bySlug;
+
+  return null;
+}
+
 export function buildAdaptiveSeoMetadata({
   location = {},
   events = [],

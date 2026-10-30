@@ -631,3 +631,69 @@ test('Painel Admin: deleção de contas, banimentos (7d, 14d, 30d e permanente) 
   removeProhibitedWord('rede feiticeira');
   assert.equal(validateTextAgainstModeration('Usando rede feiticeira na costeira', 'relato').valid, true);
 });
+
+test('Vinculação da Localização do Perfil com o Padrão de Pesca da Main Page', async () => {
+  const { resolveLocationByQuery } = await import('../src/preview-b/model.js');
+  const {
+    getFisherExtendedProfile,
+    saveFisherExtendedProfile,
+    applyLocationToMainPage
+  } = await import('../src/preview-b/community-enhancements.js');
+  const { readFileSync } = await import('fs');
+
+  // 1. Resolução inteligente de localização por query
+  const santos = resolveLocationByQuery('Santos');
+  assert.ok(santos, 'Deve encontrar Santos');
+  assert.equal(santos.name, 'Santos');
+  assert.ok(santos.latitude < 0);
+
+  const bessa = resolveLocationByQuery('Praia do Bessa');
+  assert.ok(bessa, 'Deve encontrar Praia do Bessa');
+  assert.equal(bessa.name, 'Praia do Bessa');
+
+  const cabedelo = resolveLocationByQuery('Cabedelo');
+  assert.ok(cabedelo, 'Deve encontrar Cabedelo');
+
+  const rj = resolveLocationByQuery('Rio de Janeiro');
+  assert.ok(rj, 'Deve encontrar Rio de Janeiro');
+
+  // 2. Perfil herda local da main page se não configurado
+  const mockSpot = { name: 'Intermares', admin1: 'Cabedelo, PB', latitude: -7.0319, longitude: -34.8375 };
+  globalThis.localStorage.setItem('mare-certa-location', JSON.stringify(mockSpot));
+  const defaultProfile = getFisherExtendedProfile('user-sem-local');
+  assert.match(defaultProfile.location, /Intermares/);
+
+  // 3. Salvar perfil com localização customizada e preferredLocation
+  const spotSalvador = resolveLocationByQuery('Salvador');
+  saveFisherExtendedProfile('user-salvador', {
+    displayName: 'Pescador Baiano',
+    location: 'Salvador, BA · Farol de Itapuã',
+    preferredLocation: spotSalvador
+  });
+
+  const savedProfile = getFisherExtendedProfile('user-salvador');
+  assert.equal(savedProfile.location, 'Salvador, BA · Farol de Itapuã');
+  assert.ok(savedProfile.preferredLocation);
+  assert.equal(savedProfile.preferredLocation.name, 'Salvador');
+
+  // 4. Teste de applyLocationToMainPage
+  assert.equal(applyLocationToMainPage(null), false);
+  const applied = applyLocationToMainPage(spotSalvador);
+  assert.equal(applied, true);
+  const storedLoc = JSON.parse(globalThis.localStorage.getItem('mare-certa-location') || '{}');
+  assert.equal(storedLoc.name, 'Salvador');
+
+  // 5. Validação dos botões e vínculos no HTML do preview-b
+  const indexHtml = readFileSync('dist/index.html', 'utf8');
+  assert.ok(indexHtml.includes('id="myProfileForecastLinkBtn"'), 'Deve conter botão de ver previsão no perfil');
+  assert.ok(indexHtml.includes('id="extUseForecastLocBtn"'), 'Deve conter botão de usar praia da previsão no formulário');
+  assert.ok(indexHtml.includes('id="extSyncForecastCheckbox"'), 'Deve conter checkbox de vincular como padrão na página inicial');
+  assert.ok(indexHtml.includes('id="setAsProfileDefaultLocBtn"'), 'Deve conter botão no painel de locais para salvar como padrão');
+
+  // 6. Validação dos estilos CSS em dist/versao-b.css
+  const css = readFileSync('dist/versao-b.css', 'utf8');
+  assert.ok(css.includes('.profile-loc-link-btn'));
+  assert.ok(css.includes('.ext-loc-preset-btn'));
+  assert.ok(css.includes('.ext-sync-checkbox'));
+  assert.ok(css.includes('.set-profile-loc-btn'));
+});

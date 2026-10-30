@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation, applyAdaptiveSeo, resolveSeoLocationBySlug, slugifyLocation } from './preview-b.js';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation, applyAdaptiveSeo, resolveSeoLocationBySlug, resolveLocationByQuery, slugifyLocation } from './preview-b.js';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
@@ -57,11 +57,26 @@ function loadLocation() {
       const params = new URLSearchParams(window.location.search);
       const localSlug = params.get("local") || params.get("cidade") || params.get("praia");
       if (localSlug) {
-        const matched = resolveSeoLocationBySlug(localSlug);
+        const matched = resolveSeoLocationBySlug(localSlug) || resolveLocationByQuery(localSlug);
         if (matched) return matched;
       }
     }
-    return JSON.parse(localStorage.getItem("mare-certa-location")) || DEFAULT_LOCATION;
+    const savedCustomLoc = localStorage.getItem("mare-certa-location");
+    if (!savedCustomLoc) {
+      try {
+        const profiles = JSON.parse(localStorage.getItem('mare-certa-fisher-profiles-v1') || '{}');
+        const lastUid = localStorage.getItem('mare-certa-last-active-uid');
+        const p = lastUid ? profiles[lastUid] : Object.values(profiles)[0];
+        if (p?.preferredLocation && Number.isFinite(Number(p.preferredLocation.latitude))) {
+          return p.preferredLocation;
+        }
+        if (p?.location) {
+          const resolved = resolveLocationByQuery(p.location);
+          if (resolved) return resolved;
+        }
+      } catch {}
+    }
+    return JSON.parse(savedCustomLoc) || DEFAULT_LOCATION;
   }
   catch { return DEFAULT_LOCATION; }
 }
@@ -131,6 +146,11 @@ function saveLocation(location) {
     }
   } catch {}
   applyAdaptiveSeo({ location });
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent('mare-certa:location-changed', { detail: location }));
+    }
+  } catch {}
 }
 
 function updateLocationLabel() {
@@ -605,6 +625,13 @@ document.addEventListener("click", event => {
   if (matched) {
     selectLocation(matched);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+window.addEventListener('mare-certa:set-location', event => {
+  const loc = event.detail;
+  if (loc && Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude))) {
+    selectLocation(loc);
   }
 });
 
