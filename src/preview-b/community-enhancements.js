@@ -13,7 +13,7 @@ import {
 export { resolveLocationByQuery, searchCoastalLocations, COASTAL_ALIASES, PRESET_SPOTS };
 import { ref, set, update, push, remove, onValue } from 'firebase/database';
 import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
-import { database, storage } from '../firebase.js';
+import { database, storage, auth } from '../firebase.js';
 
 const $ = id => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 
@@ -1078,6 +1078,17 @@ export function renderAchievementsAndStats(captures = {}, currentUid = null) {
 }
 
 export function openProPaywallModal(reason = 'social') {
+  if (!auth.currentUser) {
+    const accBtn = $('accountButton');
+    if (accBtn) accBtn.click();
+    const authMsg = $('authMessage');
+    if (authMsg) {
+      authMsg.textContent = 'Entre ou cadastre-se primeiro para assinar ou gerenciar o Clube Pescador PRO.';
+      authMsg.className = 'form-message is-visible';
+      authMsg.style.display = 'block';
+    }
+    return;
+  }
   const dialog = $('proPaywallDialog');
   if (!dialog) return;
   const reasonBanner = $('proPaywallReason');
@@ -2095,6 +2106,17 @@ export function initProSocialFeatures() {
   const checkoutBtn = $('mpCheckoutApproveBtn');
   if (checkoutBtn) {
     checkoutBtn.addEventListener('click', () => {
+      if (!auth.currentUser) {
+        $('proPaywallDialog')?.close();
+        $('accountButton')?.click();
+        const authMsg = $('authMessage');
+        if (authMsg) {
+          authMsg.textContent = 'Entre ou cadastre-se primeiro para assinar o Clube Pescador PRO.';
+          authMsg.className = 'form-message is-visible';
+          authMsg.style.display = 'block';
+        }
+        return;
+      }
       setProSubscription(true, selectedPlanId);
       $('proPaywallDialog')?.close();
     });
