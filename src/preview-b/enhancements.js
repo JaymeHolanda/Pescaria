@@ -11,6 +11,10 @@ import {
   SPECIES_CATALOG,
   filterSpeciesCatalog,
   COASTAL_REGIONS,
+  SEO_COASTAL_LOCATIONS,
+  slugifyLocation,
+  resolveSeoLocationBySlug,
+  buildAdaptiveSeoMetadata,
   coastalRegionFor
 } from './model.js';
 import { loadSpeciesPhoto } from './species-photos.js';
@@ -25,6 +29,10 @@ export {
   SPECIES_CATALOG,
   filterSpeciesCatalog,
   COASTAL_REGIONS,
+  SEO_COASTAL_LOCATIONS,
+  slugifyLocation,
+  resolveSeoLocationBySlug,
+  buildAdaptiveSeoMetadata,
   coastalRegionFor,
   findNearestBrazilianHarbor,
   parseTabuaMareResponse,
@@ -546,6 +554,12 @@ export function renderPreview(data) {
   });
   renderCountdown(data.allDays, data.weather, data.selectDate, solunar);
   interactiveChart({ ...data, solunar });
+  applyAdaptiveSeo({
+    location: data.location,
+    events: data.events || [],
+    dateString: data.date || '',
+    moonName: document.getElementById('moonName')?.textContent || ''
+  });
   animateNumbers();
   if (!reduced()) {
     for (const node of document.querySelectorAll('#fishingWindows .window-card, #summaryCards .summary-item')) {
@@ -584,4 +598,266 @@ if (typeof document !== 'undefined') {
     if (card && !card.contains(event.relatedTarget)) resetHolo(card);
   });
   initSpeciesCatalogUI();
+  initLegalModalsAndCookies();
+  initPwaInstallExperience();
+}
+
+
+export function initLegalModalsAndCookies() {
+  if (typeof document === 'undefined') return;
+
+  const termsDialog = document.getElementById('termsDialog');
+  const privacyDialog = document.getElementById('privacyDialog');
+  const cookieBanner = document.getElementById('cookieConsentBanner');
+  const acceptCookieBtn = document.getElementById('acceptAllCookiesBtn');
+
+  // Check LGPD Cookie Consent
+  let hasConsent = false;
+  try {
+    hasConsent = Boolean(localStorage.getItem('mare-certa-lgpd-consent-v1'));
+  } catch {}
+  if (cookieBanner && !hasConsent) {
+    cookieBanner.hidden = false;
+  }
+
+  if (acceptCookieBtn && cookieBanner) {
+    acceptCookieBtn.addEventListener('click', () => {
+      try {
+        localStorage.setItem('mare-certa-lgpd-consent-v1', Date.now().toString());
+      } catch {}
+      cookieBanner.classList.add('is-dismissing');
+      setTimeout(() => {
+        cookieBanner.hidden = true;
+        cookieBanner.classList.remove('is-dismissing');
+      }, 300);
+    });
+  }
+
+  // Handle open buttons for Legal Modals
+  document.querySelectorAll('[data-open-legal]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const type = btn.dataset.openLegal;
+      if (type === 'terms') {
+        termsDialog?.showModal();
+      } else if (type === 'privacy') {
+        privacyDialog?.showModal();
+      } else if (type === 'cookies') {
+        if (cookieBanner) {
+          cookieBanner.hidden = false;
+          cookieBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          privacyDialog?.showModal();
+        }
+      }
+    });
+  });
+
+  // Close buttons
+  document.getElementById('closeTermsDialog')?.addEventListener('click', () => termsDialog?.close());
+  document.getElementById('termsAgreeBtn')?.addEventListener('click', () => termsDialog?.close());
+  document.getElementById('closePrivacyDialog')?.addEventListener('click', () => privacyDialog?.close());
+  document.getElementById('privacyAgreeBtn')?.addEventListener('click', () => privacyDialog?.close());
+}
+
+export function applyAdaptiveSeo({ location, events, dateString, moonName }) {
+  if (typeof document === 'undefined' || !location) return null;
+
+  const baseUrl =
+    typeof window !== 'undefined' && window.location?.origin && !window.location.origin.includes('null')
+      ? window.location.origin
+      : 'https://marecerta.com.br';
+
+  const seo = buildAdaptiveSeoMetadata({
+    location,
+    events,
+    dateString,
+    moonName,
+    baseUrl
+  });
+
+  // Update <title>
+  document.title = seo.title;
+
+  // Helper to update meta or link attributes
+  const setAttr = (selector, attr, val) => {
+    const el = document.querySelector(selector);
+    if (el && val != null) el.setAttribute(attr, val);
+  };
+
+  setAttr('#dynamicSeoDescription', 'content', seo.description);
+  setAttr('#dynamicSeoKeywords', 'content', seo.keywords);
+  setAttr('#dynamicCanonicalLink', 'href', seo.canonicalUrl);
+
+  // Open Graph
+  setAttr('#ogTitle', 'content', seo.ogTitle);
+  setAttr('#ogDescription', 'content', seo.ogDescription);
+  setAttr('#ogUrl', 'content', seo.ogUrl);
+  setAttr('#ogImage', 'content', seo.ogImage);
+  setAttr('#ogImageAlt', 'content', seo.ogImageAlt);
+
+  // Twitter Card
+  setAttr('#twitterTitle', 'content', seo.twitterTitle);
+  setAttr('#twitterDescription', 'content', seo.twitterDescription);
+  setAttr('#twitterImage', 'content', seo.ogImage);
+
+  // Geo Meta Tags
+  setAttr('#geoPlacename', 'content', seo.geoPlacename);
+  setAttr('#geoPosition', 'content', seo.geoPosition);
+  setAttr('#geoIcbm', 'content', seo.geoIcbm);
+
+  // JSON-LD Structured Data
+  const jsonLdEl = document.getElementById('dynamicJsonLd');
+  if (jsonLdEl) {
+    jsonLdEl.textContent = JSON.stringify(seo.jsonLd);
+  }
+
+  // Visible SEO Dynamic Block in Page
+  const seoHeading = document.getElementById('seoDynamicLocationTitle');
+  if (seoHeading) seoHeading.textContent = seo.heading;
+
+  const seoText = document.getElementById('seoDynamicLocationText');
+  if (seoText) seoText.textContent = seo.summaryParagraph;
+
+  // Highlight active coastal spot pill in the SEO Directory
+  document.querySelectorAll('[data-seo-spot-slug]').forEach(link => {
+    const isCurrent = link.dataset.seoSpotSlug === seo.slug || link.dataset.seoSpotSlug === seo.citySlug;
+    link.classList.toggle('is-active', isCurrent);
+    if (isCurrent) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+
+  return seo;
+}
+
+export function detectPwaPlatform(userAgent = '', maxTouchPoints = 0) {
+  const ua = String(userAgent || '').toLowerCase();
+  const isIos = /iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && maxTouchPoints > 1);
+  if (isIos) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'desktop';
+}
+
+export function initPwaInstallExperience() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+
+  const headerBtn = document.getElementById('pwaHeaderInstallBtn');
+  const smartBanner = document.getElementById('pwaSmartBanner');
+  const bannerInstallBtn = document.getElementById('pwaBannerInstallBtn');
+  const bannerDismissBtn = document.getElementById('pwaBannerDismissBtn');
+  const dialog = document.getElementById('pwaInstallDialog');
+  const closeDialogBtn = document.getElementById('closePwaInstallDialog');
+  const doneDialogBtn = document.getElementById('pwaDialogDoneBtn');
+  const nativeBox = document.getElementById('pwaNativePromptBox');
+  const triggerNativeBtn = document.getElementById('pwaTriggerNativeBtn');
+
+  let deferredInstallPrompt = null;
+
+  const isStandalone = () =>
+    Boolean(
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+        window.navigator?.standalone === true
+    );
+
+  // If already running as installed standalone app, hide install prompts
+  if (isStandalone()) {
+    if (headerBtn) headerBtn.hidden = true;
+    if (smartBanner) smartBanner.hidden = true;
+    return;
+  }
+
+  // Detect current platform to highlight the right guide tab
+  const currentPlat = detectPwaPlatform(window.navigator?.userAgent, window.navigator?.maxTouchPoints);
+
+  const selectPlatformTab = plat => {
+    document.querySelectorAll('[data-pwa-tab]').forEach(tab => {
+      const active = tab.dataset.pwaTab === plat;
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    document.querySelectorAll('[data-pwa-panel]').forEach(panel => {
+      panel.hidden = panel.dataset.pwaPanel !== plat;
+    });
+  };
+
+  selectPlatformTab(currentPlat);
+
+  document.querySelectorAll('[data-pwa-tab]').forEach(tab => {
+    tab.addEventListener('click', () => selectPlatformTab(tab.dataset.pwaTab));
+  });
+
+  // Check if user dismissed the Smart Banner recently (7 days cooldown)
+  let bannerDismissed = false;
+  try {
+    const dismissedAt = Number(localStorage.getItem('mare-certa-pwa-banner-dismissed-v1') || 0);
+    if (dismissedAt && Date.now() - dismissedAt < 7 * 86400000) {
+      bannerDismissed = true;
+    }
+  } catch {}
+
+  if (smartBanner && !bannerDismissed) {
+    smartBanner.hidden = false;
+  }
+
+  if (bannerDismissBtn && smartBanner) {
+    bannerDismissBtn.addEventListener('click', () => {
+      try {
+        localStorage.setItem('mare-certa-pwa-banner-dismissed-v1', String(Date.now()));
+      } catch {}
+      smartBanner.hidden = true;
+    });
+  }
+
+  // Capture Android/Desktop native beforeinstallprompt
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (nativeBox) nativeBox.hidden = false;
+    if (headerBtn) headerBtn.classList.add('is-ready-pulse');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    if (headerBtn) headerBtn.hidden = true;
+    if (smartBanner) smartBanner.hidden = true;
+    dialog?.close();
+  });
+
+  const triggerInstallFlow = async () => {
+    if (deferredInstallPrompt) {
+      try {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice?.outcome === 'accepted') {
+          deferredInstallPrompt = null;
+          if (headerBtn) headerBtn.hidden = true;
+          if (smartBanner) smartBanner.hidden = true;
+          dialog?.close();
+          return;
+        }
+      } catch {}
+    }
+    selectPlatformTab(currentPlat);
+    dialog?.showModal();
+  };
+
+  headerBtn?.addEventListener('click', triggerInstallFlow);
+  bannerInstallBtn?.addEventListener('click', triggerInstallFlow);
+  triggerNativeBtn?.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    try {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice?.outcome === 'accepted') {
+        deferredInstallPrompt = null;
+        dialog?.close();
+      }
+    } catch {}
+  });
+
+  closeDialogBtn?.addEventListener('click', () => dialog?.close());
+  doneDialogBtn?.addEventListener('click', () => dialog?.close());
 }

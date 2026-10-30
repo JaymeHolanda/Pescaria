@@ -13,16 +13,101 @@ const baseAHtml = read('src/preview-b/base-a.html');
 const baseHtml = read('src/preview-b/base-b.html');
 let html = baseHtml;
 
-html = replace(html, '<link rel="stylesheet" href="./styles.css" />', '<link rel="manifest" href="./manifest.webmanifest" />\n    <link rel="stylesheet" href="./styles.css" />\n    <link rel="stylesheet" href="./versao-b.css" />');
-html = replace(html, '<title>Maré Certa — planeje sua pescaria</title>', '<title>Maré Certa — sua próxima pescaria</title>');
+html = replace(html, '<link rel="stylesheet" href="./styles.css" />', '<link rel="manifest" href="./manifest.webmanifest" />\n    <link rel="apple-touch-icon" sizes="180x180" href="./assets/pwa-app-icon.jpg" />\n    <meta name="apple-mobile-web-app-capable" content="yes" />\n    <meta name="mobile-web-app-capable" content="yes" />\n    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />\n    <meta name="apple-mobile-web-app-title" content="Maré Certa" />\n    <link rel="stylesheet" href="./styles.css" />\n    <link rel="stylesheet" href="./versao-b.css" />');
+html = replace(
+  html,
+  '<meta name="description" content="Maré Certa reúne marés, vento e lua para você planejar a próxima pescaria." />',
+  `<meta id="dynamicSeoDescription" name="description" content="Consulte a Tábua de Maré hoje e amanhã em Recife, Salvador, Natal, João Pessoa, Porto de Galinhas, Cabedelo, Maragogi, Maceió, Vitória, Vila Velha e todo o litoral brasileiro. Horários de preamar, baixa-mar, tabela solunar e pesca de praia." />
+    <meta id="dynamicSeoKeywords" name="keywords" content="tábua da maré, tabua de mare recife, tabua de mare salvador, tabua de mare natal, tábua da maré em joão pessoa, tabua da mare porto de galinhas, tábua da maré cabedelo, tábua da maré maragogi, tábua da maré maceió, tabua de mare vitoria, tabua de mare vila velha, tabua de maré hoje, tábua da maré para amanhã, maré certa" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="author" content="Maré Certa" />
+    <link id="dynamicCanonicalLink" rel="canonical" href="https://marecerta.com.br/?local=joao-pessoa" />
+
+    <!-- Open Graph / Facebook / WhatsApp / Google Discover -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Maré Certa" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta id="ogTitle" property="og:title" content="Tábua de Maré João Pessoa, PB Hoje e Amanhã | Horários e Pesca — Maré Certa" />
+    <meta id="ogDescription" property="og:description" content="Consulte a Tábua da Maré hoje e amanhã com horários oficiais de maré alta e baixa, tabela solunar, ondas, vento e melhores janelas de pesca costeira." />
+    <meta id="ogUrl" property="og:url" content="https://marecerta.com.br/?local=joao-pessoa" />
+    <meta id="ogImage" property="og:image" content="https://marecerta.com.br/assets/chumbada-oficial-banner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta id="ogImageAlt" property="og:image:alt" content="Tábua de Maré Hoje e Amanhã — Previsão Costeira e Solunar Maré Certa" />
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta id="twitterTitle" name="twitter:title" content="Tábua de Maré João Pessoa, PB Hoje e Amanhã | Horários e Pesca — Maré Certa" />
+    <meta id="twitterDescription" name="twitter:description" content="Consulte a Tábua da Maré hoje e amanhã com horários oficiais de maré alta e baixa, tabela solunar, ondas e pesca de praia." />
+    <meta id="twitterImage" name="twitter:image" content="https://marecerta.com.br/assets/chumbada-oficial-banner.png" />
+
+    <!-- Geo Meta Tags Dinâmicas para SEO Local -->
+    <meta name="geo.region" content="BR" />
+    <meta id="geoPlacename" name="geo.placename" content="João Pessoa, PB, Brasil" />
+    <meta id="geoPosition" name="geo.position" content="-7.115;-34.8631" />
+    <meta id="geoIcbm" name="ICBM" content="-7.115, -34.8631" />
+
+    <!-- Schema.org JSON-LD Dinâmico (WebApplication + Place + FAQPage) -->
+    <script id="dynamicJsonLd" type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "name": "Maré Certa — Tábua da Maré e Previsão de Pesca",
+            "url": "https://marecerta.com.br/",
+            "applicationCategory": "WeatherApplication",
+            "operatingSystem": "Web, Android, iOS",
+            "inLanguage": "pt-BR",
+            "description": "Tábua de maré oficial para Recife, Salvador, Natal, João Pessoa, Porto de Galinhas, Cabedelo, Maragogi, Maceió, Vitória, Vila Velha e todo o litoral brasileiro."
+          }
+        ]
+      }
+    </script>`
+);
+html = replace(html, '<title>Maré Certa — planeje sua pescaria</title>', '<title>Tábua de Maré João Pessoa, PB Hoje e Amanhã | Horários e Pesca — Maré Certa</title>');
 html = replace(html, '<body>', '<body class="preview-b">');
 html = replace(html, '<link rel="preconnect" href="https://geocoding-api.open-meteo.com" />', '<link rel="preconnect" href="https://geocoding-api.open-meteo.com" />\n    <link rel="preconnect" href="https://api.inaturalist.org" />\n    <link rel="preconnect" href="https://inaturalist-open-data.s3.amazonaws.com" />');
 
 // Aba própria para espécies, entre "Dicas de pesca" e "Ranking"
 html = replace(html, '<button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>', '<button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>\n        <button id="speciesTab" role="tab" aria-controls="speciesPanel" aria-selected="false" tabindex="-1" type="button">Espécies</button>');
 
-// Quick Spot Bar right below topbar
-html = replace(html, '<nav class="view-tabs"', `<div class="spot-quick-strip" aria-label="Praias e pontos rápidos">
+// Topbar right actions: PWA Install App Button + Live Status Pill
+html = replace(
+  html,
+  '<div class="live-pill"><span></span> Previsão atualizada</div>',
+  `<div class="topbar-right-actions">
+          <button id="pwaHeaderInstallBtn" class="pwa-header-install-btn" type="button" aria-label="Salvar Maré Certa como aplicativo na tela inicial">
+            <img src="./assets/pwa-app-icon.jpg" width="24" height="24" alt="" class="pwa-btn-icon-img" />
+            <span class="pwa-btn-copy">
+              <small>APLICATIVO</small>
+              <strong>📲 Salvar App</strong>
+            </span>
+          </button>
+          <div class="live-pill"><span></span> Previsão atualizada</div>
+        </div>`
+);
+
+// Smart App Banner & Quick Spot Bar right below topbar
+html = replace(html, '<nav class="view-tabs"', `<aside id="pwaSmartBanner" class="pwa-smart-banner" aria-label="Instalar aplicativo Maré Certa na tela inicial" hidden>
+        <div class="pwa-smart-banner-left">
+          <img src="./assets/pwa-app-icon.jpg" width="46" height="46" alt="Ícone do App Maré Certa" class="pwa-smart-banner-icon" />
+          <div class="pwa-smart-banner-text">
+            <div class="pwa-smart-banner-badges">
+              <span class="pwa-free-tag">APP OFICIAL · GRÁTIS</span>
+              <span class="pwa-stars" aria-label="Avaliação 5 estrelas">★★★★★</span>
+            </div>
+            <strong>Maré Certa na sua Tela Inicial</strong>
+            <p>Acesse a tábua de maré em 1 toque, em tela cheia e sem ocupar memória do celular.</p>
+          </div>
+        </div>
+        <div class="pwa-smart-banner-actions">
+          <button id="pwaBannerInstallBtn" class="primary-button pwa-banner-cta" type="button">📲 Adicionar à Tela Inicial</button>
+          <button id="pwaBannerDismissBtn" class="pwa-banner-close" type="button" aria-label="Fechar sugestão de aplicativo">×</button>
+        </div>
+      </aside>
+
+      <div class="spot-quick-strip" aria-label="Praias e pontos rápidos">
         <div class="spot-strip-label"><span aria-hidden="true">🧭</span><span>PRAIAS & PONTOS</span></div>
         <div id="spotQuickBar" class="spot-quick-bar" role="group" aria-label="Atalhos de praias"></div>
         <button id="favLocationBtn" class="fav-spot-btn" type="button" aria-pressed="false">☆ Favoritar praia</button>
@@ -96,42 +181,48 @@ const upgradedWindowsHtml = `<section id="windowsB" class="window-section card" 
           </div>
         </section>`;
 
-// Right Sidebar for Condições de Pesca: Chumbada Oficial Banner + Google AdSense seguindo os design patterns
-const rightPartnerSidebarHtml = `<aside id="partnerSidebar" class="b-partner-sidebar" aria-label="Patrocinador Oficial e Publicidade">
-            <article class="card partner-sidebar-card chumbada-sidebar-card">
+// Right Sidebar for Condições de Pesca: Google AdSense Units + Compliance & Transparência (Termos de Uso, Política de Privacidade e LGPD)
+const rightPartnerSidebarHtml = `<aside id="partnerSidebar" class="b-partner-sidebar" aria-label="Espaço Publicitário Google AdSense e Conformidade">
+            <!-- Bloco 1: Google AdSense Destaque Topo -->
+            <article class="card partner-sidebar-card adsense-sidebar-card adsense-top-card" aria-label="Espaço Publicitário Google AdSense">
               <div class="card-heading">
                 <div>
-                  <p class="eyebrow">PATROCINADOR OFICIAL</p>
-                  <h3 class="partner-card-title">Chumbada Oficial</h3>
+                  <p class="eyebrow">GOOGLE ADSENSE</p>
+                  <h3 class="partner-card-title">Publicidade Recomendada</h3>
                 </div>
-                <span class="partner-pill">Surfcasting</span>
+                <span class="ad-tag">Anúncio</span>
               </div>
-              <a class="partner-logo-frame" href="https://www.instagram.com/chumbada_oficial/" target="_blank" rel="noreferrer" aria-label="Conhecer Chumbada Oficial">
-                <img src="./assets/chumbada-oficial-sidebar.png" width="300" height="300" loading="lazy" alt="Chumbada Oficial — Chumbadas de Alta Performance" />
-              </a>
-              <div class="partner-card-body">
-                <p>Produtos de pesca de alta qualidade e chumbadas técnicas projetadas para máximo alcance, estabilidade no fundo e arremessos precisos.</p>
-                <a class="partner-cta-btn" href="https://www.instagram.com/chumbada_oficial/" target="_blank" rel="noreferrer">
-                  <span>Conhecer a Chumbada Oficial</span>
-                  <span aria-hidden="true">↗</span>
-                </a>
+              <div class="adsense-slot-container" id="adsenseTopSlot">
+                <!-- Tag Google AdSense: substitua data-ad-client e data-ad-slot após a aprovação -->
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-0000000000000000"
+                     data-ad-slot="0000000001"
+                     data-ad-format="rectangle"
+                     data-full-width-responsive="true"></ins>
+                <div class="native-ad-preview">
+                  <span class="native-ad-eyebrow">EQUIPAMENTOS DE PESCA &amp; PRAIA</span>
+                  <strong class="native-ad-title">Iscas, Acessórios e Materiais</strong>
+                  <p class="native-ad-text">Anúncios relevantes do Google AdSense selecionados para a sua pescaria de praia e costeira.</p>
+                  <span class="native-ad-cta">Anúncios Google ↗</span>
+                </div>
               </div>
             </article>
 
-            <article class="card partner-sidebar-card adsense-sidebar-card" aria-label="Espaço Publicitário Parceiro">
+            <!-- Bloco 2: Google AdSense Equipamentos e Varas -->
+            <article class="card partner-sidebar-card adsense-sidebar-card adsense-secondary-card" aria-label="Espaço Publicitário Parceiro">
               <div class="card-heading">
                 <div>
-                  <p class="eyebrow">PUBLICIDADE RECOMENDADA</p>
+                  <p class="eyebrow">OFERTAS DE SURFCASTING</p>
                   <h3 class="partner-card-title">Equipamento Parceiro</h3>
                 </div>
                 <span class="ad-tag">Anúncio</span>
               </div>
               <div class="adsense-slot-container" id="adsenseSidebarSlot">
-                <!-- Tag Google AdSense pronta para veiculação de anúncios em produção -->
                 <ins class="adsbygoogle"
                      style="display:block"
                      data-ad-client="ca-pub-0000000000000000"
-                     data-ad-slot="0000000000"
+                     data-ad-slot="0000000002"
                      data-ad-format="rectangle"
                      data-full-width-responsive="true"></ins>
                 <div class="native-ad-preview">
@@ -140,6 +231,35 @@ const rightPartnerSidebarHtml = `<aside id="partnerSidebar" class="b-partner-sid
                   <p class="native-ad-text">Confira os materiais e ofertas selecionados para a sua próxima pescaria.</p>
                   <span class="native-ad-cta">Ver ofertas de parceiros ↗</span>
                 </div>
+              </div>
+            </article>
+
+            <!-- Bloco 3: Transparência Google AdSense, Termos de Uso e LGPD -->
+            <article class="card partner-sidebar-card compliance-sidebar-card" aria-label="Conformidade Google AdSense e LGPD">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">GOOGLE ADSENSE &amp; LGPD</p>
+                  <h3 class="partner-card-title">Privacidade &amp; Termos</h3>
+                </div>
+                <span class="compliance-pill">Conformidade</span>
+              </div>
+              <div class="compliance-card-body">
+                <p>O Maré Certa opera em conformidade com as diretrizes de editores do <strong>Google AdSense</strong> e a <strong>Lei Geral de Proteção de Dados (LGPD - Lei 13.709/18)</strong>.</p>
+                <div class="compliance-links-group">
+                  <button type="button" class="compliance-link-btn" data-open-legal="terms">
+                    <span class="legal-icon" aria-hidden="true">📜</span>
+                    <span>Termos de Uso do Serviço</span>
+                  </button>
+                  <button type="button" class="compliance-link-btn" data-open-legal="privacy">
+                    <span class="legal-icon" aria-hidden="true">🔒</span>
+                    <span>Política de Privacidade (LGPD)</span>
+                  </button>
+                  <button type="button" class="compliance-link-btn" data-open-legal="cookies">
+                    <span class="legal-icon" aria-hidden="true">🍪</span>
+                    <span>Preferências de Cookies AdSense</span>
+                  </button>
+                </div>
+                <small class="compliance-ad-note">Cookies DART/DoubleClick são utilizados pelo Google para veicular anúncios personalizados aos pescadores.</small>
               </div>
             </article>
           </aside>`;
@@ -258,26 +378,97 @@ const locationLoaderAndFooterBannerHtml = `<div id="locationLoader" class="loc-l
         </div>
       </div>
 
-      <section class="footer-partner-section" aria-label="Patrocinador Oficial da Comunidade">
+      <section id="seoCoastalDirectory" class="seo-coastal-section card" aria-labelledby="seoDynamicLocationTitle">
+        <div class="seo-coastal-header">
+          <div>
+            <span class="eyebrow">🌊 DIRETÓRIO DE MARÉS DO BRASIL · INDEXAÇÃO ADAPTATIVA</span>
+            <h2 id="seoDynamicLocationTitle">Tábua da Maré em João Pessoa, PB Hoje e Amanhã</h2>
+            <p id="seoDynamicLocationText" class="seo-coastal-summary">Acompanhe a tábua de maré atualizada para João Pessoa (PB) com horários exatos de preamar e baixa-mar, altura das ondas, velocidade do vento e tabela solunar completa para planejar sua pescaria de praia (surfcasting) hoje e nos próximos 7 dias.</p>
+          </div>
+          <span class="seo-live-badge">✓ Dados Marítimos &amp; DHN</span>
+        </div>
+
+        <div class="seo-spots-block">
+          <h3 class="seo-spots-subtitle">Tábua da Maré nas Principais Praias e Capitais Costeiras</h3>
+          <nav class="seo-spots-grid" aria-label="Links diretos para a Tábua de Maré por cidade">
+            <a href="?local=recife" class="seo-spot-link" data-seo-spot-slug="recife"><strong>Tábua de Maré Recife</strong><small>Pernambuco · PE</small></a>
+            <a href="?local=salvador" class="seo-spot-link" data-seo-spot-slug="salvador"><strong>Tábua de Maré Salvador</strong><small>Bahia · BA</small></a>
+            <a href="?local=natal" class="seo-spot-link" data-seo-spot-slug="natal"><strong>Tábua de Maré Natal</strong><small>Rio Grande do Norte · RN</small></a>
+            <a href="?local=joao-pessoa" class="seo-spot-link is-active" data-seo-spot-slug="joao-pessoa" aria-current="page"><strong>Tábua da Maré em João Pessoa</strong><small>Paraíba · PB</small></a>
+            <a href="?local=porto-de-galinhas" class="seo-spot-link" data-seo-spot-slug="porto-de-galinhas"><strong>Tábua da Maré Porto de Galinhas</strong><small>Ipojuca · PE</small></a>
+            <a href="?local=cabedelo" class="seo-spot-link" data-seo-spot-slug="cabedelo"><strong>Tábua da Maré Cabedelo</strong><small>Intermares · PB</small></a>
+            <a href="?local=maragogi" class="seo-spot-link" data-seo-spot-slug="maragogi"><strong>Tábua da Maré Maragogi</strong><small>Alagoas · AL</small></a>
+            <a href="?local=maceio" class="seo-spot-link" data-seo-spot-slug="maceio"><strong>Tábua da Maré Maceió</strong><small>Alagoas · AL</small></a>
+            <a href="?local=vitoria" class="seo-spot-link" data-seo-spot-slug="vitoria"><strong>Tábua de Maré Vitória</strong><small>Espírito Santo · ES</small></a>
+            <a href="?local=vila-velha" class="seo-spot-link" data-seo-spot-slug="vila-velha"><strong>Tábua de Maré Vila Velha</strong><small>Espírito Santo · ES</small></a>
+            <a href="?local=barra-de-sao-miguel" class="seo-spot-link" data-seo-spot-slug="barra-de-sao-miguel"><strong>Tábua da Maré Barra de São Miguel</strong><small>Alagoas · AL</small></a>
+            <a href="?local=sao-luis" class="seo-spot-link" data-seo-spot-slug="sao-luis"><strong>Tábua da Maré São Luís</strong><small>Maranhão · MA</small></a>
+            <a href="?local=sao-miguel-dos-milagres" class="seo-spot-link" data-seo-spot-slug="sao-miguel-dos-milagres"><strong>Tábua da Maré São Miguel dos Milagres</strong><small>Alagoas · AL</small></a>
+            <a href="?local=sao-jose-de-ribamar" class="seo-spot-link" data-seo-spot-slug="sao-jose-de-ribamar"><strong>Tábua da Maré São José de Ribamar</strong><small>Maranhão · MA</small></a>
+            <a href="?local=sao-francisco-do-sul" class="seo-spot-link" data-seo-spot-slug="sao-francisco-do-sul"><strong>Tábua da Maré São Francisco do Sul</strong><small>Santa Catarina · SC</small></a>
+            <a href="?local=gaibu" class="seo-spot-link" data-seo-spot-slug="gaibu"><strong>Tábua da Maré Gaibu</strong><small>Cabo de Sto. Agostinho · PE</small></a>
+            <a href="?local=praia-grande-sp" class="seo-spot-link" data-seo-spot-slug="praia-grande-sp"><strong>Tábua da Maré Praia Grande SP</strong><small>Litoral Sul · SP</small></a>
+            <a href="?local=sao-vicente" class="seo-spot-link" data-seo-spot-slug="sao-vicente"><strong>Tábua da Maré São Vicente</strong><small>Baixada Santista · SP</small></a>
+            <a href="?local=vera-cruz" class="seo-spot-link" data-seo-spot-slug="vera-cruz"><strong>Tábua da Maré Vera Cruz</strong><small>Itaparica · BA</small></a>
+            <a href="?local=santos" class="seo-spot-link" data-seo-spot-slug="santos"><strong>Tábua da Maré Santos</strong><small>São Paulo · SP</small></a>
+            <a href="?local=rio-de-janeiro" class="seo-spot-link" data-seo-spot-slug="rio-de-janeiro"><strong>Tábua da Maré Rio de Janeiro</strong><small>Rio de Janeiro · RJ</small></a>
+          </nav>
+        </div>
+
+        <div class="seo-faq-grid">
+          <article class="seo-faq-card">
+            <h4>Como consultar a tábua da maré para hoje e para amanhã?</h4>
+            <p>Basta escolher sua praia ou cidade acima (como Recife, Salvador, Natal, João Pessoa ou Porto de Galinhas) e alternar entre os dias da semana no seletor superior para ver todos os horários de maré cheia (preamar) e maré seca (baixa-mar).</p>
+          </article>
+          <article class="seo-faq-card">
+            <h4>Qual a melhor maré para pesca de praia (surfcasting)?</h4>
+            <p>As 3 horas de maré enchente antes do pico da preamar costumam concentrar a maior atividade alimentar nos canais e no 1º e 2º valão, especialmente quando sincronizadas com períodos solunares maiores.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="footer-partner-section" aria-label="Espaço para parceiros e patrocinadores">
         <div class="footer-partner-card card">
           <div class="footer-partner-copy">
-            <span class="eyebrow">⚓ PARCEIRO OFICIAL · SURFCASTING</span>
-            <h3>Chumbada Oficial — Produtos de Pesca de Alta Qualidade</h3>
-            <p>Apoio oficial à comunidade de pescadores do Maré Certa. Equipamentos e chumbadas técnicas de alta qualidade, desenvolvidas para máxima fixação na areia, precisão no arremesso e durabilidade no mar.</p>
+            <span class="eyebrow">⚓ ESPAÇO PARA PARCEIROS · SURFCASTING</span>
+            <h3>Sua empresa aqui — Anuncie para pescadores de todo o litoral</h3>
+            <p>Divulgue sua loja, marca ou serviço de pesca para uma comunidade apaixonada pelo mar. Destaque sua empresa neste espaço e alcance pescadores que consultam a tábua de maré todos os dias.</p>
           </div>
           <div class="footer-partner-action">
-            <a class="footer-partner-logo-box" href="https://catalogos.chumbada.com.br/" target="_blank" rel="noreferrer" aria-label="Acessar Catálogo Chumbada Oficial">
-              <img src="./assets/chumbada-oficial-footer.png" width="220" height="70" loading="lazy" alt="Logo Chumbada Oficial" />
+            <a class="footer-partner-logo-box" href="https://wa.me/5583988841996?text=Ol%C3%A1!%20Tenho%20interesse%20em%20anunciar%20no%20Mar%C3%A9%20Certa." target="_blank" rel="noreferrer" aria-label="Seu logo aqui — fale conosco">
+              <span style="display:flex;align-items:center;justify-content:center;min-width:150px;height:52px;border:1px dashed rgba(77,225,193,.45);border-radius:10px;color:#9bbcc7;font:700 .8rem Manrope,sans-serif;">SEU LOGO AQUI</span>
             </a>
-            <a class="partner-cta-btn footer-cta-btn" href="https://catalogos.chumbada.com.br/" target="_blank" rel="noreferrer">
-              <span>Ver Catálogo ↗</span>
+            <a class="partner-cta-btn footer-cta-btn" href="https://wa.me/5583988841996?text=Ol%C3%A1!%20Tenho%20interesse%20em%20anunciar%20no%20Mar%C3%A9%20Certa." target="_blank" rel="noreferrer">
+              <span>Quero anunciar ↗</span>
             </a>
           </div>
         </div>
       </section>
 
       <footer>`;
+
+const oldFooterInnerHtml = `<div class="brand footer-brand">MARÉ <b>CERTA</b></div>
+        <p>Dados meteorológicos e marítimos por <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> e DWD.</p>
+        <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>`;
+
+const enrichedFooterInnerHtml = `<div class="footer-layout">
+          <div class="footer-brand-col">
+            <div class="brand footer-brand">MARÉ <b>CERTA</b></div>
+            <p>Dados meteorológicos e marítimos por <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> e DWD. Previsões costeiras são estimativas informativas. Consulte avisos oficiais da Capitania dos Portos e Defesa Civil antes de sair.</p>
+            <p class="footer-compliance-text">Plataforma em conformidade com a <strong>LGPD (Lei 13.709/18)</strong> e as <strong>Políticas para Parceiros e Editores do Google AdSense</strong>.</p>
+          </div>
+          <nav class="footer-legal-nav" aria-label="Informações Institucionais e Jurídicas">
+            <span class="footer-legal-title">INSTITUCIONAL &amp; LGPD</span>
+            <button type="button" class="footer-legal-link" data-open-legal="terms">Termos de Uso do Serviço</button>
+            <button type="button" class="footer-legal-link" data-open-legal="privacy">Política de Privacidade (LGPD)</button>
+            <button type="button" class="footer-legal-link" data-open-legal="cookies">Diretrizes de Cookies AdSense</button>
+            <a href="mailto:privacidade@marecerta.com.br" class="footer-legal-link">Encarregado DPO (Contato) ↗</a>
+            <a href="https://wa.me/5583988841996" target="_blank" rel="noreferrer" class="footer-legal-link">📞 Parcerias: (83) 9 8884-1996</a>
+          </nav>
+        </div>`;
+
 html = replace(html, '<footer>', locationLoaderAndFooterBannerHtml);
+html = replace(html, oldFooterInnerHtml, enrichedFooterInnerHtml);
 
 // Inject PRO Club Bar + Community KPIs & Fisherman Achievements into #rankingPanel
 const achievementsHtml = `<section id="proClubBar" class="card pro-club-bar" aria-label="Clube Pescador PRO e Assinatura Mercado Pago">
@@ -290,7 +481,8 @@ const achievementsHtml = `<section id="proClubBar" class="card pro-club-bar" ari
             <p>Conecte-se com quem ama a pesca costeira: poste fotos dos seus melhores peixes, troque dicas de isca e praia nos comentários, acompanhe amigos de areia e destaque sua jornada com o selo oficial da comunidade.</p>
           </div>
           <div class="pro-club-actions">
-            <button id="openProModalBtn" class="primary-button pro-cta-btn" type="button">⚡ Assinar PRO · R$ 5/mês</button>
+            <button id="openProModalBtn" class="primary-button pro-cta-btn" type="button">⚡ Assinar PRO · R$ 8,33/mês</button>
+            <button id="openAdminProBtn" class="admin-panel-trigger-btn" type="button">🛡️ Painel Admin: Liberar PRO Grátis</button>
             <button id="proSandboxToggleBtn" class="pro-sandbox-btn" type="button">🧪 Sandbox Local: Simular Assinante PRO Ativo</button>
           </div>
         </section>
@@ -452,7 +644,10 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
 
           <form id="profileForm" hidden><label>Nome público<input name="displayName" required minlength="2" maxlength="40" autocomplete="nickname" /></label><button class="primary-button" type="submit">Concluir perfil</button></form>
           <p id="profileStatus" class="form-message" role="status"></p>
-          <button id="logoutButton" class="text-button logout-outline-btn" type="button">Sair da conta</button>
+          <div class="account-bottom-actions">
+            <button id="openAdminFromAccountBtn" class="admin-panel-trigger-btn" type="button">🛡️ Painel Admin: Selecionar Pessoas PRO Sem Pagar</button>
+            <button id="logoutButton" class="text-button logout-outline-btn" type="button">Sair da conta</button>
+          </div>
         </div>`;
 
 html = html.replace(/<div id="accountProfile" hidden>[\s\S]*?<\/div>/, richAccountProfileHtml);
@@ -494,20 +689,20 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
 
         <div class="pro-plans-grid" role="group" aria-label="Escolha seu plano Mercado Pago">
           <button type="button" class="pro-plan-card selected" data-pro-plan-select="annual" aria-pressed="true">
-            <span class="pro-plan-ribbon">MAIS ESCOLHIDO · ECONOMIZE 67%</span>
+            <span class="pro-plan-ribbon">MAIS ESCOLHIDO · 44% DE DESCONTO</span>
             <h3>Plano Anual</h3>
             <div class="pro-plan-price">
-              <strong>R$ 5,00</strong>
+              <strong>R$ 8,33</strong>
               <span>/ mês</span>
             </div>
-            <small>Cobrado R$ 60,00 / ano via PIX ou Cartão no Mercado Pago</small>
+            <small>Cobrado R$ 99,90 / ano via PIX ou Cartão no Mercado Pago</small>
           </button>
 
           <button type="button" class="pro-plan-card" data-pro-plan-select="monthly" aria-pressed="false">
             <span class="pro-plan-ribbon secondary">SEM FIDELIDADE</span>
             <h3>Plano Mensal</h3>
             <div class="pro-plan-price">
-              <strong>R$ 15,00</strong>
+              <strong>R$ 14,90</strong>
               <span>/ mês</span>
             </div>
             <small>Cobrança mensal avulsa via PIX ou Cartão no Mercado Pago</small>
@@ -515,10 +710,350 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
         </div>
 
         <div class="pro-checkout-actions">
-          <button id="mpCheckoutApproveBtn" class="primary-button mp-checkout-btn" type="button">
-            💳 Pagar com Mercado Pago · R$ 5/mês (R$ 60/ano PIX ou Cartão)
+          <button id="mpCheckoutApproveBtn" class="mp-custom-checkout-btn" type="button" aria-label="Pague com Mercado Pago">
+            <span class="mp-btn-action-label" id="mpBtnActionLabel">Pague com</span>
+            <span class="mp-btn-brand-pill">
+              <img src="./assets/mercado-pago-logo.png" alt="Mercado Pago" class="mp-btn-brand-img" />
+            </span>
           </button>
-          <p class="pro-mp-note">🔒 Ambiente Local de Testes (Sandbox): clique no botão acima para simular a aprovação imediata do Mercado Pago sem cobrança real.</p>
+          <div id="mpSelectedPlanSummary" class="mp-selected-plan-summary">
+            Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90/ano via PIX ou Cartão em até 12x)
+          </div>
+        </div>
+      </dialog>
+
+      <!-- Dialog de Termos de Uso -->
+      <dialog id="termsDialog" class="account-dialog legal-dialog" aria-labelledby="termsDialogTitle">
+        <button id="closeTermsDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="legal-dialog-head">
+          <span class="compliance-badge">DOCUMENTO OFICIAL · MARÉ CERTA</span>
+          <h2 id="termsDialogTitle">Termos de Uso do Serviço</h2>
+          <p class="legal-dialog-meta">Última atualização: Outubro de 2026 · Válido para a plataforma web e aplicativo PWA.</p>
+        </div>
+        <div class="legal-dialog-content">
+          <section>
+            <h3>1. Aceitação dos Termos</h3>
+            <p>Ao acessar, navegar ou utilizar a plataforma Maré Certa, você concorda expressamente com as disposições destes Termos de Uso e com a nossa Política de Privacidade. Caso não concorde com qualquer termo, recomendamos não utilizar os serviços.</p>
+          </section>
+
+          <section>
+            <h3>2. Natureza Informativa e Estimativa das Previsões</h3>
+            <p>O Maré Certa é uma ferramenta digital desenvolvida para auxiliar pescadores amadores e esportivos no planejamento de suas jornadas de pesca costeira e surfcasting. As informações de tábuas de maré, alturas de preamar e baixa-mar, períodos solunares, ventos, ondas e janelas de pesca baseiam-se em modelos matemáticos e dados públicos (como Marinha do Brasil/DHN, Open-Meteo e DWD).</p>
+            <p class="legal-callout"><strong>Atenção à Segurança:</strong> Todas as previsões são estimativas e não substituem avisos de ressaca da Capitania dos Portos, da Defesa Civil ou a observação direta das condições reais do mar. A segurança na beira da praia, costão ou em embarcações é de exclusiva responsabilidade de cada pescador.</p>
+          </section>
+
+          <section>
+            <h3>3. Diário de Capturas e Diretrizes da Comunidade</h3>
+            <p>A comunidade Maré Certa promove a pesca esportiva consciente. Ao registrar pescarias e compartilhar troféus, o usuário compromete-se a:</p>
+            <ul>
+              <li>Fornecer informações verídicas sobre espécies, datas, locais e pesos informados;</li>
+              <li>Respeitar integralmente a legislação ambiental brasileira (Lei nº 9.605/98), os períodos de defeso vigentes e os tamanhos mínimos de captura estipulados pelo IBAMA e Ministério da Pesca e Aquicultura;</li>
+              <li>Não publicar imagens contendo violência gratuita contra animais, descarte inadequado de lixo na praia ou condutas predatórias;</li>
+              <li>Manter postura respeitosa nos comentários dos posts, sendo vedado qualquer conteúdo de assédio, preconceito, ódio ou publicidade não autorizada (spam).</li>
+            </ul>
+            <p>A moderação reserva-se o direito de remover registros e comentários incompatíveis com estas diretrizes e suspender contas reincidentes.</p>
+          </section>
+
+          <section>
+            <h3>4. Propriedade Intelectual e Licença de Imagens</h3>
+            <p>Todo o design, algoritmo das janelas de pesca, marcas e identidade visual pertencem ao Maré Certa. O pescador mantém todos os direitos autorais sobre as fotografias de capturas que enviar, concedendo à plataforma uma licença não exclusiva, gratuita e mundial para exibi-las no Feed da Comunidade, na Galeria de Troféus e nos Cards de Histórias gerados para redes sociais.</p>
+          </section>
+
+          <section>
+            <h3>5. Publicidade, Google AdSense e Clube PRO</h3>
+            <p>A gratuidade da consulta de marés e das funcionalidades essenciais é viabilizada pela veiculação de anúncios publicitários em parceria com o <strong>Google AdSense</strong>. Ao utilizar a versão gratuita, você reconhece e aceita a exibição desses anúncios. Assinantes do Clube Pescador PRO contam com recursos sociais ampliados, mantendo-se sujeitos às mesmas diretrizes de uso ético da comunidade.</p>
+          </section>
+
+          <section>
+            <h3>6. Alterações nos Termos e Foro</h3>
+            <p>Estes termos podem ser atualizados a qualquer momento para refletir novas funcionalidades ou adequações legais. Eventuais controvérsias serão dirimidas no foro da Comarca de João Pessoa, Estado da Paraíba, com renúncia a qualquer outro.</p>
+          </section>
+        </div>
+        <div class="legal-dialog-footer">
+          <button id="termsAgreeBtn" class="primary-button" type="button">Entendi e Aceito os Termos</button>
+        </div>
+      </dialog>
+
+      <!-- Dialog de Política de Privacidade e LGPD -->
+      <dialog id="privacyDialog" class="account-dialog legal-dialog" aria-labelledby="privacyDialogTitle">
+        <button id="closePrivacyDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="legal-dialog-head">
+          <span class="compliance-badge">LGPD · LEI 13.709/2018 · GOOGLE ADSENSE</span>
+          <h2 id="privacyDialogTitle">Política de Privacidade &amp; Proteção de Dados</h2>
+          <p class="legal-dialog-meta">Transparência total sobre como tratamos seus dados e utilizamos cookies do Google AdSense.</p>
+        </div>
+        <div class="legal-dialog-content">
+          <section>
+            <h3>1. Identificação do Controlador e Encarregado (DPO)</h3>
+            <p>A plataforma <strong>Maré Certa</strong> atua como controladora dos dados pessoais tratados no âmbito de seus serviços. Para dúvidas, solicitações ou exercício de direitos de privacidade, entre em contato diretamente com nosso Encarregado de Proteção de Dados pelo canal: <a href="mailto:privacidade@marecerta.com.br">privacidade@marecerta.com.br</a>.</p>
+          </section>
+
+          <section>
+            <h3>2. Dados Pessoais Coletados e Finalidades</h3>
+            <p>Coletamos apenas as informações estritamente necessárias para o funcionamento do serviço e da comunidade de pescadores:</p>
+            <ul>
+              <li><strong>Dados de Autenticação:</strong> E-mail, nome público de pescador e credencial criptografada para acesso à conta (via Firebase Auth);</li>
+              <li><strong>Dados do Perfil do Pescador:</strong> Localidade preferida (cidade/praia), biografia curta, foto de perfil, redes sociais e telefone/WhatsApp (opcionais, configurados livremente pelo titular);</li>
+              <li><strong>Dados de Pescarias e Capturas:</strong> Espécie capturada, quantidade, peso estimado, data, praia/ponto de pesca, relato da pescaria e fotografia do troféu;</li>
+              <li><strong>Dados Técnicos e Preferências Locais:</strong> Endereço IP anonimizado, dados analíticos de desempenho e ponto de pesca selecionado para salvar em seu navegador via <code>localStorage</code>.</li>
+            </ul>
+          </section>
+
+          <section class="legal-highlight-box">
+            <h3>3. Google AdSense, Cookies de Publicidade e Tecnologias de Terceiros</h3>
+            <p>Para financiar a infraestrutura gratuita de tábuas de maré, o Maré Certa utiliza o programa de publicidade <strong>Google AdSense</strong>. De acordo com as políticas do Google para editores e a legislação vigente, informamos que:</p>
+            <ul>
+              <li><strong>Cookies de Terceiros:</strong> O Google, como fornecedor terceirizado, utiliza cookies (incluindo o cookie DART / DoubleClick) para veicular anúncios neste site;</li>
+              <li><strong>Anúncios Personalizados:</strong> Com esses cookies, o Google e seus parceiros podem veicular anúncios para você com base nas suas visitas ao Maré Certa e/ou a outros sites na Internet;</li>
+              <li><strong>Como Desativar a Publicidade Personalizada:</strong> Você pode desativar anúncios personalizados do Google a qualquer momento acessando a página oficial de <a href="https://adssettings.google.com" target="_blank" rel="noreferrer">Configurações de Anúncios do Google (Google Ads Settings) ↗</a>. Alternativamente, você pode desativar o uso de cookies de fornecedores terceiros acessando o portal de autorregulamentação <a href="https://www.aboutads.info/choices/" target="_blank" rel="noreferrer">AboutAds.info ↗</a>.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>4. Bases Legais e Direitos do Titular (LGPD)</h3>
+            <p>Em conformidade com a Lei Geral de Proteção de Dados (Art. 18 da Lei Federal nº 13.709/2018), todo pescador titular de dados tem o direito de, a qualquer momento:</p>
+            <ul>
+              <li><strong>Confirmar a existência</strong> de tratamento e acessar os dados associados à sua conta;</li>
+              <li><strong>Corrigir</strong> dados incompletos, inexatos ou desatualizados diretamente na aba do seu Perfil;</li>
+              <li><strong>Solicitar a eliminação</strong> de suas capturas, fotos ou o cancelamento integral de sua conta (botão de excluir captura no diário ou por e-mail ao DPO);</li>
+              <li><strong>Revogar o consentimento</strong> a qualquer momento sobre cookies de publicidade não essenciais.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3>5. Armazenamento Seguro e Otimização</h3>
+            <p>Os dados são transmitidos com criptografia SSL/TLS e processados sob regras estritas de segurança em nuvem. As fotos de troféus enviadas passam por compressão WebP de alta eficiência diretamente no navegador do usuário, reduzindo consumo de dados de internet móvel na praia.</p>
+          </section>
+        </div>
+        <div class="legal-dialog-footer">
+          <button id="privacyAgreeBtn" class="primary-button" type="button">Entendi a Política de Privacidade</button>
+        </div>
+      </dialog>
+
+      <!-- Banner de Consentimento de Cookies da LGPD -->
+      <aside id="cookieConsentBanner" class="cookie-consent-banner" aria-label="Aviso de Privacidade e Cookies LGPD" hidden>
+        <div class="cookie-banner-content">
+          <div class="cookie-banner-text">
+            <span class="cookie-banner-icon" aria-hidden="true">🍪</span>
+            <p>
+              <strong>Privacidade e cookies no Maré Certa:</strong> Utilizamos cookies essenciais e tecnologias do <strong>Google AdSense</strong> para personalizar anúncios de pesca e analisar audiência, de acordo com a <strong>LGPD (Lei 13.709/18)</strong>.
+            </p>
+          </div>
+          <div class="cookie-banner-actions">
+            <button type="button" class="cookie-btn-link" data-open-legal="privacy">Privacidade (LGPD)</button>
+            <button type="button" class="cookie-btn-link" data-open-legal="terms">Termos de Uso</button>
+            <button type="button" id="acceptAllCookiesBtn" class="primary-button cookie-btn-accept">Aceitar e Continuar</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Modal de Instalação do Aplicativo (PWA / Adicionar à Tela de Início) -->
+      <dialog id="pwaInstallDialog" class="account-dialog pwa-install-dialog" aria-labelledby="pwaInstallDialogTitle">
+        <button id="closePwaInstallDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="pwa-dialog-hero">
+          <div class="pwa-homescreen-Preview">
+            <div class="pwa-app-icon-showcase">
+              <img src="./assets/pwa-app-icon.jpg" width="96" height="96" alt="Ícone do Aplicativo Maré Certa na Tela Inicial" />
+              <span class="pwa-icon-label">Maré Certa</span>
+            </div>
+          </div>
+          <div class="pwa-dialog-copy">
+            <span class="eyebrow">📲 WEB APP OFICIAL · ACESSO RÁPIDO NA PRAIA</span>
+            <h2 id="pwaInstallDialogTitle">Salve o Maré Certa na sua Tela Inicial</h2>
+            <p>Tenha o aplicativo oficial com o ícone exclusivo na home do seu celular ou computador. Abre em tela cheia, carrega instantaneamente na areia e não consome espaço de armazenamento.</p>
+          </div>
+        </div>
+
+        <div id="pwaNativePromptBox" class="pwa-native-prompt-box" hidden>
+          <button id="pwaTriggerNativeBtn" class="primary-button pwa-native-cta-btn" type="button">
+            ⚡ Instalar Aplicativo Agora (1 Toque)
+          </button>
+          <small>Instalação direta verificada pelo navegador</small>
+        </div>
+
+        <div class="pwa-platform-tabs" role="tablist" aria-label="Instruções por sistema">
+          <button type="button" class="pwa-plat-tab is-active" data-pwa-tab="android" role="tab" aria-selected="true">🤖 Android (Chrome)</button>
+          <button type="button" class="pwa-plat-tab" data-pwa-tab="ios" role="tab" aria-selected="false">🍎 iPhone / iPad (Safari)</button>
+          <button type="button" class="pwa-plat-tab" data-pwa-tab="desktop" role="tab" aria-selected="false">💻 Computador</button>
+        </div>
+
+        <div id="pwaGuideAndroid" class="pwa-guide-panel" data-pwa-panel="android">
+          <ol class="pwa-steps-list">
+            <li>
+              <span class="pwa-step-num">1</span>
+              <div>
+                <strong>Toque no menu do navegador (⋮)</strong>
+                <p>No canto superior direito do Google Chrome ou Samsung Internet, toque nos três pontinhos.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pwa-step-num">2</span>
+              <div>
+                <strong>Escolha "Instalar aplicativo" ou "Adicionar à tela inicial"</strong>
+                <p>O ícone do peixe do <strong>Maré Certa</strong> será exibido na confirmação.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pwa-step-num">3</span>
+              <div>
+                <strong>Confirme em "Instalar"</strong>
+                <p>Pronto! O app ficará salvo junto aos seus aplicativos favoritos na tela inicial.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div id="pwaGuideIos" class="pwa-guide-panel" data-pwa-panel="ios" hidden>
+          <ol class="pwa-steps-list">
+            <li>
+              <span class="pwa-step-num">1</span>
+              <div>
+                <strong>Toque no botão Compartilhar <span class="pwa-inline-badge">􀈂 Compartilhar ⬆️</span></strong>
+                <p>Na barra inferior do Safari (iPhone) ou superior (iPad), toque no ícone de quadrado com uma seta para cima.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pwa-step-num">2</span>
+              <div>
+                <strong>Role a lista e toque em "Adicionar à Tela de Início" <span class="pwa-inline-badge">＋ Adicionar à Tela de Início</span></strong>
+                <p>Você verá o ícone azul do peixe e o nome <strong>Maré Certa</strong>.</p>
+              </div>
+            </li>
+            <li>
+              <span class="pwa-step-num">3</span>
+              <div>
+                <strong>Toque em "Adicionar" no canto superior direito</strong>
+                <p>O aplicativo aparecerá imediatamente na home do seu iPhone!</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div id="pwaGuideDesktop" class="pwa-guide-panel" data-pwa-panel="desktop" hidden>
+          <ol class="pwa-steps-list">
+            <li>
+              <span class="pwa-step-num">1</span>
+              <div>
+                <strong>Clique no ícone de instalação na barra de endereços 🖥️</strong>
+                <p>No Chrome ou Edge, clique no ícone de computador com uma seta (ao lado da estrela de favoritos no topo).</p>
+              </div>
+            </li>
+            <li>
+              <span class="pwa-step-num">2</span>
+              <div>
+                <strong>Confirme em "Instalar" ou use <kbd>Ctrl</kbd> + <kbd>D</kbd> para Favoritar</strong>
+                <p>O Maré Certa abrirá em uma janela dedicada e criará um atalho na sua Área de Trabalho ou Barra de Tarefas.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="pwa-dialog-footer">
+          <div class="pwa-benefits-pills">
+            <span>✓ Ícone exclusivo na Home</span>
+            <span>✓ Tela cheia sem barras</span>
+            <span>✓ Rápido na praia</span>
+          </div>
+          <button id="pwaDialogDoneBtn" class="primary-button" type="button">Entendi, obrigado!</button>
+        </div>
+      </dialog>
+
+      <!-- Painel Administrativo: Gestão de Contas PRO / VIP Sem Custo -->
+      <dialog id="adminProDialog" class="account-dialog admin-pro-dialog" aria-labelledby="adminProDialogTitle">
+        <button id="closeAdminProDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="admin-dialog-head">
+          <div class="admin-head-badges">
+            <span class="compliance-badge">🛡️ CONTA DE ADMINISTRADOR · GESTÃO DE COMUNIDADE</span>
+            <span class="admin-zero-cost-pill">👑 Liberação PRO 100% Gratuita (R$ 0)</span>
+          </div>
+          <h2 id="adminProDialogTitle">Painel Admin — Selecionar Pessoas Premium Sem Pagar</h2>
+          <p class="legal-dialog-meta">Conceda ou revogue o acesso <strong>Clube Pescador PRO (Cortesia / VIP)</strong> para pescadores parceiros, amigos, embaixadores ou membros da comunidade sem necessidade de pagamento no Mercado Pago.</p>
+        </div>
+
+        <div class="admin-kpi-strip">
+          <div class="admin-kpi-box">
+            <strong id="adminTotalUsersCount">0</strong>
+            <span>Pescadores na Lista</span>
+          </div>
+          <div class="admin-kpi-box is-gold">
+            <strong id="adminTotalVipCount">0</strong>
+            <span>Com PRO Grátis Ativo</span>
+          </div>
+          <div class="admin-kpi-box is-danger">
+            <strong id="adminTotalBannedCount">0</strong>
+            <span>Banidos / Excluídos</span>
+          </div>
+          <div class="admin-kpi-box">
+            <strong id="adminMyCurrentStatus">Padrão</strong>
+            <span>Sua Conta Atual</span>
+          </div>
+        </div>
+
+        <div class="admin-self-quick-bar">
+          <div>
+            <strong>⚡ Atalho para sua própria conta</strong>
+            <small>Libere ou teste o status PRO Cortesia imediatamente no seu usuário atual.</small>
+          </div>
+          <button id="adminGrantCurrentMeBtn" class="primary-button admin-self-btn" type="button">
+            👑 Liberar PRO Grátis na Minha Conta Atual
+          </button>
+        </div>
+
+        <form id="adminGrantByEmailForm" class="admin-grant-form">
+          <div class="admin-form-title">➕ Adicionar / Pré-Aprovar Pessoa por Nome ou E-mail</div>
+          <div class="admin-form-grid">
+            <label>Nome do pescador(a)
+              <input name="vipName" maxlength="50" placeholder="Ex.: João Pescador" required />
+            </label>
+            <label>E-mail da conta (ou identificador)
+              <input name="vipEmail" type="text" maxlength="80" placeholder="Ex.: joao@email.com" required />
+            </label>
+            <label>Categoria da Cortesia
+              <select name="vipRole">
+                <option value="PRO Cortesia (Liberado pelo Admin)">👑 PRO Cortesia (Sem Custo)</option>
+                <option value="Parceiro Oficial · VIP">⚓ Parceiro Oficial · VIP</option>
+                <option value="Embaixador Maré Certa">🏆 Embaixador Maré Certa</option>
+                <option value="Convidado da Família PRO">🎣 Convidado da Família PRO</option>
+              </select>
+            </label>
+          </div>
+          <div class="admin-form-actions">
+            <button type="submit" class="primary-button">👑 Conceder Premium Sem Pagar</button>
+            <span id="adminGrantFeedback" class="profile-saved-pill" hidden>✓ Acesso PRO Cortesia liberado!</span>
+          </div>
+        </form>
+
+        <div class="admin-users-section">
+          <div class="admin-users-toolbar">
+            <input id="adminUserSearchInput" type="search" placeholder="🔍 Buscar pescador por nome, e-mail ou praia…" autocomplete="off" />
+            <div class="admin-filter-pills" role="group" aria-label="Filtrar usuários">
+              <button type="button" class="admin-filter-btn is-active" data-admin-filter="all" aria-pressed="true">Todos</button>
+              <button type="button" class="admin-filter-btn" data-admin-filter="vip" aria-pressed="false">👑 Com PRO Grátis</button>
+              <button type="button" class="admin-filter-btn" data-admin-filter="free" aria-pressed="false">🔒 Contas Gratuitas</button>
+              <button type="button" class="admin-filter-btn" data-admin-filter="banned" aria-pressed="false">🚫 Banidos / Excluídos</button>
+            </div>
+          </div>
+          <div id="adminUsersList" class="admin-users-list" role="region" aria-live="polite"></div>
+        </div>
+
+        <section class="admin-word-filter-section" aria-labelledby="adminWordFilterTitle">
+          <div class="admin-word-filter-head">
+            <div>
+              <h3 id="adminWordFilterTitle">🛡️ Filtro Automático de Palavras Proibidas e Ilícitas</h3>
+              <p class="legal-dialog-meta">Postagens, relatos de captura, perfis e comentários contendo palavrões, pesca predatória (bomba, rede de arrasto, defeso), golpes ou drogas são bloqueados automaticamente.</p>
+            </div>
+            <span id="adminBlockedWordsCount" class="admin-source-tag">0 termos bloqueados</span>
+          </div>
+          <form id="adminWordFilterForm" class="admin-word-filter-form">
+            <input name="blockedWord" type="text" maxlength="40" placeholder="Adicionar palavra ou expressão proibida (ex.: tarrafa ilegal)…" required />
+            <button type="submit" class="primary-button">➕ Bloquear Termo</button>
+            <span id="adminWordFilterFeedback" class="profile-saved-pill" hidden>✓ Termo adicionado!</span>
+          </form>
+          <div id="adminProhibitedWordsList" class="admin-prohibited-words-list" aria-label="Lista de palavras bloqueadas"></div>
+        </section>
+
+        <div class="legal-dialog-footer">
+          <button id="adminProDoneBtn" class="primary-button" type="button">Concluir e Fechar Painel</button>
         </div>
       </dialog>`;
 
@@ -532,12 +1067,72 @@ html = replace(html, 'Calculando médias de vento e mar…', 'Calculando as cond
 html = replace(html, '<div id="marineContent" hidden>', '<div id="marineContent" role="tabpanel" hidden>');
 html = html.replace(/<details class="marine-score-details">[\s\S]*?<\/details>/, '<details class="marine-score-details"><summary>Como a nota é calculada?</summary><p>A nota de cada janela é a média das notas dos horários previstos dentro daquele intervalo de três horas. Cada horário combina ondas (até 50 pontos), vento (até 35) e rajadas (até 15).</p><p>Usamos as amostras horárias dentro do intervalo, incluindo o dia anterior quando necessário. A nota exige todos os horários completos; campos com lacunas ficam indisponíveis. Ondas ≥ 2 m, vento &gt; 28 km/h, rajadas ≥ 40 km/h ou trovoadas em qualquer horário da janela destacam atenção.</p><p>Período, direção, pressão e temperatura dão contexto e não somam pontos. O índice é experimental; não mede chance de captura nem segurança.</p><p id="marineScoreBreakdown"></p></details>');
 
+// Painel Admin: removido da página pública e movido para dist/admin.html (página isolada com login)
+const adminBlockMatch = html.match(/\s*<!-- Painel Administrativo[\s\S]*?<\/dialog>/);
+if (!adminBlockMatch) throw new Error('Bloco do Painel Admin não encontrado.');
+html = html.replace(adminBlockMatch[0], '');
+html = replace(html, '\n            <button id="openAdminProBtn" class="admin-panel-trigger-btn" type="button">🛡️ Painel Admin: Liberar PRO Grátis</button>', '');
+html = replace(html, '\n            <button id="proSandboxToggleBtn" class="pro-sandbox-btn" type="button">🧪 Sandbox Local: Simular Assinante PRO Ativo</button>', '');
+html = replace(html, '\n            <button id="openAdminFromAccountBtn" class="admin-panel-trigger-btn" type="button">🛡️ Painel Admin: Selecionar Pessoas PRO Sem Pagar</button>', '');
+
+const adminPanelSection = adminBlockMatch[0]
+  .replace(/<!-- Painel Administrativo[^>]*-->/, '')
+  .replace('<dialog id="adminProDialog" class="account-dialog admin-pro-dialog"', '<section id="adminProDialog" class="card admin-pro-page-panel"')
+  .replace(/<button id="closeAdminProDialog"[^>]*>×<\/button>/, '')
+  .replace('<button id="adminProDoneBtn" class="primary-button" type="button">Concluir e Fechar Painel</button>', '<button id="adminLogoutBtn" class="text-button logout-outline-btn" type="button">Sair do painel admin</button>')
+  .replace(/<\/dialog>\s*$/, '</section>');
+
+const adminHtml = `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#061b2a" />
+    <title>Admin · Maré Certa</title>
+    <link rel="icon" href="./assets/pwa-app-icon.jpg" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./versao-b.css" />
+  </head>
+  <body class="preview-b admin-page">
+    <div class="shell admin-shell">
+      <header class="topbar">
+        <span class="brand"><span>MARÉ <b>CERTA</b></span></span>
+        <span class="live-pill"><span></span> Área restrita · Administração</span>
+      </header>
+
+      <section id="adminLoginCard" class="card admin-login-card" aria-labelledby="adminLoginTitle">
+        <span class="eyebrow">🛡️ ACESSO RESTRITO</span>
+        <h1 id="adminLoginTitle">Login do Administrador</h1>
+        <form id="adminLoginForm" class="admin-login-form">
+          <label>Usuário<input name="adminUser" autocomplete="username" required /></label>
+          <label>Senha<input name="adminPass" type="password" autocomplete="current-password" required /></label>
+          <button class="primary-button" type="submit">Entrar no painel</button>
+          <p id="adminLoginError" class="form-message is-error" role="alert" hidden>Usuário ou senha inválidos.</p>
+        </form>
+      </section>
+
+      <main id="adminPanelArea" hidden>
+        ${adminPanelSection}
+      </main>
+    </div>
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>
+`;
+writeFileSync('dist/admin.html', adminHtml);
+
 writeFileSync('dist/versao-b.html', html);
 writeFileSync('dist/versao-a.html', baseAHtml);
 writeFileSync('dist/versao-b.css', read('src/preview-b/styles.css'));
 let appBCode = read('src/preview-b/app.js');
-appBCode = appBCode.replace(
-  /if \('serviceWorker' in navigator[\s\S]*?\}\n\}/,
+appBCode = replace(
+  appBCode,
+  `if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}`,
   `if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (isLocal) {
@@ -562,28 +1157,108 @@ writeFileSync('dist/app-b.js', appBCode);
 
 // Write PWA Manifest and Service Worker to dist/
 const manifestJson = JSON.stringify({
-  name: 'Maré Certa — Planeje sua Pescaria',
+  name: 'Maré Certa — Tábua da Maré e Pesca',
   short_name: 'Maré Certa',
   description: 'Tábua de maré oficial, janelas de pesca, tabela solunar, recomendação de equipamento e ranking de pescadores.',
   start_url: './',
+  scope: './',
   display: 'standalone',
-  background_color: '#05151f',
+  orientation: 'portrait-primary',
+  background_color: '#0047ab',
   theme_color: '#061b2a',
   lang: 'pt-BR',
+  categories: ['weather', 'sports', 'lifestyle'],
   icons: [
     {
-      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E",
+      src: './assets/pwa-icon-192.png',
       sizes: '192x192',
-      type: 'image/svg+xml',
-      purpose: 'any maskable'
+      type: 'image/png',
+      purpose: 'any'
+    },
+    {
+      src: './assets/pwa-icon-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'any'
+    },
+    {
+      src: './assets/pwa-icon-512.png',
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'maskable'
     }
   ]
 }, null, 2);
 writeFileSync('dist/manifest.webmanifest', manifestJson);
 
-const swCode = `const CACHE_NAME = 'mare-certa-pwa-v4';
+// Write ads.txt for Google AdSense compliance in dist/ and root
+const adsTxtContent = `# ads.txt - Maré Certa (Oficial)
+# Configuração IAB Tech Lab para Google AdSense
+# Substitua pub-0000000000000000 pelo seu ID de editor após a aprovação da conta AdSense.
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+`;
+writeFileSync('dist/ads.txt', adsTxtContent);
+writeFileSync('ads.txt', adsTxtContent);
+
+// Write sitemap.xml & robots.txt for Google Indexing of all high-volume coastal locations
+const seoSlugsForSitemap = [
+  'recife',
+  'salvador',
+  'natal',
+  'joao-pessoa',
+  'porto-de-galinhas',
+  'cabedelo',
+  'maragogi',
+  'maceio',
+  'vitoria',
+  'vila-velha',
+  'barra-de-sao-miguel',
+  'sao-luis',
+  'sao-miguel-dos-milagres',
+  'sao-jose-de-ribamar',
+  'sao-francisco-do-sul',
+  'gaibu',
+  'praia-grande-sp',
+  'sao-vicente',
+  'vera-cruz',
+  'santos',
+  'rio-de-janeiro'
+];
+const todayIso = new Date().toISOString().slice(0, 10);
+const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://marecerta.com.br/</loc>
+    <lastmod>${todayIso}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+${seoSlugsForSitemap
+  .map(
+    slug => `  <url>
+    <loc>https://marecerta.com.br/?local=${slug}</loc>
+    <lastmod>${todayIso}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>`
+  )
+  .join('\n')}
+</urlset>
+`;
+writeFileSync('dist/sitemap.xml', sitemapXml);
+writeFileSync('sitemap.xml', sitemapXml);
+
+const robotsTxt = `User-agent: *
+Allow: /
+
+Sitemap: https://marecerta.com.br/sitemap.xml
+`;
+writeFileSync('dist/robots.txt', robotsTxt);
+writeFileSync('robots.txt', robotsTxt);
+
+const swCode = `const CACHE_NAME = 'mare-certa-pwa-v5';
 const IS_LOCAL = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
-const CORE_ASSETS = ['./', './index.html', './styles.css', './versao-b.css', './app-b.js', './preview-b.js', './marine-b.js', './tides.js', './conditions.js', './tabs.js'];
+const CORE_ASSETS = ['./', './index.html', './styles.css', './versao-b.css', './app-b.js', './preview-b.js', './marine-b.js', './tides.js', './conditions.js', './tabs.js', './assets/pwa-app-icon.jpg'];
 self.addEventListener('install', event => {
   if (!IS_LOCAL) {
     event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)).catch(() => {}));
@@ -643,8 +1318,42 @@ import {
   saveFisherExtendedProfile,
   compressTrophyPhoto,
   renderMyAccountProfile,
-  openFisherProfileModal
+  openFisherProfileModal,
+  setAdminCommunityContext,
+  renderAdminProPanel,
+  validateTextAgainstModeration,
+  getUserModerationStatus
 } from './preview-b/community-enhancements.js';`
+);
+ranking = replace(
+  ranking,
+  "if (signup && (name.length < 2 || name.length > 40)) return message('authMessage', 'Informe um nome entre 2 e 40 caracteres.', true);",
+  "if (signup && (name.length < 2 || name.length > 40)) return message('authMessage', 'Informe um nome entre 2 e 40 caracteres.', true);\n  if (signup) { const nameMod = validateTextAgainstModeration(name, 'nome'); if (!nameMod.valid) return message('authMessage', nameMod.message, true); }\n  const emailModStatus = getUserModerationStatus(null, form.elements.email.value.trim());\n  if (emailModStatus.isRestricted) return message('authMessage', emailModStatus.message, true);"
+);
+ranking = replace(
+  ranking,
+  "if (name.length < 2 || name.length > 40) return message('profileStatus', 'Informe um nome entre 2 e 40 caracteres.', true);",
+  "if (name.length < 2 || name.length > 40) return message('profileStatus', 'Informe um nome entre 2 e 40 caracteres.', true);\n  const profMod = validateTextAgainstModeration(name, 'nome do perfil');\n  if (!profMod.valid) return message('profileStatus', profMod.message, true);"
+);
+ranking = replace(
+  ranking,
+  "const fields = Object.fromEntries(captureFields.map(name => [name, form.elements.namedItem(name).value]));",
+  `const userModStatus = getUserModerationStatus(user.uid, user.email);
+    if (userModStatus.isRestricted) throw new CaptureValidationError(userModStatus.message);
+    const fields = Object.fromEntries(captureFields.map(name => [name, form.elements.namedItem(name).value]));
+    const speciesMod = validateTextAgainstModeration(fields.species, 'espécie');
+    if (!speciesMod.valid) throw new CaptureValidationError(speciesMod.message);
+    const locationMod = validateTextAgainstModeration(fields.location, 'local / praia');
+    if (!locationMod.valid) throw new CaptureValidationError(locationMod.message);
+    const captionVal = $('captureCommentInput') ? $('captureCommentInput').value : '';
+    const captionMod = validateTextAgainstModeration(captionVal, 'relato da captura');
+    if (!captionMod.valid) throw new CaptureValidationError(captionMod.message);`
+);
+ranking = replace(
+  ranking,
+  "const ranking = makeRanking(profiles, captures);",
+  `const activeCapturesForRanking = Object.fromEntries(Object.entries(captures).filter(([, cap]) => !getUserModerationStatus(cap?.uid).isRestricted));
+  const ranking = makeRanking(profiles, activeCapturesForRanking);`
 );
 ranking = replace(
   ranking,
@@ -704,8 +1413,11 @@ const demoSocialPostsSnippet = `  const demoCaptures = [
     ['demo-5', { uid: 'demo-fisher-5', authorName: 'Tiago Linha Fina', species: 'Xaréu-preto', quantity: 1, weight: 6.1, date: '2026-10-20', location: 'Farol de Itapuã, Salvador', createdAt: 1792650000000 }],
     ['demo-6', { uid: 'demo-fisher-6', authorName: 'Carlos Pesca Costeira', species: 'Sargo-de-dente', quantity: 2, weight: 2.2, date: '2026-10-19', location: 'Praia do Francês, Marechal Deodoro', createdAt: 1792600000000 }]
   ];
-  const combinedWithDemos = [...all, ...demoCaptures.filter(([id]) => !captures[id])];
+  const combinedWithDemosRaw = [...all, ...demoCaptures.filter(([id]) => !captures[id])];
+  const combinedWithDemos = combinedWithDemosRaw.filter(([, cap]) => !getUserModerationStatus(cap?.uid).isRestricted);
   const combinedCapturesMap = { ...Object.fromEntries(demoCaptures), ...captures };
+  setAdminCommunityContext(auth.currentUser, profiles, combinedCapturesMap);
+  renderAdminProPanel();
   renderAchievementsAndStats(combinedCapturesMap, auth.currentUser?.uid || 'demo-fisher-1');
   if (auth.currentUser) renderMyAccountProfile(auth.currentUser, profiles, combinedCapturesMap);
   const filters = { species: $('filterSpecies').value, location: $('filterLocation').value, from: $('filterFrom').value, to: $('filterTo').value };
@@ -732,7 +1444,7 @@ const blurredFeedSnippet = `  const isPro = isUserPro();
       lockOverlay.className = 'blur-lock-overlay';
       lockOverlay.innerHTML = \`
         <span class="blur-lock-pill">🔒 Conteúdo Exclusivo PRO</span>
-        <span class="blur-lock-sub">Clique para desbloquear o feed completo · R$ 5/mês</span>
+        <span class="blur-lock-sub">Clique para desbloquear o feed completo · R$ 8,33/mês</span>
       \`;
       card.append(lockOverlay);
 
@@ -763,15 +1475,11 @@ const blurredFeedSnippet = `  const isPro = isUserPro();
         <h3 class="paywall-teaser-title">Faça parte da nossa família de pescadores</h3>
         <p class="paywall-teaser-desc">Aproveite todo o feed social sem limites: veja as fotos de todos os troféus da costa, troque dicas nos comentários com outros pescadores e publique suas próprias capturas para fortalecer a nossa comunidade.</p>
         <div class="feed-paywall-teaser-actions">
-          <button type="button" class="primary-button paywall-teaser-cta-btn">⚡ Desbloquear Feed Completo · R$ 5/mês</button>
-          <button type="button" class="feed-paywall-sandbox-btn">🧪 Sandbox Local: Simular Assinante PRO Ativo</button>
+          <button type="button" class="primary-button paywall-teaser-cta-btn">⚡ Desbloquear Feed Completo · R$ 8,33/mês</button>
         </div>
       </div>
     \`;
     teaser.querySelector('.paywall-teaser-cta-btn').addEventListener('click', () => openProPaywallModal('feed_blur'));
-    teaser.querySelector('.feed-paywall-sandbox-btn').addEventListener('click', () => {
-      setProSubscription(true, 'annual');
-    });
     $('recentCatches').append(teaser);
   }`;
 
@@ -787,6 +1495,7 @@ $('captureFilterForm').addEventListener('submit', event => event.preventDefault(
 $('captureFilterForm').addEventListener('input', () => { clearTimeout(filterTimer); filterTimer = setTimeout(renderCommunity, 150); });
 $('clearCaptureFilters').addEventListener('click', () => { clearTimeout(filterTimer); $('captureFilterForm').reset(); renderCommunity(); });
 window.addEventListener('mare-certa:pro-changed', () => renderCommunity());
+window.addEventListener('mare-certa:moderation-changed', () => renderCommunity());
 
 if ($('myProfileAvatarBtn') && $('myProfileAvatarInput')) {
   $('myProfileAvatarBtn').addEventListener('click', () => $('myProfileAvatarInput').click());
@@ -854,6 +1563,24 @@ if ($('extendedProfileForm')) {
       return;
     }
 
+    const userMod = getUserModerationStatus(user.uid, user.email);
+    if (userMod.isRestricted) {
+      message('profileStatus', userMod.message, true);
+      return;
+    }
+
+    for (const [val, label] of [
+      [newName, 'nome público'],
+      [locationVal, 'cidade / praia'],
+      [bioVal, 'bio / especialidade']
+    ]) {
+      const check = validateTextAgainstModeration(val, label);
+      if (!check.valid) {
+        message('profileStatus', check.message, true);
+        return;
+      }
+    }
+
     saveFisherExtendedProfile(user.uid, {
       displayName: newName,
       location: locationVal,
@@ -887,6 +1614,7 @@ const baseOptions = { bundle: true, format: 'esm', minify: true, logLevel: 'sile
 await Promise.all([
   build({ ...baseOptions, entryPoints: ['src/preview-b/enhancements.js'], outfile: 'dist/preview-b.js' }),
   build({ ...baseOptions, entryPoints: ['src/preview-b/window-marine-view.js'], outfile: 'dist/marine-b.js' }),
+  build({ ...baseOptions, entryPoints: ['src/preview-b/admin.js'], outfile: 'dist/admin.js' }),
   build({ ...baseOptions, stdin: { contents: ranking, resolveDir: resolve('src'), sourcefile: 'ranking-b.js' }, outfile: 'dist/ranking-b.js' })
 ]);
 for (const [file, before] of originals) if (hash(file) !== before) throw new Error(`A versão A foi alterada: ${file}`);

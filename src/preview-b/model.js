@@ -56,7 +56,11 @@ export const PRESET_SPOTS = [
   { id: 'natal-ponta-negra', name: 'Ponta Negra', admin1: 'Natal, RN', country_code: 'BR', latitude: -5.8811, longitude: -35.1669 },
   { id: 'recife-boa-viagem', name: 'Boa Viagem', admin1: 'Recife, PE', country_code: 'BR', latitude: -8.1189, longitude: -34.8961 },
   { id: 'sp-santos', name: 'Santos', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9618, longitude: -46.3322 },
-  { id: 'ba-salvador', name: 'Salvador', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9714, longitude: -38.5014 }
+  { id: 'ba-salvador', name: 'Salvador', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9714, longitude: -38.5014 },
+  { id: 'pe-porto-galinhas', name: 'Porto de Galinhas', admin1: 'Ipojuca, PE', country_code: 'BR', latitude: -8.5058, longitude: -35.0003 },
+  { id: 'al-maragogi', name: 'Maragogi', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.0122, longitude: -35.2225 },
+  { id: 'al-maceio', name: 'Maceió', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.6658, longitude: -35.735 },
+  { id: 'es-vitoria', name: 'Vitória', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.3222, longitude: -40.3375 }
 ];
 
 const fmtMinutes = totalMin => {
@@ -727,17 +731,17 @@ export const PRO_PLANS = {
   annual: {
     id: 'annual',
     name: 'Anual · Clube Pescador PRO',
-    priceMonthly: 5,
-    billingTotal: 60,
-    periodLabel: 'por mês (cobrado R$ 60/ano)',
-    discountBadge: 'MAIS ESCOLHIDO · ECONOMIZE 67%',
+    priceMonthly: 8.33,
+    billingTotal: 99.9,
+    periodLabel: 'por mês (cobrado R$ 99,90/ano)',
+    discountBadge: 'MAIS ESCOLHIDO · 44% DE DESCONTO',
     gateway: 'Mercado Pago (PIX ou Cartão em até 12x)'
   },
   monthly: {
     id: 'monthly',
     name: 'Mensal · Clube Pescador PRO',
-    priceMonthly: 15,
-    billingTotal: 15,
+    priceMonthly: 14.9,
+    billingTotal: 14.9,
     periodLabel: 'por mês avulso',
     discountBadge: 'SEM FIDELIDADE',
     gateway: 'Mercado Pago (PIX ou Cartão)'
@@ -772,4 +776,179 @@ export function canUseProSocialFeature(sub = {}) {
   if (sub.active !== true) return false;
   if (sub.expiresAt && Number.isFinite(sub.expiresAt) && sub.expiresAt < Date.now()) return false;
   return true;
+}
+
+
+export const SEO_COASTAL_LOCATIONS = [
+  { slug: 'recife', keyword: 'Tábua de Maré Recife', name: 'Recife', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -8.0539, longitude: -34.8711, volume: '27.1K' },
+  { slug: 'salvador', keyword: 'Tábua de Maré Salvador', name: 'Salvador', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9714, longitude: -38.5014, volume: '22.2K' },
+  { slug: 'natal', keyword: 'Tábua de Maré Natal', name: 'Natal', admin1: 'Rio Grande do Norte, RN', country_code: 'BR', latitude: -5.7792, longitude: -35.2047, volume: '14.8K' },
+  { slug: 'joao-pessoa', keyword: 'Tábua da Maré em João Pessoa', name: 'João Pessoa', admin1: 'Paraíba, PB', country_code: 'BR', latitude: -7.115, longitude: -34.8631, volume: '15.7K' },
+  { slug: 'porto-de-galinhas', keyword: 'Tábua da Maré Porto de Galinhas', name: 'Porto de Galinhas', admin1: 'Ipojuca, PE', country_code: 'BR', latitude: -8.5058, longitude: -35.0003, volume: '6.6K' },
+  { slug: 'cabedelo', keyword: 'Tábua da Maré Cabedelo', name: 'Cabedelo', admin1: 'Paraíba, PB', country_code: 'BR', latitude: -7.0319, longitude: -34.8375, volume: '2.9K' },
+  { slug: 'maragogi', keyword: 'Tábua da Maré Maragogi', name: 'Maragogi', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.0122, longitude: -35.2225, volume: '2.9K' },
+  { slug: 'maceio', keyword: 'Tábua da Maré Maceió', name: 'Maceió', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.6658, longitude: -35.735, volume: '2.4K' },
+  { slug: 'vitoria', keyword: 'Tábua de Maré Vitória', name: 'Vitória', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.3222, longitude: -40.3375, volume: '2.4K' },
+  { slug: 'vila-velha', keyword: 'Tábua de Maré Vila Velha', name: 'Vila Velha', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.3297, longitude: -40.2925, volume: '1.9K' },
+  { slug: 'barra-de-sao-miguel', keyword: 'Tábua da Maré Barra de São Miguel', name: 'Barra de São Miguel', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.8403, longitude: -35.9081, volume: '1.9K' },
+  { slug: 'sao-luis', keyword: 'Tábua da Maré São Luís', name: 'São Luís', admin1: 'Maranhão, MA', country_code: 'BR', latitude: -2.5307, longitude: -44.3068, volume: '880' },
+  { slug: 'sao-miguel-dos-milagres', keyword: 'Tábua da Maré São Miguel dos Milagres', name: 'São Miguel dos Milagres', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.2667, longitude: -35.3731, volume: '720' },
+  { slug: 'sao-jose-de-ribamar', keyword: 'Tábua da Maré São José de Ribamar', name: 'São José de Ribamar', admin1: 'Maranhão, MA', country_code: 'BR', latitude: -2.5619, longitude: -44.0539, volume: '590' },
+  { slug: 'sao-francisco-do-sul', keyword: 'Tábua da Maré São Francisco do Sul', name: 'São Francisco do Sul', admin1: 'Santa Catarina, SC', country_code: 'BR', latitude: -26.2433, longitude: -48.6383, volume: '590' },
+  { slug: 'gaibu', keyword: 'Tábua da Maré Gaibu', name: 'Praia de Gaibu', admin1: 'Cabo de Santo Agostinho, PE', country_code: 'BR', latitude: -8.3297, longitude: -34.9467, volume: '590' },
+  { slug: 'praia-grande-sp', keyword: 'Tábua da Maré Praia Grande SP', name: 'Praia Grande', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -24.0058, longitude: -46.4028, volume: '500' },
+  { slug: 'sao-vicente', keyword: 'Tábua da Maré São Vicente', name: 'São Vicente', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9631, longitude: -46.3919, volume: '450' },
+  { slug: 'vera-cruz', keyword: 'Tábua da Maré Vera Cruz', name: 'Vera Cruz', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9603, longitude: -38.6086, volume: '350' },
+  { slug: 'santos', keyword: 'Tábua da Maré Santos', name: 'Santos', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9618, longitude: -46.3322, volume: '1.2K' },
+  { slug: 'rio-de-janeiro', keyword: 'Tábua da Maré Rio de Janeiro', name: 'Rio de Janeiro', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9064, longitude: -43.1822, volume: '1.5K' }
+];
+
+export function slugifyLocation(name = '', admin1 = '') {
+  const raw = String(name || 'joao-pessoa')
+    .replace(/\(.*?\)/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (raw === 'praia-grande' && /sp|sao paulo|são paulo/i.test(admin1)) return 'praia-grande-sp';
+  return raw || 'joao-pessoa';
+}
+
+export function resolveSeoLocationBySlug(slug = '') {
+  const clean = String(slug || '').trim().toLowerCase();
+  if (!clean) return null;
+  const exact = SEO_COASTAL_LOCATIONS.find(loc => loc.slug === clean);
+  if (exact) return exact;
+  const preset = PRESET_SPOTS.find(p => p.id === clean || slugifyLocation(p.name, p.admin1) === clean);
+  if (preset) return preset;
+  const fuzzy = SEO_COASTAL_LOCATIONS.find(loc => loc.slug.includes(clean) || clean.includes(loc.slug));
+  return fuzzy || null;
+}
+
+export function buildAdaptiveSeoMetadata({
+  location = {},
+  events = [],
+  dateString = '',
+  moonName = '',
+  baseUrl = 'https://jaymeholanda.github.io/Pescaria/'
+} = {}) {
+  const cityName = String(location?.name || 'João Pessoa').replace(/\s*\(.*?\)\s*/g, '').trim() || 'João Pessoa';
+  const region = String(location?.admin1 || 'Paraíba, PB').trim();
+  const lat = Number.isFinite(Number(location?.latitude)) ? Number(location.latitude) : -7.115;
+  const lon = Number.isFinite(Number(location?.longitude)) ? Number(location.longitude) : -34.8631;
+  const slug = location?.slug || slugifyLocation(cityName, region);
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const canonicalUrl = `${cleanBase}?local=${encodeURIComponent(slug)}`;
+  const ogImage = `${cleanBase}dist/assets/valoes-praia.jpg`;
+
+  const highs = (events || []).filter(e => e.type === 'high');
+  const lows = (events || []).filter(e => e.type === 'low');
+
+  const fmtEvent = e => {
+    const h = e.hour || String(e.time || '').slice(11, 16);
+    const lvl = Number.isFinite(e.level) ? ` (${e.level.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}m)` : '';
+    return `${h}${lvl}`;
+  };
+
+  const highSummary = highs.length ? `Maré alta às ${highs.map(fmtEvent).join(' e ')}` : 'Horários de maré alta (preamar)';
+  const lowSummary = lows.length ? `maré baixa às ${lows.map(fmtEvent).join(' e ')}` : 'maré baixa (baixa-mar)';
+  const moonText = moonName ? `, fase da lua ${moonName}` : '';
+
+  const title = `Tábua da Maré em ${cityName} Hoje e Amanhã (${region}) | Maré Certa`;
+  const description = `Tábua da maré em ${cityName} (${region}) para hoje e amanhã: ${highSummary}, ${lowSummary}${moonText}, previsão de ondas, vento e melhores horários de pesca costeira.`;
+
+  const cityLower = cityName.toLowerCase();
+  const cityAscii = cityLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const keywords = [
+    `tábua da maré ${cityLower}`,
+    `tabua de mare ${cityAscii}`,
+    `tábua da maré em ${cityLower}`,
+    `tábua da maré ${cityLower} hoje`,
+    `tábua da maré para hoje`,
+    `tábua da maré para amanhã`,
+    `tabua da mare ${cityAscii} 2026`,
+    `maré alta ${cityLower}`,
+    `maré baixa ${cityLower}`,
+    `pesca de praia ${cityLower}`
+  ].join(', ');
+
+  const heading = `Tábua da Maré em ${cityName} (${region}) — Hoje e Amanhã`;
+  const summaryParagraph = events && events.length
+    ? `Consulte a tábua da maré atualizada para ${cityName} (${region}). Para a data selecionada${dateString ? ` (${dateString.split('-').reverse().join('/')})` : ''}, temos ${highSummary} e ${lowSummary}${moonText}. As melhores janelas de pesca costeira e surfcasting iniciam 3 horas antes de cada preamar.`
+    : `Consulte gratuitamente a tábua da maré em ${cityName} (${region}) para hoje, amanhã e próximos 7 dias, com horários oficiais de preamar e baixa-mar, atividade solunar, altura de ondas e vento na costa.`;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebApplication',
+        name: `Maré Certa — Tábua da Maré em ${cityName}`,
+        url: canonicalUrl,
+        applicationCategory: 'WeatherApplication',
+        operatingSystem: 'All',
+        inLanguage: 'pt-BR',
+        description,
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'BRL'
+        },
+        contentLocation: {
+          '@type': 'Place',
+          name: `${cityName}, ${region}`,
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude: lat,
+            longitude: lon
+          }
+        }
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: `Qual a tábua da maré em ${cityName} para hoje e amanhã?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: summaryParagraph
+            }
+          },
+          {
+            '@type': 'Question',
+            name: `Qual o melhor horário para pescar na praia em ${cityName}?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Em ${cityName}, as janelas mais produtivas para pesca de praia (surfcasting) começam 3 horas antes do pico da maré alta (preamar), especialmente quando coincidem com os períodos solunares maiores.`
+            }
+          }
+        ]
+      }
+    ]
+  };
+
+  return {
+    slug,
+    cityName,
+    region,
+    canonicalUrl,
+    title,
+    description,
+    keywords,
+    ogTitle: `Tábua da Maré em ${cityName} Hoje e Amanhã | Maré Certa`,
+    ogDescription: description,
+    ogUrl: canonicalUrl,
+    ogImage,
+    ogImageAlt: `Curva e horários da Tábua da Maré em ${cityName} (${region})`,
+    twitterTitle: `Tábua da Maré em ${cityName} Hoje e Amanhã`,
+    twitterDescription: description,
+    twitterImage: ogImage,
+    geoPlacename: `${cityName}, ${region}, Brasil`,
+    geoPosition: `${lat};${lon}`,
+    geoIcbm: `${lat}, ${lon}`,
+    heading,
+    summaryParagraph,
+    jsonLd
+  };
 }

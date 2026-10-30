@@ -238,9 +238,10 @@ test('Clube PRO Mercado Pago e compressão de foto WebP para S3 validam planos e
     canUseProSocialFeature
   } = await import('../src/preview-b/model.js');
 
-  assert.equal(PRO_PLANS.annual.priceMonthly, 5);
-  assert.equal(PRO_PLANS.annual.billingTotal, 60);
-  assert.equal(PRO_PLANS.monthly.priceMonthly, 15);
+  assert.equal(PRO_PLANS.annual.priceMonthly, 8.33);
+  assert.equal(PRO_PLANS.annual.billingTotal, 99.9);
+  assert.equal(PRO_PLANS.monthly.priceMonthly, 14.9);
+  assert.equal(PRO_PLANS.annual.discountBadge, 'MAIS ESCOLHIDO · 44% DE DESCONTO');
 
   const dims = calculateImageDimensions(4000, 3000, 1080);
   assert.equal(dims.width, 1080);
@@ -332,4 +333,301 @@ test('Perfil do pescador, seguidores reais, relato de captura e exclusão de com
   const remainingComments = deletePostComment('demo-1', 'c-101');
   assert.equal(remainingComments.some(c => c.id === 'c-101'), false);
   assert.equal(remainingComments.some(c => c.id === 'c-102'), true);
+});
+
+
+test('Google AdSense e LGPD: ads.txt, Termos de Uso, Política de Privacidade e ausência da Chumbada na sidebar', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+
+  // 1. Arquivo ads.txt
+  assert.ok(existsSync('dist/ads.txt'));
+  assert.ok(existsSync('ads.txt'));
+  const adsTxt = readFileSync('dist/ads.txt', 'utf8');
+  assert.match(adsTxt, /google\.com,\s*pub-[0-9]+,\s*DIRECT,\s*f08c47fec0942fa0/);
+
+  // 2. Validação no HTML gerado
+  const html = readFileSync('dist/index.html', 'utf8');
+
+  // Sidebar não deve mais conter o card da Chumbada Oficial
+  assert.doesNotMatch(html, /class="[^"]*chumbada-sidebar-card/);
+  // Sidebar deve conter os blocos de AdSense e o card de conformidade
+  assert.match(html, /id="partnerSidebar"/);
+  assert.match(html, /id="adsenseTopSlot"/);
+  assert.match(html, /id="adsenseSidebarSlot"/);
+  assert.match(html, /class="[^"]*compliance-sidebar-card/);
+
+  // 3. Modais de Termos de Uso e Política de Privacidade & LGPD
+  assert.match(html, /id="termsDialog"/);
+  assert.match(html, /id="privacyDialog"/);
+  assert.match(html, /id="cookieConsentBanner"/);
+
+  // Cláusulas obrigatórias exigidas pelo Google AdSense
+  assert.match(html, /DART/);
+  assert.match(html, /adssettings\.google\.com/);
+  assert.match(html, /AboutAds\.info/);
+
+  // Cláusulas da LGPD
+  assert.match(html, /13\.709/);
+  assert.match(html, /privacidade@marecerta\.com\.br/);
+});
+
+test('SEO Dinâmico Adaptativo por Localidade e Tags Open Graph / JSON-LD / Sitemap', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const {
+    SEO_COASTAL_LOCATIONS,
+    slugifyLocation,
+    resolveSeoLocationBySlug,
+    buildAdaptiveSeoMetadata
+  } = await import('../src/preview-b/model.js');
+
+  // 1. Verifica catálogo de localidades costeiras de alto volume (Ubersuggest)
+  assert.ok(SEO_COASTAL_LOCATIONS.length >= 18);
+  const recife = resolveSeoLocationBySlug('recife');
+  assert.ok(recife);
+  assert.equal(recife.name, 'Recife');
+
+  const portoGalinhas = resolveSeoLocationBySlug('porto-de-galinhas');
+  assert.ok(portoGalinhas);
+  assert.match(portoGalinhas.name, /Porto de Galinhas/);
+
+  const joaoPessoa = resolveSeoLocationBySlug('joao-pessoa');
+  assert.ok(joaoPessoa);
+  assert.equal(slugifyLocation('João Pessoa', 'Paraíba, PB'), 'joao-pessoa');
+
+  // 2. Verifica geração de metadados adaptativos (Title, Description, Open Graph, Geo, JSON-LD)
+  const seoMeta = buildAdaptiveSeoMetadata({
+    location: recife,
+    events: [
+      { type: 'high', time: '2026-10-30T04:15', height: 2.3 },
+      { type: 'low', time: '2026-10-30T10:30', height: 0.4 }
+    ],
+    dateString: '2026-10-30',
+    moonName: 'Lua cheia',
+    baseUrl: 'https://marecerta.com.br'
+  });
+
+  assert.match(seoMeta.title, /Tábua d[ae] Maré.*Recife/i);
+  assert.match(seoMeta.description, /Recife/i);
+  assert.match(seoMeta.description, /04:15/);
+  assert.match(seoMeta.description, /10:30/);
+  assert.match(seoMeta.keywords, /tabua de mare recife/i);
+  assert.equal(seoMeta.canonicalUrl, 'https://marecerta.com.br/?local=recife');
+  assert.equal(seoMeta.ogUrl, 'https://marecerta.com.br/?local=recife');
+  assert.match(seoMeta.ogTitle, /Tábua d[ae] Maré.*Recife/i);
+  assert.ok(seoMeta.jsonLd['@graph'].some(node => node['@type'] === 'WebApplication' && node.contentLocation?.['@type'] === 'Place'));
+  assert.ok(seoMeta.jsonLd['@graph'].some(node => node['@type'] === 'FAQPage'));
+
+  // 3. Verifica presença das tags Open Graph, Twitter Card, Geo, JSON-LD e Diretório Costeiro no HTML compilado
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /property="og:title"/);
+  assert.match(html, /property="og:description"/);
+  assert.match(html, /property="og:image"/);
+  assert.match(html, /property="og:url"/);
+  assert.match(html, /name="twitter:card"/);
+  assert.match(html, /name="geo\.position"/);
+  assert.match(html, /id="dynamicJsonLd"\s+type="application\/ld\+json"/);
+  assert.match(html, /id="seoCoastalDirectory"/);
+  assert.match(html, /data-seo-spot-slug="recife"/);
+  assert.match(html, /data-seo-spot-slug="salvador"/);
+  assert.match(html, /data-seo-spot-slug="natal"/);
+  assert.match(html, /data-seo-spot-slug="porto-de-galinhas"/);
+
+  // 4. Verifica geração de sitemap.xml e robots.txt
+  assert.ok(existsSync('dist/sitemap.xml'));
+  assert.ok(existsSync('dist/robots.txt'));
+  const sitemap = readFileSync('dist/sitemap.xml', 'utf8');
+  assert.match(sitemap, /\?local=recife/);
+  assert.match(sitemap, /\?local=salvador/);
+  assert.match(sitemap, /\?local=joao-pessoa/);
+});
+
+test('Validação Mobile & PWA: ícone enviado pelo usuário, botão no topo, Smart Banner e modal iOS/Android/Desktop', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { detectPwaPlatform } = await import('../src/preview-b/enhancements.js');
+
+  // 1. Verifica que o ícone enviado pelo usuário está em dist/assets/pwa-app-icon.jpg
+  assert.ok(existsSync('dist/assets/pwa-app-icon.jpg'));
+
+  // 2. Verifica Web App Manifest com o novo ícone
+  const manifest = JSON.parse(readFileSync('dist/manifest.webmanifest', 'utf8'));
+  assert.equal(manifest.short_name, 'Maré Certa');
+  assert.equal(manifest.display, 'standalone');
+  assert.ok(manifest.icons.some(icon => icon.src.includes('pwa-icon-512.png') && icon.sizes === '512x512'));
+  assert.ok(manifest.icons.some(icon => icon.src.includes('pwa-icon-192.png') && icon.sizes === '192x192'));
+
+  // 3. Verifica HTML compilado: apple-touch-icon, botão no header, Smart Banner e modal de instruções
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /rel="apple-touch-icon"[^>]+pwa-app-icon\.jpg/);
+  assert.match(html, /id="pwaHeaderInstallBtn"/);
+  assert.match(html, /id="pwaSmartBanner"/);
+  assert.match(html, /id="pwaInstallDialog"/);
+  assert.match(html, /id="pwaGuideAndroid"/);
+  assert.match(html, /id="pwaGuideIos"/);
+  assert.match(html, /id="pwaGuideDesktop"/);
+
+  // 4. Verifica detecção automática de plataforma (iOS / Android / Desktop)
+  assert.equal(detectPwaPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), 'ios');
+  assert.equal(detectPwaPlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5), 'ios');
+  assert.equal(detectPwaPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 8)'), 'android');
+  assert.equal(detectPwaPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'desktop');
+});
+
+test('Validação de sintaxe dos bundles JS em dist/ e Painel Admin para liberar PRO sem pagar', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { execFileSync } = await import('node:child_process');
+
+  // 1. Garante que nenhum arquivo JS gerado em dist/ tenha erro de sintaxe (ex.: dist/app-b.js)
+  for (const jsFile of ['dist/app-b.js', 'dist/preview-b.js', 'dist/marine-b.js', 'dist/ranking-b.js']) {
+    execFileSync(process.execPath, ['--check', jsFile]);
+  }
+
+  // 2. Verifica se o evento de clique do diretório SEO não foi corrompido em dist/app-b.js
+  const appB = readFileSync('dist/app-b.js', 'utf8');
+  assert.match(appB, /document\.addEventListener\("click"/);
+  assert.match(appB, /data-seo-spot-slug/);
+
+  // 3. Painel Admin NÃO aparece na página pública; fica isolado em dist/admin.html com login
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.doesNotMatch(html, /openAdminProBtn|openAdminFromAccountBtn|adminProDialog|proSandboxToggleBtn/);
+  const adminHtml = readFileSync('dist/admin.html', 'utf8');
+  assert.match(adminHtml, /noindex, nofollow/);
+  assert.match(adminHtml, /id="adminLoginForm"/);
+  assert.match(adminHtml, /id="adminProDialog"/);
+  assert.match(adminHtml, /id="adminGrantByEmailForm"/);
+  assert.match(adminHtml, /id="adminUsersList"/);
+  execFileSync(process.execPath, ['--check', 'dist/admin.js']);
+  const { checkAdminCredentials } = await import('../src/preview-b/admin.js');
+  assert.equal(checkAdminCredentials('admin', 'marecerta@2026'), true);
+  assert.equal(checkAdminCredentials('admin', 'errada'), false);
+
+  // 4. Testa funções de concessão e revogação gratuita de PRO pelo Admin
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k)
+  };
+
+  const {
+    grantFreeProToUser,
+    revokeFreeProFromUser,
+    isUserAdminGrantedPro,
+    isUserPro,
+    getProSubscription,
+    setAdminCommunityContext,
+    collectAdminManageableUsers
+  } = await import('../src/preview-b/community-enhancements.js');
+
+  setAdminCommunityContext({ uid: 'u-vip-test', email: 'parceiro@pesca.com.br', displayName: 'Pedro Parceiro' }, {}, {});
+  assert.equal(isUserPro('u-vip-test', 'parceiro@pesca.com.br'), false);
+
+  // Concede PRO gratuito pelo painel de admin
+  const grant = grantFreeProToUser({
+    uid: 'u-vip-test',
+    email: 'parceiro@pesca.com.br',
+    displayName: 'Pedro Parceiro',
+    roleLabel: 'Parceiro Oficial · VIP'
+  });
+  assert.equal(grant.active, true);
+  assert.ok(isUserAdminGrantedPro('u-vip-test', 'parceiro@pesca.com.br'));
+  assert.equal(isUserPro('u-vip-test', 'parceiro@pesca.com.br'), true);
+
+  const sub = getProSubscription('u-vip-test', 'parceiro@pesca.com.br');
+  assert.equal(sub.active, true);
+  assert.equal(sub.isFreeGrant, true);
+  assert.equal(sub.priceMonthly, 0);
+
+  // Verifica que o usuário aparece na lista gerenciável do Admin como VIP
+  const list = collectAdminManageableUsers();
+  assert.ok(list.some(u => u.uid === 'u-vip-test' && u.isVipPro === true));
+
+  // Revoga o PRO gratuito
+  revokeFreeProFromUser('u-vip-test');
+  assert.equal(isUserAdminGrantedPro('u-vip-test', 'parceiro@pesca.com.br'), null);
+  assert.equal(isUserPro('u-vip-test', 'parceiro@pesca.com.br'), false);
+});
+
+test('Painel Admin: deleção de contas, banimentos (7d, 14d, 30d e permanente) e filtro de palavras proibidas e ilícitas', async () => {
+  const { readFileSync } = await import('node:fs');
+  const adminHtml = readFileSync('dist/admin.html', 'utf8');
+  assert.match(adminHtml, /id="adminTotalBannedCount"/);
+  assert.match(adminHtml, /data-admin-filter="banned"/);
+  assert.match(adminHtml, /id="adminWordFilterForm"/);
+  assert.match(adminHtml, /id="adminProhibitedWordsList"/);
+
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k)
+  };
+
+  const {
+    banUserAccount,
+    unbanUserAccount,
+    deleteUserAccountByAdmin,
+    restoreDeletedUserAccount,
+    getUserModerationStatus,
+    validateTextAgainstModeration,
+    addProhibitedWord,
+    removeProhibitedWord,
+    loadProhibitedWords
+  } = await import('../src/preview-b/community-enhancements.js');
+
+  // 1. Testa banimentos de 7, 14, 30 dias e permanente
+  for (const days of [7, 14, 30]) {
+    const rec = banUserAccount({ uid: `u-${days}`, email: `u${days}@teste.com`, displayName: `User ${days}`, durationDays: days });
+    assert.equal(rec.status, 'banned_temp');
+    assert.equal(rec.durationDays, days);
+    const mod = getUserModerationStatus(`u-${days}`);
+    assert.equal(mod.isRestricted, true);
+    assert.equal(mod.status, 'banned_temp');
+    assert.equal(mod.remainingDays, days);
+
+    // Simula expiração futura do banimento
+    const expiredMod = getUserModerationStatus(`u-${days}`, null, Date.now() + (days + 1) * 86400000);
+    assert.equal(expiredMod.isRestricted, false);
+    assert.equal(expiredMod.status, 'active');
+  }
+
+  // Banimento permanente e desbanimento
+  const perm = banUserAccount({ uid: 'u-perm', email: 'perm@teste.com', displayName: 'Banido Perm', durationDays: 'permanent' });
+  assert.equal(perm.status, 'banned_perm');
+  assert.equal(getUserModerationStatus('u-perm').isRestricted, true);
+  assert.equal(getUserModerationStatus('u-perm').status, 'banned_perm');
+  unbanUserAccount('u-perm');
+  assert.equal(getUserModerationStatus('u-perm').isRestricted, false);
+
+  // Deleção de conta e restauração
+  const del = deleteUserAccountByAdmin({ uid: 'u-del', email: 'del@teste.com', displayName: 'Conta Removida' });
+  assert.equal(del.status, 'deleted');
+  const delStatus = getUserModerationStatus('u-del');
+  assert.equal(delStatus.isRestricted, true);
+  assert.equal(delStatus.status, 'deleted');
+  restoreDeletedUserAccount('u-del');
+  assert.equal(getUserModerationStatus('u-del').isRestricted, false);
+
+  // 2. Testa filtro de palavras proibidas e ilícitas (e whitelist de termos reais de pesca)
+  assert.equal(validateTextAgainstModeration('Peguei 2 pampos usando isca corrupto no 2º valão!', 'relato').valid, true);
+  assert.equal(validateTextAgainstModeration('Robalo-flecha na Praia de Tambaú', 'espécie').valid, true);
+
+  const profaneCheck = validateTextAgainstModeration('Esse lugar é uma porra de praia', 'comentário');
+  assert.equal(profaneCheck.valid, false);
+  assert.match(profaneCheck.message, /porra/i);
+
+  const illicitFishCheck = validateTextAgainstModeration('Hoje usamos pesca com bomba no canal', 'relato da captura');
+  assert.equal(illicitFishCheck.valid, false);
+
+  const drugsCheck = validateTextAgainstModeration('Vendo cocaina na praia', 'comentário');
+  assert.equal(drugsCheck.valid, false);
+
+  const scamCheck = validateTextAgainstModeration('Ganhe dinheiro fácil no jogo do tigrinho agora', 'bio');
+  assert.equal(scamCheck.valid, false);
+
+  // 3. Adição e remoção de palavra personalizada pelo Admin
+  addProhibitedWord('rede feiticeira');
+  assert.ok(loadProhibitedWords().includes('rede feiticeira'));
+  assert.equal(validateTextAgainstModeration('Usando rede feiticeira na costeira', 'relato').valid, false);
+  removeProhibitedWord('rede feiticeira');
+  assert.equal(validateTextAgainstModeration('Usando rede feiticeira na costeira', 'relato').valid, true);
 });

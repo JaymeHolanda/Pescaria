@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mare-certa-pwa-v4';
+const CACHE_NAME = 'mare-certa-pwa-v5';
 const IS_LOCAL = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
-const CORE_ASSETS = ['./', './index.html', './styles.css', './versao-b.css', './app-b.js', './preview-b.js', './marine-b.js', './tides.js', './conditions.js', './tabs.js'];
+const CORE_ASSETS = ['./', './index.html', './styles.css', './versao-b.css', './app-b.js', './preview-b.js', './marine-b.js', './tides.js', './conditions.js', './tabs.js', './assets/pwa-app-icon.jpg'];
 self.addEventListener('install', event => {
   if (!IS_LOCAL) {
     event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)).catch(() => {}));

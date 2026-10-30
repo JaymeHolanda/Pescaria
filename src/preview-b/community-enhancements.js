@@ -6,16 +6,50 @@ import {
   canUseProSocialFeature
 } from './model.js';
 
-const $ = id => document.getElementById(id);
+const $ = id => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 
 const STORAGE_PRO_KEY = 'mare-certa-pro-subscription-v1';
 const STORAGE_SOCIAL_KEY = 'mare-certa-social-state-v1';
 const STORAGE_PHOTOS_KEY = 'mare-certa-local-s3-photos-v1';
 const STORAGE_CAPTURE_CAPTIONS_KEY = 'mare-certa-capture-captions-v1';
 const STORAGE_FISHER_PROFILES_KEY = 'mare-certa-fisher-profiles-v1';
+const STORAGE_ADMIN_VIP_KEY = 'mare-certa-admin-vip-grants-v1';
+const STORAGE_ADMIN_MODERATION_KEY = 'mare-certa-admin-moderation-v1';
+const STORAGE_PROHIBITED_WORDS_KEY = 'mare-certa-prohibited-words-v1';
 
 let pendingTrophyPhoto = null;
 let selectedPlanId = 'annual';
+let adminContext = {
+  currentUser: null,
+  profiles: {},
+  captures: {},
+  filterMode: 'all',
+  searchQuery: ''
+};
+
+// Default Admin VIP Grants (e.g. demo or initial VIP members)
+const DEFAULT_ADMIN_VIP_GRANTS = {
+  'demo-fisher-1': {
+    key: 'demo-fisher-1',
+    uid: 'demo-fisher-1',
+    email: 'henrique@marecerta.com.br',
+    displayName: 'Henrique Costa',
+    roleLabel: 'Embaixador & Pescador VIP (Cortesia)',
+    grantedBy: 'Admin Master',
+    grantedAt: 1792840000000,
+    active: true
+  },
+  'demo-fisher-3': {
+    key: 'demo-fisher-3',
+    uid: 'demo-fisher-3',
+    email: 'juliana@marecerta.com.br',
+    displayName: 'Juliana Mar',
+    roleLabel: 'Convidada Especial PRO (Sem Custo)',
+    grantedBy: 'Admin Master',
+    grantedAt: 1792750000000,
+    active: true
+  }
+};
 
 // Default capture comments/stories for demo posts
 const DEFAULT_CAPTURE_CAPTIONS = {
@@ -322,7 +356,509 @@ export function saveLocalS3Photo(captureId, photoRecord) {
   } catch {}
 }
 
-export function getProSubscription() {
+export function loadAdminVipGrants() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_ADMIN_VIP_KEY) || 'null');
+    if (raw && typeof raw === 'object') {
+      const merged = { ...DEFAULT_ADMIN_VIP_GRANTS, ...raw };
+      // Filter out explicitly revoked entries (active === false)
+      const activeOnly = {};
+      for (const [k, val] of Object.entries(merged)) {
+        if (val && val.active !== false) activeOnly[k] = val;
+      }
+      return activeOnly;
+    }
+  } catch {}
+  return structuredClone(DEFAULT_ADMIN_VIP_GRANTS);
+}
+
+function loadRawAdminVipGrantsMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_ADMIN_VIP_KEY) || 'null');
+    if (raw && typeof raw === 'object') return { ...DEFAULT_ADMIN_VIP_GRANTS, ...raw };
+  } catch {}
+  return structuredClone(DEFAULT_ADMIN_VIP_GRANTS);
+}
+
+export function saveAdminVipGrants(grantsMap) {
+  try {
+    localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(grantsMap));
+  } catch {}
+  updateProStatusUI();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
+    window.dispatchEvent(new CustomEvent('mare-certa:vip-grants-changed', { detail: grantsMap }));
+  }
+}
+
+export function isUserAdminGrantedPro(uid = null, email = null) {
+  const grants = loadAdminVipGrants();
+  const targetUid = uid || adminContext.currentUser?.uid || 'local-current-user';
+  const targetEmail = String(email || adminContext.currentUser?.email || '').trim().toLowerCase();
+
+  if (targetUid && grants[targetUid]?.active) return grants[targetUid];
+  if (targetEmail && grants[targetEmail]?.active) return grants[targetEmail];
+
+  for (const grant of Object.values(grants)) {
+    if (!grant || grant.active === false) continue;
+    if (targetUid && grant.uid && grant.uid === targetUid) return grant;
+    if (targetEmail && grant.email && String(grant.email).trim().toLowerCase() === targetEmail) return grant;
+  }
+  return null;
+}
+
+export function grantFreeProToUser({
+  uid = '',
+  email = '',
+  displayName = 'Pescador VIP',
+  roleLabel = 'PRO Cortesia (Liberado pelo Admin)',
+  grantedBy = 'Admin'
+} = {}) {
+  const cleanUid = String(uid || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const key = cleanUid || cleanEmail || `vip-${Date.now()}`;
+  const rawMap = loadRawAdminVipGrantsMap();
+
+  const record = {
+    key,
+    uid: cleanUid || key,
+    email: cleanEmail,
+    displayName: String(displayName || cleanEmail || cleanUid || 'Pescador VIP').trim(),
+    roleLabel: String(roleLabel || 'PRO Cortesia (Liberado pelo Admin)').trim(),
+    grantedBy,
+    grantedAt: Date.now(),
+    active: true
+  };
+
+  rawMap[key] = record;
+  if (cleanEmail && cleanEmail !== key) {
+    rawMap[cleanEmail] = { ...record, key: cleanEmail };
+  }
+  saveAdminVipGrants(rawMap);
+  return record;
+}
+
+export function revokeFreeProFromUser(identifier) {
+  if (!identifier) return false;
+  const cleanId = String(identifier).trim();
+  const cleanLower = cleanId.toLowerCase();
+  const rawMap = loadRawAdminVipGrantsMap();
+  let changed = false;
+
+  for (const [k, grant] of Object.entries(rawMap)) {
+    if (
+      k === cleanId ||
+      k.toLowerCase() === cleanLower ||
+      grant?.uid === cleanId ||
+      (grant?.email && String(grant.email).toLowerCase() === cleanLower)
+    ) {
+      rawMap[k] = { ...grant, active: false, revokedAt: Date.now() };
+      changed = true;
+    }
+  }
+
+  // If revoking the current local user who also had sandbox PRO active, turn it off so revocation takes immediate effect
+  const currentUid = adminContext.currentUser?.uid || 'local-current-user';
+  const currentEmail = String(adminContext.currentUser?.email || '').trim().toLowerCase();
+  if (cleanId === currentUid || cleanLower === currentEmail || cleanId === 'local-current-user') {
+    try {
+      const sub = JSON.parse(localStorage.getItem(STORAGE_PRO_KEY) || 'null');
+      if (sub?.isFreeGrant) {
+        localStorage.removeItem(STORAGE_PRO_KEY);
+      }
+    } catch {}
+  }
+
+  saveAdminVipGrants(rawMap);
+  return changed;
+}
+
+export function setAdminCommunityContext(user, profiles = {}, captures = {}) {
+  adminContext.currentUser = user || null;
+  adminContext.profiles = profiles || {};
+  adminContext.captures = captures || {};
+  updateProStatusUI();
+}
+
+export const DEFAULT_PROHIBITED_WORDS = [
+  // Ofensas, palavrões e discurso de ódio
+  'caralho',
+  'porra',
+  'puta',
+  'putaria',
+  'merda',
+  'foda-se',
+  'fodase',
+  'vai se foder',
+  'arrombado',
+  'arrombada',
+  'vagabundo',
+  'vagabunda',
+  'babaca',
+  'otario',
+  'idiota',
+  'imbecil',
+  'desgracado',
+  'pilantra',
+  'bandido',
+  'lixo humano',
+  // Pesca predatória e crimes ambientais
+  'pesca com bomba',
+  'bomba na agua',
+  'dinamite',
+  'rede de arrasto',
+  'tarrafa no defeso',
+  'pesca no defeso',
+  'veneno na agua',
+  'pesca ilegal',
+  'venda ilegal',
+  'contrabando',
+  // Ilícitos, drogas, armas e golpes/spam
+  'cocaina',
+  'maconha',
+  'crack',
+  'trafico de drogas',
+  'arma de fogo',
+  'municao ilegal',
+  'jogo do tigrinho',
+  'tigrinho',
+  'cassino online',
+  'aposta ilegal',
+  'golpe do pix',
+  'urfbu',
+  'clonar cartao',
+  'nota falsa',
+  'dinheiro falso'
+];
+
+// Palavras legítimas de pesca que não devem jamais sofrer falso-positivo
+const FISHING_SAFE_WHITELIST = ['corrupto', 'corruptos', 'isca corrupto'];
+
+function normalizeModerationText(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[@4]/g, 'a')
+    .replace(/[3]/g, 'e')
+    .replace(/[1!]/g, 'i')
+    .replace(/[0]/g, 'o')
+    .replace(/[$5]/g, 's')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function loadCustomProhibitedWords() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_PROHIBITED_WORDS_KEY) || '[]');
+    if (Array.isArray(raw)) {
+      return raw.map(w => String(w || '').trim().toLowerCase()).filter(Boolean);
+    }
+  } catch {}
+  return [];
+}
+
+export function loadProhibitedWords() {
+  const custom = loadCustomProhibitedWords();
+  return Array.from(new Set([...DEFAULT_PROHIBITED_WORDS, ...custom]));
+}
+
+export function addProhibitedWord(word) {
+  const clean = String(word || '').trim().toLowerCase();
+  if (!clean || clean.length < 2) return loadProhibitedWords();
+  if (FISHING_SAFE_WHITELIST.includes(clean)) return loadProhibitedWords();
+  const custom = loadCustomProhibitedWords();
+  if (!custom.includes(clean) && !DEFAULT_PROHIBITED_WORDS.includes(clean)) {
+    custom.push(clean);
+    try {
+      localStorage.setItem(STORAGE_PROHIBITED_WORDS_KEY, JSON.stringify(custom));
+    } catch {}
+  }
+  return loadProhibitedWords();
+}
+
+export function removeProhibitedWord(word) {
+  const clean = String(word || '').trim().toLowerCase();
+  const custom = loadCustomProhibitedWords().filter(w => w !== clean);
+  try {
+    localStorage.setItem(STORAGE_PROHIBITED_WORDS_KEY, JSON.stringify(custom));
+  } catch {}
+  return loadProhibitedWords();
+}
+
+export function validateTextAgainstModeration(text, fieldLabel = 'texto') {
+  const raw = String(text || '').trim();
+  if (!raw) return { valid: true, matchedWord: null, message: '' };
+
+  const normalizedInput = normalizeModerationText(raw);
+  const tokens = normalizedInput.split(' ').filter(Boolean);
+  const blockedList = loadProhibitedWords();
+
+  for (const term of blockedList) {
+    const normTerm = normalizeModerationText(term);
+    if (!normTerm) continue;
+    if (FISHING_SAFE_WHITELIST.includes(normTerm)) continue;
+
+    const isMultiWord = normTerm.includes(' ');
+    const matched = isMultiWord
+      ? normalizedInput.includes(normTerm)
+      : tokens.some(tok => tok === normTerm || (normTerm.length >= 5 && tok.startsWith(normTerm)));
+
+    if (matched) {
+      return {
+        valid: false,
+        matchedWord: term,
+        message: `Conteúdo bloqueado no campo ${fieldLabel}: não são permitidas palavras ofensivas, práticas predatórias ou termos ilícitos ("${term}").`
+      };
+    }
+  }
+
+  return { valid: true, matchedWord: null, message: '' };
+}
+
+export function loadAdminModerationMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_ADMIN_MODERATION_KEY) || '{}');
+    if (raw && typeof raw === 'object') return raw;
+  } catch {}
+  return {};
+}
+
+export function saveAdminModerationMap(map) {
+  try {
+    localStorage.setItem(STORAGE_ADMIN_MODERATION_KEY, JSON.stringify(map || {}));
+  } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mare-certa:moderation-changed', { detail: map }));
+  }
+}
+
+export function banUserAccount({
+  uid = '',
+  email = '',
+  displayName = 'Pescador',
+  durationDays = 7,
+  reason = 'Violação das diretrizes da comunidade'
+} = {}) {
+  const cleanUid = String(uid || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const key = cleanUid || cleanEmail;
+  if (!key) return null;
+
+  const isPermanent = durationDays === 'permanent' || durationDays === Infinity || Number(durationDays) <= 0;
+  const daysNum = isPermanent ? null : Number(durationDays);
+  const now = Date.now();
+  const expiresAt = isPermanent ? null : now + daysNum * 86400000;
+
+  const record = {
+    key,
+    uid: cleanUid || key,
+    email: cleanEmail,
+    displayName: String(displayName || cleanEmail || cleanUid || 'Pescador').trim(),
+    status: isPermanent ? 'banned_perm' : 'banned_temp',
+    durationDays: isPermanent ? 'permanent' : daysNum,
+    reason: String(reason || 'Violação das diretrizes da comunidade').trim(),
+    bannedAt: now,
+    expiresAt
+  };
+
+  const map = loadAdminModerationMap();
+  map[key] = record;
+  if (cleanEmail && cleanEmail !== key) {
+    map[cleanEmail] = { ...record, key: cleanEmail };
+  }
+  saveAdminModerationMap(map);
+  return record;
+}
+
+export function unbanUserAccount(identifier) {
+  if (!identifier) return false;
+  const cleanId = String(identifier).trim();
+  const cleanLower = cleanId.toLowerCase();
+  const map = loadAdminModerationMap();
+  let changed = false;
+
+  for (const [k, rec] of Object.entries(map)) {
+    if (
+      k === cleanId ||
+      k.toLowerCase() === cleanLower ||
+      rec?.uid === cleanId ||
+      (rec?.email && String(rec.email).toLowerCase() === cleanLower)
+    ) {
+      delete map[k];
+      changed = true;
+    }
+  }
+  if (changed) saveAdminModerationMap(map);
+  return changed;
+}
+
+export function deleteUserAccountByAdmin({
+  uid = '',
+  email = '',
+  displayName = 'Pescador',
+  reason = 'Conta excluída pela administração'
+} = {}) {
+  const cleanUid = String(uid || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const key = cleanUid || cleanEmail;
+  if (!key) return null;
+
+  const now = Date.now();
+  const record = {
+    key,
+    uid: cleanUid || key,
+    email: cleanEmail,
+    displayName: String(displayName || cleanEmail || cleanUid || 'Pescador').trim(),
+    status: 'deleted',
+    durationDays: 'deleted',
+    reason: String(reason || 'Conta excluída pela administração').trim(),
+    deletedAt: now,
+    expiresAt: null
+  };
+
+  const map = loadAdminModerationMap();
+  map[key] = record;
+  if (cleanEmail && cleanEmail !== key) {
+    map[cleanEmail] = { ...record, key: cleanEmail };
+  }
+  saveAdminModerationMap(map);
+
+  // Revoke any VIP grant and clean up local profile/comments
+  revokeFreeProFromUser(cleanUid || cleanEmail);
+  try {
+    const extRaw = JSON.parse(localStorage.getItem(STORAGE_FISHER_PROFILES_KEY) || '{}') || {};
+    if (cleanUid && extRaw[cleanUid]) {
+      delete extRaw[cleanUid];
+      localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(extRaw));
+    }
+  } catch {}
+  try {
+    const social = loadSocialState();
+    for (const postId of Object.keys(social.comments || {})) {
+      social.comments[postId] = (social.comments[postId] || []).filter(
+        c => c.authorUid !== cleanUid && c.author !== displayName
+      );
+    }
+    saveSocialState(social);
+  } catch {}
+
+  return record;
+}
+
+export function restoreDeletedUserAccount(identifier) {
+  return unbanUserAccount(identifier);
+}
+
+export function getUserModerationStatus(uid = null, email = null, now = Date.now()) {
+  const map = loadAdminModerationMap();
+  const targetUid = String(uid || '').trim();
+  const targetEmail = String(email || '').trim().toLowerCase();
+
+  let rec = null;
+  if (targetUid && map[targetUid]) rec = map[targetUid];
+  else if (targetEmail && map[targetEmail]) rec = map[targetEmail];
+  else {
+    for (const item of Object.values(map)) {
+      if (!item) continue;
+      if (targetUid && item.uid === targetUid) {
+        rec = item;
+        break;
+      }
+      if (targetEmail && item.email && String(item.email).toLowerCase() === targetEmail) {
+        rec = item;
+        break;
+      }
+    }
+  }
+
+  if (!rec) {
+    return {
+      status: 'active',
+      isRestricted: false,
+      label: 'Conta Ativa',
+      message: '',
+      remainingDays: 0,
+      expiresAt: null
+    };
+  }
+
+  if (rec.status === 'deleted') {
+    return {
+      status: 'deleted',
+      isRestricted: true,
+      label: '🗑️ Conta Excluída',
+      reason: rec.reason,
+      remainingDays: Infinity,
+      expiresAt: null,
+      message: 'Esta conta foi excluída pela administração do Maré Certa e não pode publicar ou interagir.'
+    };
+  }
+
+  if (rec.status === 'banned_perm') {
+    return {
+      status: 'banned_perm',
+      isRestricted: true,
+      label: '⛔ Banimento Permanente',
+      reason: rec.reason,
+      remainingDays: Infinity,
+      expiresAt: null,
+      message: `Sua conta foi banida permanentemente pela moderação (${rec.reason || 'violação das regras'}).`
+    };
+  }
+
+  if (rec.status === 'banned_temp') {
+    if (rec.expiresAt && now >= rec.expiresAt) {
+      unbanUserAccount(targetUid || targetEmail);
+      return {
+        status: 'active',
+        isRestricted: false,
+        label: 'Conta Ativa',
+        message: '',
+        remainingDays: 0,
+        expiresAt: null
+      };
+    }
+    const remainingDays = rec.expiresAt ? Math.max(1, Math.ceil((rec.expiresAt - now) / 86400000)) : rec.durationDays || 7;
+    const expireDateStr = rec.expiresAt ? new Date(rec.expiresAt).toLocaleDateString('pt-BR') : '';
+    return {
+      status: 'banned_temp',
+      isRestricted: true,
+      durationDays: rec.durationDays,
+      remainingDays,
+      expiresAt: rec.expiresAt,
+      reason: rec.reason,
+      label: `🚫 Banido (${remainingDays}d restantes)`,
+      message: `Sua conta está suspensa temporariamente por ${rec.durationDays} dias (${remainingDays} dia(s) restante(s)${expireDateStr ? ` · até ${expireDateStr}` : ''}).`
+    };
+  }
+
+  return {
+    status: 'active',
+    isRestricted: false,
+    label: 'Conta Ativa',
+    message: '',
+    remainingDays: 0,
+    expiresAt: null
+  };
+}
+
+export function getProSubscription(uid = null, email = null) {
+  const adminGrant = isUserAdminGrantedPro(uid, email);
+  if (adminGrant) {
+    return {
+      active: true,
+      planId: 'vip_admin',
+      planName: adminGrant.roleLabel || 'PRO Cortesia (Liberado pelo Admin)',
+      priceMonthly: 0,
+      billingTotal: 0,
+      activatedAt: adminGrant.grantedAt || Date.now(),
+      expiresAt: Date.now() + 10 * 365 * 86400000,
+      isFreeGrant: true,
+      gateway: 'Cortesia Admin (Sem Custo)'
+    };
+  }
   try {
     const sub = JSON.parse(localStorage.getItem(STORAGE_PRO_KEY) || 'null');
     if (sub && typeof sub === 'object') return sub;
@@ -330,8 +866,9 @@ export function getProSubscription() {
   return { active: false, planId: null, expiresAt: null, gateway: 'Mercado Pago' };
 }
 
-export function isUserPro() {
-  return canUseProSocialFeature(getProSubscription());
+export function isUserPro(uid = null, email = null) {
+  if (isUserAdminGrantedPro(uid, email)) return true;
+  return canUseProSocialFeature(getProSubscription(uid, email));
 }
 
 export function setProSubscription(active, planId = 'annual') {
@@ -501,9 +1038,13 @@ function updateProStatusUI() {
 
   const statusPill = $('proCurrentStatusPill');
   if (statusPill) {
-    statusPill.textContent = pro
-      ? `👑 Assinante PRO Ativo (${sub.planId === 'monthly' ? 'R$ 15/mês' : 'Anual · R$ 5/mês'})`
-      : '🔒 Conta Gratuita (Modo Leitura no Feed)';
+    if (pro && sub.isFreeGrant) {
+      statusPill.textContent = `👑 Membro PRO Cortesia (${sub.planName || 'Liberado pelo Admin · Sem Custo'})`;
+    } else if (pro) {
+      statusPill.textContent = `👑 Assinante PRO Ativo (${sub.planId === 'monthly' ? 'R$ 14,90/mês' : 'Anual · R$ 8,33/mês'})`;
+    } else {
+      statusPill.textContent = '🔒 Conta Gratuita (Modo Leitura no Feed)';
+    }
     statusPill.className = `pro-status-pill ${pro ? 'is-pro' : 'is-free'}`;
   }
 
@@ -516,7 +1057,7 @@ function updateProStatusUI() {
 
   const openModalBtn = $('openProModalBtn');
   if (openModalBtn) {
-    openModalBtn.textContent = pro ? '👑 Gerenciar Assinatura PRO' : '⚡ Assinar PRO · R$ 5/mês';
+    openModalBtn.textContent = pro ? '👑 Gerenciar Assinatura PRO' : '⚡ Assinar PRO · R$ 8,33/mês';
   }
 
   const photoLockBadge = $('photoProLockBadge');
@@ -989,13 +1530,15 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
   commentsSection.innerHTML = `
     <div class="social-comments-list" role="log" aria-label="Comentários da captura"></div>
     <form class="social-comment-form">
-      <input type="text" name="commentText" maxlength="280" placeholder="${isUserPro() ? 'Pergunte a isca, praia ou dê os parabéns…' : '🔒 Assine o Clube PRO (R$ 5/mês) para comentar e responder…'}" autocomplete="off" />
+      <input type="text" name="commentText" maxlength="280" placeholder="${isUserPro() ? 'Pergunte a isca, praia ou dê os parabéns…' : '🔒 Assine o Clube PRO (R$ 8,33/mês) para comentar e responder…'}" autocomplete="off" />
       <button type="submit" class="social-send-btn">${isUserPro() ? 'Responder' : '👑 Liberar Chat'}</button>
     </form>
+    <p class="social-comment-error" role="alert" hidden></p>
   `;
 
   const commentsListEl = commentsSection.querySelector('.social-comments-list');
   const commentForm = commentsSection.querySelector('.social-comment-form');
+  const commentErrorEl = commentsSection.querySelector('.social-comment-error');
   const commentInput = commentForm.elements.commentText;
   const commentsNumEl = engagementBar.querySelector('[data-comments-num]');
 
@@ -1076,12 +1619,29 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
 
   commentForm.addEventListener('submit', event => {
     event.preventDefault();
+    if (commentErrorEl) commentErrorEl.hidden = true;
+    const myMod = getUserModerationStatus(currentUid || 'local-current-user', adminContext.currentUser?.email || '');
+    if (myMod.isRestricted) {
+      if (commentErrorEl) {
+        commentErrorEl.textContent = `🚫 ${myMod.message}`;
+        commentErrorEl.hidden = false;
+      }
+      return;
+    }
     if (!isUserPro()) {
       openProPaywallModal('comentar');
       return;
     }
     const text = String(commentInput.value || '').trim();
     if (text.length < 2) return;
+    const modCheck = validateTextAgainstModeration(text, 'comentário');
+    if (!modCheck.valid) {
+      if (commentErrorEl) {
+        commentErrorEl.textContent = `⚠️ ${modCheck.message}`;
+        commentErrorEl.hidden = false;
+      }
+      return;
+    }
     const state = loadSocialState();
     if (!Array.isArray(state.comments[id])) state.comments[id] = [];
     const extMe = currentUid ? getFisherExtendedProfile(currentUid, profiles?.[currentUid]) : null;
@@ -1182,6 +1742,119 @@ export function initProSocialFeatures() {
     openProModalBtn.addEventListener('click', () => openProPaywallModal('social'));
   }
 
+  const openAdminBtn = $('openAdminProBtn');
+  if (openAdminBtn) {
+    openAdminBtn.addEventListener('click', () => openAdminProModal());
+  }
+
+  const openAdminAccountBtn = $('openAdminFromAccountBtn');
+  if (openAdminAccountBtn) {
+    openAdminAccountBtn.addEventListener('click', () => {
+      $('accountDialog')?.close();
+      openAdminProModal();
+    });
+  }
+
+  const closeAdminBtn = $('closeAdminProDialog');
+  if (closeAdminBtn) {
+    closeAdminBtn.addEventListener('click', () => $('adminProDialog')?.close());
+  }
+
+  const adminDoneBtn = $('adminProDoneBtn');
+  if (adminDoneBtn) {
+    adminDoneBtn.addEventListener('click', () => $('adminProDialog')?.close());
+  }
+
+  const adminSearchInput = $('adminUserSearchInput');
+  if (adminSearchInput) {
+    adminSearchInput.addEventListener('input', () => {
+      adminContext.searchQuery = adminSearchInput.value.trim();
+      renderAdminProPanel();
+    });
+  }
+
+  document.querySelectorAll('[data-admin-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      adminContext.filterMode = btn.dataset.adminFilter || 'all';
+      document.querySelectorAll('[data-admin-filter]').forEach(el => {
+        const active = el.dataset.adminFilter === adminContext.filterMode;
+        el.classList.toggle('is-active', active);
+        el.setAttribute('aria-pressed', String(active));
+      });
+      renderAdminProPanel();
+    });
+  });
+
+  const adminGrantMeBtn = $('adminGrantCurrentMeBtn');
+  if (adminGrantMeBtn) {
+    adminGrantMeBtn.addEventListener('click', () => {
+      const uid = adminContext.currentUser?.uid || 'local-current-user';
+      const email = adminContext.currentUser?.email || 'admin@marecerta.com.br';
+      const displayName = adminContext.currentUser?.displayName || 'Minha Conta (Admin)';
+      const alreadyVip = Boolean(isUserAdminGrantedPro(uid, email));
+      if (alreadyVip) {
+        revokeFreeProFromUser(uid);
+        if (email) revokeFreeProFromUser(email);
+      } else {
+        grantFreeProToUser({
+          uid,
+          email,
+          displayName,
+          roleLabel: 'Admin / VIP Vitalício (Sem Custo)',
+          grantedBy: 'Painel Admin'
+        });
+      }
+      renderAdminProPanel();
+    });
+  }
+
+  const adminForm = $('adminGrantByEmailForm');
+  if (adminForm) {
+    adminForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const nameVal = String(adminForm.elements.vipName?.value || '').trim();
+      const emailVal = String(adminForm.elements.vipEmail?.value || '').trim().toLowerCase();
+      const roleVal = String(adminForm.elements.vipRole?.value || 'VIP Cortesia (Sem Custo)').trim();
+      if (!nameVal && !emailVal) return;
+
+      grantFreeProToUser({
+        uid: emailVal || `vip-${Date.now()}`,
+        email: emailVal,
+        displayName: nameVal || emailVal.split('@')[0] || 'Pescador Convidado',
+        roleLabel: roleVal,
+        grantedBy: 'Admin Master'
+      });
+
+      adminForm.reset();
+      const feedbackEl = $('adminGrantFeedback');
+      if (feedbackEl) {
+        feedbackEl.textContent = `✓ Acesso PRO Cortesia liberado gratuitamente para ${nameVal || emailVal}!`;
+        feedbackEl.hidden = false;
+        setTimeout(() => { feedbackEl.hidden = true; }, 4000);
+      }
+      renderAdminProPanel();
+    });
+  }
+
+  const wordFilterForm = $('adminWordFilterForm');
+  if (wordFilterForm) {
+    wordFilterForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const inputEl = wordFilterForm.elements.blockedWord;
+      const val = String(inputEl?.value || '').trim().toLowerCase();
+      if (!val || val.length < 2) return;
+      addProhibitedWord(val);
+      wordFilterForm.reset();
+      const feedbackEl = $('adminWordFilterFeedback');
+      if (feedbackEl) {
+        feedbackEl.textContent = `✓ Termo "${val}" adicionado ao filtro de moderação!`;
+        feedbackEl.hidden = false;
+        setTimeout(() => { feedbackEl.hidden = true; }, 3500);
+      }
+      renderAdminProhibitedWordsList();
+    });
+  }
+
   const sandboxToggleBtn = $('proSandboxToggleBtn');
   if (sandboxToggleBtn) {
     sandboxToggleBtn.addEventListener('click', () => {
@@ -1197,11 +1870,11 @@ export function initProSocialFeatures() {
         el.classList.toggle('selected', el.dataset.proPlanSelect === selectedPlanId);
         el.setAttribute('aria-pressed', String(el.dataset.proPlanSelect === selectedPlanId));
       });
-      const checkoutBtn = $('mpCheckoutApproveBtn');
-      if (checkoutBtn) {
-        checkoutBtn.textContent = selectedPlanId === 'annual'
-          ? '💳 Pagar com Mercado Pago · R$ 5/mês (R$ 60/ano PIX ou Cartão)'
-          : '💳 Pagar com Mercado Pago · R$ 15,00/mês';
+      const summaryEl = $('mpSelectedPlanSummary');
+      if (summaryEl) {
+        summaryEl.innerHTML = selectedPlanId === 'annual'
+          ? 'Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90/ano via PIX ou Cartão em até 12x)'
+          : 'Plano Mensal selecionado: <strong>R$ 14,90/mês</strong> (cobrança avulsa via PIX ou Cartão)';
       }
     });
   });
@@ -1219,7 +1892,7 @@ export function initProSocialFeatures() {
     document.querySelectorAll('.social-comment-form input[name="commentText"]').forEach(input => {
       input.placeholder = isPro
         ? 'Pergunte a isca, praia ou dê os parabéns…'
-        : '🔒 Assine o Clube PRO (R$ 5/mês) para comentar e responder…';
+        : '🔒 Assine o Clube PRO (R$ 8,33/mês) para comentar e responder…';
     });
     document.querySelectorAll('.social-comment-form .social-send-btn').forEach(btn => {
       btn.textContent = isPro ? 'Responder' : '👑 Liberar Chat';
@@ -1408,4 +2081,352 @@ if (typeof document !== 'undefined') {
   if (closeBtn) closeBtn.addEventListener('click', () => $('shareCardDialog')?.close());
   initQuickSpeciesChips();
   initProSocialFeatures();
+}
+
+export function collectAdminManageableUsers(profiles = {}, captures = {}) {
+  const extMap = loadFisherExtendedProfiles();
+  const vipGrants = loadAdminVipGrants();
+  const modMap = loadAdminModerationMap();
+  const usersMap = new Map();
+
+  const upsert = (uid, info = {}) => {
+    if (!uid) return;
+    const prev = usersMap.get(uid) || { uid, displayName: '', email: '', location: '', source: 'Comunidade' };
+    const ext = extMap[uid] || {};
+    usersMap.set(uid, {
+      uid,
+      displayName: info.displayName || ext.displayName || prev.displayName || 'Pescador',
+      email: info.email || prev.email || (uid.includes('@') ? uid : `${uid}@comunidade.marecerta.com.br`),
+      location: info.location || ext.location || prev.location || 'Litoral Brasileiro',
+      source: info.source || prev.source
+    });
+  };
+
+  // 1. Current logged-in user (or local current user)
+  if (adminContext.currentUser) {
+    upsert(adminContext.currentUser.uid, {
+      displayName: adminContext.currentUser.displayName || 'Minha Conta Atual',
+      email: adminContext.currentUser.email || '',
+      source: 'Sua Conta'
+    });
+  } else {
+    upsert('local-current-user', {
+      displayName: 'Minha Conta Local (Navegador Atual)',
+      email: 'admin@marecerta.com.br',
+      location: 'Sessão Local',
+      source: 'Sua Conta'
+    });
+  }
+
+  // 2. Default & Extended Fisher Profiles
+  for (const [uid, ext] of Object.entries(extMap)) {
+    upsert(uid, {
+      displayName: ext.displayName,
+      location: ext.location,
+      source: uid.startsWith('demo-') ? 'Comunidade' : 'Perfil Cadastrado'
+    });
+  }
+
+  // 3. Firebase Profiles
+  for (const [uid, prof] of Object.entries(profiles || {})) {
+    if (prof && typeof prof === 'object') {
+      upsert(uid, {
+        displayName: prof.displayName,
+        email: prof.email || '',
+        source: 'Conta Firebase'
+      });
+    }
+  }
+
+  // 4. Captures authors
+  for (const [, cap] of Object.entries(captures || {})) {
+    if (cap?.uid) {
+      upsert(cap.uid, {
+        displayName: cap.authorName,
+        location: cap.location,
+        source: 'Autor no Ranking'
+      });
+    }
+  }
+
+  // 5. Manually granted VIP users by email/UID
+  for (const [key, grant] of Object.entries(vipGrants)) {
+    if (!grant || grant.active === false) continue;
+    const targetKey = grant.uid || key;
+    let existingByEmail = null;
+    if (grant.email) {
+      for (const item of usersMap.values()) {
+        if (item.email && item.email.toLowerCase() === grant.email.toLowerCase()) {
+          existingByEmail = item;
+          break;
+        }
+      }
+    }
+    if (!existingByEmail) {
+      upsert(targetKey, {
+        displayName: grant.displayName,
+        email: grant.email || key,
+        source: 'Convidado VIP'
+      });
+    }
+  }
+
+  // 6. Moderated (banned / deleted) users so they remain visible in Admin Panel
+  for (const [key, rec] of Object.entries(modMap)) {
+    if (!rec) continue;
+    const targetKey = rec.uid || key;
+    if (!usersMap.has(targetKey)) {
+      upsert(targetKey, {
+        displayName: rec.displayName || 'Conta Moderada',
+        email: rec.email || key,
+        source: rec.status === 'deleted' ? 'Conta Excluída' : 'Conta Moderada'
+      });
+    }
+  }
+
+  return Array.from(usersMap.values()).map(u => {
+    const grant = isUserAdminGrantedPro(u.uid, u.email);
+    const mod = getUserModerationStatus(u.uid, u.email);
+    return {
+      ...u,
+      isVipPro: Boolean(grant) && !mod.isRestricted,
+      vipRoleLabel: grant?.roleLabel || null,
+      grantedAt: grant?.grantedAt || null,
+      moderationStatus: mod.status,
+      isRestricted: mod.isRestricted,
+      moderationLabel: mod.label,
+      moderationMessage: mod.message,
+      moderationRemainingDays: mod.remainingDays
+    };
+  });
+}
+
+export function renderAdminProhibitedWordsList() {
+  if (typeof document === 'undefined') return;
+  const listEl = $('adminProhibitedWordsList');
+  const countEl = $('adminBlockedWordsCount');
+  const allWords = loadProhibitedWords();
+  const customWords = loadCustomProhibitedWords();
+
+  if (countEl) countEl.textContent = `${allWords.length} termos bloqueados`;
+  if (!listEl) return;
+
+  listEl.innerHTML = allWords
+    .map(word => {
+      const isCustom = customWords.includes(word);
+      return `
+        <span class="admin-word-chip ${isCustom ? 'is-custom' : ''}">
+          <span>🚫 ${escapeHtml(word)}</span>
+          ${
+            isCustom
+              ? `<button type="button" class="admin-remove-word-btn" data-remove-word="${escapeHtml(word)}" aria-label="Remover termo ${escapeHtml(word)}" title="Remover palavra personalizada">×</button>`
+              : ''
+          }
+        </span>
+      `;
+    })
+    .join('');
+
+  listEl.querySelectorAll('[data-remove-word]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      removeProhibitedWord(btn.dataset.removeWord);
+      renderAdminProhibitedWordsList();
+    });
+  });
+}
+
+export function renderAdminProPanel() {
+  if (typeof document === 'undefined') return;
+  renderAdminProhibitedWordsList();
+
+  const listEl = $('adminUsersList');
+  if (!listEl) return;
+
+  const allUsers = collectAdminManageableUsers(adminContext.profiles, adminContext.captures);
+  const vipCount = allUsers.filter(u => u.isVipPro).length;
+  const restrictedCount = allUsers.filter(u => u.isRestricted).length;
+
+  if ($('adminTotalUsersCount')) $('adminTotalUsersCount').textContent = String(allUsers.length);
+  if ($('adminTotalVipCount')) $('adminTotalVipCount').textContent = String(vipCount);
+  if ($('adminTotalBannedCount')) $('adminTotalBannedCount').textContent = String(restrictedCount);
+
+  const myUid = adminContext.currentUser?.uid || 'local-current-user';
+  const myEmail = adminContext.currentUser?.email || '';
+  const meIsVip = Boolean(isUserAdminGrantedPro(myUid, myEmail));
+
+  if ($('adminMyCurrentStatus')) {
+    $('adminMyCurrentStatus').textContent = meIsVip ? '👑 PRO Cortesia Ativo' : 'Padrão';
+  }
+  const grantMeBtn = $('adminGrantCurrentMeBtn');
+  if (grantMeBtn) {
+    grantMeBtn.textContent = meIsVip
+      ? '✕ Remover Cortesia da Minha Conta Atual'
+      : '👑 Liberar PRO Grátis na Minha Conta Atual';
+    grantMeBtn.classList.toggle('is-active-vip', meIsVip);
+  }
+
+  const q = String(adminContext.searchQuery || '').toLowerCase();
+  const filtered = allUsers.filter(u => {
+    if (adminContext.filterMode === 'vip' && !u.isVipPro) return false;
+    if (adminContext.filterMode === 'free' && (u.isVipPro || u.isRestricted)) return false;
+    if (adminContext.filterMode === 'banned' && !u.isRestricted) return false;
+    if (!q) return true;
+    return (
+      String(u.displayName || '').toLowerCase().includes(q) ||
+      String(u.email || '').toLowerCase().includes(q) ||
+      String(u.location || '').toLowerCase().includes(q) ||
+      String(u.uid || '').toLowerCase().includes(q)
+    );
+  });
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<p class="empty-note">Nenhum pescador encontrado com esse filtro. Use o formulário acima para liberar qualquer pessoa por e-mail ou nome.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered
+    .map(u => {
+      const initials = getInitials(u.displayName);
+      const isDeleted = u.moderationStatus === 'deleted';
+      const isBanned = u.moderationStatus === 'banned_temp' || u.moderationStatus === 'banned_perm';
+
+      let statusBadgeHtml = '';
+      if (isDeleted) {
+        statusBadgeHtml = `<span class="admin-mod-badge is-deleted">${escapeHtml(u.moderationLabel)}</span>`;
+      } else if (isBanned) {
+        statusBadgeHtml = `<span class="admin-mod-badge is-banned">${escapeHtml(u.moderationLabel)}</span>`;
+      } else if (u.isVipPro) {
+        statusBadgeHtml = `<span class="admin-vip-badge">👑 ${escapeHtml(u.vipRoleLabel || 'PRO Cortesia · R$ 0')}</span>`;
+      } else {
+        statusBadgeHtml = `<span class="admin-free-badge">🔒 Conta Gratuita</span>`;
+      }
+
+      return `
+        <article class="admin-user-row ${u.isVipPro ? 'is-vip' : ''} ${u.isRestricted ? 'is-restricted' : ''}" data-admin-user-uid="${escapeHtml(u.uid)}">
+          <div class="admin-user-ident">
+            <div class="admin-user-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
+            <div class="admin-user-info">
+              <div class="admin-user-name-line">
+                <strong>${escapeHtml(u.displayName)}</strong>
+                <span class="admin-source-tag">${escapeHtml(u.source)}</span>
+                ${statusBadgeHtml}
+              </div>
+              <small class="admin-user-sub">✉️ ${escapeHtml(u.email)} · 📍 ${escapeHtml(u.location)}</small>
+            </div>
+          </div>
+          <div class="admin-user-actions">
+            ${
+              !isDeleted
+                ? u.isVipPro
+                  ? `<button type="button" class="admin-toggle-vip-btn is-revoke" data-revoke-uid="${escapeHtml(u.uid)}" data-revoke-email="${escapeHtml(u.email)}">
+                       ✕ Revogar Cortesia
+                     </button>`
+                  : `<button type="button" class="admin-toggle-vip-btn is-grant" data-grant-uid="${escapeHtml(u.uid)}" data-grant-email="${escapeHtml(u.email)}" data-grant-name="${escapeHtml(u.displayName)}">
+                       👑 Liberar PRO Sem Pagar
+                     </button>`
+                : ''
+            }
+            <div class="admin-moderation-controls">
+              ${
+                isBanned
+                  ? `<button type="button" class="admin-mod-btn is-unban" data-unban-uid="${escapeHtml(u.uid)}" data-unban-email="${escapeHtml(u.email)}">
+                       ✓ Desbanir Conta
+                     </button>`
+                  : !isDeleted
+                    ? `<select class="admin-ban-select" data-ban-select-uid="${escapeHtml(u.uid)}" aria-label="Duração do banimento para ${escapeHtml(u.displayName)}">
+                         <option value="7">Banir 7 dias</option>
+                         <option value="14">Banir 14 dias</option>
+                         <option value="30">Banir 30 dias</option>
+                         <option value="permanent">Banir Permanente</option>
+                       </select>
+                       <button type="button" class="admin-mod-btn is-ban" data-ban-uid="${escapeHtml(u.uid)}" data-ban-email="${escapeHtml(u.email)}" data-ban-name="${escapeHtml(u.displayName)}">
+                         🚫 Banir
+                       </button>`
+                    : ''
+              }
+              ${
+                isDeleted
+                  ? `<button type="button" class="admin-mod-btn is-restore" data-restore-uid="${escapeHtml(u.uid)}" data-restore-email="${escapeHtml(u.email)}">
+                       ↩ Restaurar Conta
+                     </button>`
+                  : `<button type="button" class="admin-mod-btn is-delete-account" data-delete-account-uid="${escapeHtml(u.uid)}" data-delete-account-email="${escapeHtml(u.email)}" data-delete-account-name="${escapeHtml(u.displayName)}">
+                       🗑️ Deletar Conta
+                     </button>`
+              }
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join('');
+
+  listEl.querySelectorAll('[data-grant-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grantFreeProToUser({
+        uid: btn.dataset.grantUid,
+        email: btn.dataset.grantEmail,
+        displayName: btn.dataset.grantName,
+        roleLabel: 'PRO Cortesia (Liberado pelo Admin)',
+        grantedBy: 'Admin'
+      });
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-revoke-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      revokeFreeProFromUser(btn.dataset.revokeUid);
+      if (btn.dataset.revokeEmail) revokeFreeProFromUser(btn.dataset.revokeEmail);
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-ban-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.banUid;
+      const selectEl = listEl.querySelector(`[data-ban-select-uid="${CSS.escape ? CSS.escape(uid) : uid}"]`);
+      const durationVal = selectEl ? selectEl.value : '7';
+      banUserAccount({
+        uid,
+        email: btn.dataset.banEmail,
+        displayName: btn.dataset.banName,
+        durationDays: durationVal === 'permanent' ? 'permanent' : Number(durationVal)
+      });
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-unban-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      unbanUserAccount(btn.dataset.unbanUid);
+      if (btn.dataset.unbanEmail) unbanUserAccount(btn.dataset.unbanEmail);
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-delete-account-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      deleteUserAccountByAdmin({
+        uid: btn.dataset.deleteAccountUid,
+        email: btn.dataset.deleteAccountEmail,
+        displayName: btn.dataset.deleteAccountName
+      });
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-restore-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      restoreDeletedUserAccount(btn.dataset.restoreUid);
+      if (btn.dataset.restoreEmail) restoreDeletedUserAccount(btn.dataset.restoreEmail);
+      renderAdminProPanel();
+    });
+  });
+}
+
+export function openAdminProModal() {
+  const dialog = $('adminProDialog');
+  if (!dialog) return;
+  renderAdminProPanel();
+  if (!dialog.open) dialog.showModal();
 }

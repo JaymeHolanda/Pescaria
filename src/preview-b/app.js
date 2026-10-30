@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation, applyAdaptiveSeo, resolveSeoLocationBySlug, slugifyLocation } from './preview-b.js';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
@@ -52,7 +52,17 @@ function hideLocationLoader() {
 }
 
 function loadLocation() {
-  try { return JSON.parse(localStorage.getItem("mare-certa-location")) || DEFAULT_LOCATION; }
+  try {
+    if (typeof window !== "undefined" && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      const localSlug = params.get("local") || params.get("cidade") || params.get("praia");
+      if (localSlug) {
+        const matched = resolveSeoLocationBySlug(localSlug);
+        if (matched) return matched;
+      }
+    }
+    return JSON.parse(localStorage.getItem("mare-certa-location")) || DEFAULT_LOCATION;
+  }
   catch { return DEFAULT_LOCATION; }
 }
 
@@ -114,6 +124,13 @@ function saveLocation(location) {
   updateLocationLabel();
   renderSpotQuickBar();
   setSpeciesLocation(location);
+  try {
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      const slug = slugifyLocation(location.name, location.admin1);
+      if (slug) window.history.replaceState(null, "", `?local=${encodeURIComponent(slug)}`);
+    }
+  } catch {}
+  applyAdaptiveSeo({ location });
 }
 
 function updateLocationLabel() {
@@ -580,4 +597,15 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   });
 }
 
-updateLocationLabel(); renderSpotQuickBar(); registerWebMcp(); loadForecast();
+document.addEventListener("click", event => {
+  const seoLink = event.target.closest("[data-seo-spot-slug]");
+  if (!seoLink) return;
+  event.preventDefault();
+  const matched = resolveSeoLocationBySlug(seoLink.dataset.seoSpotSlug);
+  if (matched) {
+    selectLocation(matched);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+updateLocationLabel(); renderSpotQuickBar(); applyAdaptiveSeo({ location: state.location }); registerWebMcp(); loadForecast();
