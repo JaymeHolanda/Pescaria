@@ -4,10 +4,13 @@ import {
   calculateImageDimensions,
   formatCompressionSavings,
   canUseProSocialFeature,
-  resolveLocationByQuery
+  resolveLocationByQuery,
+  searchCoastalLocations,
+  COASTAL_ALIASES,
+  PRESET_SPOTS
 } from './model.js';
 
-export { resolveLocationByQuery };
+export { resolveLocationByQuery, searchCoastalLocations, COASTAL_ALIASES, PRESET_SPOTS };
 import { ref, set, update, push, remove, onValue } from 'firebase/database';
 import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
 import { database, storage } from '../firebase.js';
@@ -1517,12 +1520,100 @@ export function renderMyAccountProfile(user, profiles = {}, allCaptures = {}) {
           const locString = curLoc.admin1 ? `${curLoc.name} · ${curLoc.admin1}` : curLoc.name;
           if (extForm && extForm.elements.extLocation) {
             extForm.elements.extLocation.value = locString;
+            if (extForm) extForm._selectedSpot = curLoc;
             extForm.elements.extLocation.focus();
           }
         }
       } catch {}
     };
   }
+
+  const locInput = $('extLocationInput');
+  const locDropdown = $('extLocationResults');
+  if (locInput && locDropdown && !locInput._autocompleteInitialized) {
+    locInput._autocompleteInitialized = true;
+    setupLocationSearchAutocomplete(locInput, locDropdown, extForm);
+  }
+}
+
+let locationSearchDebounceTimer = null;
+
+export function setupLocationSearchAutocomplete(inputEl, dropdownEl, formEl) {
+  if (!inputEl || !dropdownEl) return;
+
+  const renderDropdownResults = (spots, query = '') => {
+    if (!spots || !spots.length) {
+      dropdownEl.innerHTML = `<p class="ext-loc-note">Nenhuma praia ou cidade encontrada para "${escapeHtml(query)}". Você pode continuar digitando seu local livremente.</p>`;
+      dropdownEl.hidden = false;
+      return;
+    }
+
+    dropdownEl.innerHTML = spots.map((spot, idx) => `
+      <div class="ext-loc-result-item" data-loc-index="${idx}" role="option" tabindex="0">
+        <span class="loc-pin-icon" aria-hidden="true">⚓</span>
+        <div class="loc-text-col">
+          <strong>${escapeHtml(spot.name)}</strong>
+          <small>${escapeHtml(spot.admin1 || spot.country_code || 'Brasil')}</small>
+        </div>
+      </div>
+    `).join('');
+    dropdownEl.hidden = false;
+
+    dropdownEl.querySelectorAll('.ext-loc-result-item').forEach(item => {
+      const selectThis = () => {
+        const chosen = spots[Number(item.dataset.locIndex)];
+        if (chosen) {
+          const locString = chosen.admin1 ? `${chosen.name} · ${chosen.admin1}` : chosen.name;
+          inputEl.value = locString;
+          if (formEl) {
+            formEl._selectedSpot = chosen;
+          }
+          dropdownEl.hidden = true;
+          inputEl.focus();
+        }
+      };
+      item.addEventListener('click', selectThis);
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectThis();
+        }
+      });
+    });
+  };
+
+  inputEl.addEventListener('input', () => {
+    clearTimeout(locationSearchDebounceTimer);
+    const val = inputEl.value.trim();
+    if (val.length < 2) {
+      dropdownEl.hidden = true;
+      return;
+    }
+    locationSearchDebounceTimer = setTimeout(async () => {
+      try {
+        const spots = await searchCoastalLocations(val);
+        renderDropdownResults(spots, val);
+      } catch {
+        dropdownEl.hidden = true;
+      }
+    }, 220);
+  });
+
+  inputEl.addEventListener('focus', async () => {
+    const val = inputEl.value.trim();
+    if (val.length >= 2) {
+      const spots = await searchCoastalLocations(val);
+      renderDropdownResults(spots, val);
+    } else if (!val) {
+      renderDropdownResults(PRESET_SPOTS.slice(0, 6), '');
+    }
+  });
+
+  document.addEventListener('click', event => {
+    if (!inputEl.contains(event.target) && !dropdownEl.contains(event.target)) {
+      dropdownEl.hidden = true;
+    }
+  });
 }
 
 /**

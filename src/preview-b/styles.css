@@ -2795,6 +2795,80 @@ footer a:hover {
   flex: 1;
 }
 
+.autocomplete-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.autocomplete-wrapper input {
+  width: 100%;
+}
+
+.ext-loc-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  background: #082132;
+  border: 1px solid rgba(82, 226, 213, 0.45);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.7);
+  z-index: 99999;
+  padding: 4px 0;
+}
+
+.ext-loc-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease;
+}
+
+.ext-loc-result-item:last-child {
+  border-bottom: none;
+}
+
+.ext-loc-result-item:hover,
+.ext-loc-result-item:focus,
+.ext-loc-result-item.is-selected {
+  background: rgba(82, 226, 213, 0.18);
+  outline: none;
+}
+
+.ext-loc-result-item .loc-pin-icon {
+  font-size: 1.05rem;
+  color: var(--aqua);
+}
+
+.ext-loc-result-item .loc-text-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.ext-loc-result-item strong {
+  color: #ffffff;
+  font-size: 0.84rem;
+}
+
+.ext-loc-result-item small {
+  color: #88adb8;
+  font-size: 0.72rem;
+}
+
+.ext-loc-note {
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: #88adb8;
+  text-align: center;
+  margin: 0;
+}
+
 .ext-loc-preset-btn {
   background: rgba(14, 46, 64, 0.85);
   border: 1px solid rgba(82, 226, 213, 0.35);

@@ -15,6 +15,8 @@ import {
   slugifyLocation,
   resolveSeoLocationBySlug,
   resolveLocationByQuery,
+  COASTAL_ALIASES,
+  searchCoastalLocations,
   buildAdaptiveSeoMetadata,
   coastalRegionFor
 } from './model.js';
@@ -34,6 +36,8 @@ export {
   slugifyLocation,
   resolveSeoLocationBySlug,
   resolveLocationByQuery,
+  COASTAL_ALIASES,
+  searchCoastalLocations,
   buildAdaptiveSeoMetadata,
   coastalRegionFor,
   findNearestBrazilianHarbor,

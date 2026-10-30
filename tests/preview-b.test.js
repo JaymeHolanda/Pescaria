@@ -690,9 +690,26 @@ test('Vinculação da Localização do Perfil com o Padrão de Pesca da Main Pag
   assert.ok(indexHtml.includes('id="extSyncForecastCheckbox"'), 'Deve conter checkbox de vincular como padrão na página inicial');
   assert.ok(indexHtml.includes('id="setAsProfileDefaultLocBtn"'), 'Deve conter botão no painel de locais para salvar como padrão');
 
-  // 6. Validação dos estilos CSS em dist/versao-b.css
+  // 6. Busca interativa de cidades para evitar erros de digitação
+  const { searchCoastalLocations } = await import('../src/preview-b/model.js');
+  const ubaSpots = await searchCoastalLocations('uba');
+  assert.ok(ubaSpots.some(s => s.name.includes('Ubatuba')), 'Deve sugerir Ubatuba');
+
+  const sanSpots = await searchCoastalLocations('san');
+  assert.ok(sanSpots.some(s => s.name.includes('Santos')), 'Deve sugerir Santos');
+
+  const bessaSpots = await searchCoastalLocations('bessa');
+  assert.ok(bessaSpots.some(s => s.name.includes('Bessa')), 'Deve sugerir Bessa');
+
+  assert.ok(indexHtml.includes('id="extLocationResults"'), 'Deve conter dropdown de autocomplete no perfil');
+  assert.ok(indexHtml.includes('id="coastalSpotsDatalist"'), 'Deve conter datalist de cidades e praias');
+
+  // 7. Validação dos estilos CSS em dist/versao-b.css
   const css = readFileSync('dist/versao-b.css', 'utf8');
   assert.ok(css.includes('.profile-loc-link-btn'));
+  assert.ok(css.includes('.ext-loc-dropdown'));
+  assert.ok(css.includes('.ext-loc-result-item'));
+  assert.ok(css.includes('.autocomplete-wrapper'));
   assert.ok(css.includes('.ext-loc-preset-btn'));
   assert.ok(css.includes('.ext-sync-checkbox'));
   assert.ok(css.includes('.set-profile-loc-btn'));

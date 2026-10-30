@@ -549,6 +549,42 @@ html = replace(html, '<section id="myCapturesSection"', `<section class="b-captu
 
 html = replace(html, '<p class="eyebrow">DIÁRIO DA COMUNIDADE</p><h2 id="catchesTitle">Capturas recentes</h2>', '<p class="eyebrow">FEED SOCIAL DA COMUNIDADE · TROFÉUS, RESPOSTAS & SEGUIDORES</p><h2 id="catchesTitle">Feed de capturas & troféus</h2>');
 
+const coastalDatalistHtml = `<datalist id="coastalSpotsDatalist">
+  <option value="Praia do Bessa · João Pessoa, PB"></option>
+  <option value="Intermares · Cabedelo, PB"></option>
+  <option value="Santos · São Paulo, SP"></option>
+  <option value="Ubatuba · São Paulo, SP"></option>
+  <option value="Guarujá · São Paulo, SP"></option>
+  <option value="São Sebastião · São Paulo, SP"></option>
+  <option value="Ilhabela · São Paulo, SP"></option>
+  <option value="Praia Grande · São Paulo, SP"></option>
+  <option value="Bertioga · São Paulo, SP"></option>
+  <option value="Copacabana · Rio de Janeiro, RJ"></option>
+  <option value="Arraial do Cabo · Rio de Janeiro, RJ"></option>
+  <option value="Búzios · Rio de Janeiro, RJ"></option>
+  <option value="Angra dos Reis · Rio de Janeiro, RJ"></option>
+  <option value="Niterói · Rio de Janeiro, RJ"></option>
+  <option value="Recife · Pernambuco, PE"></option>
+  <option value="Porto de Galinhas · Pernambuco, PE"></option>
+  <option value="Fernando de Noronha · Pernambuco, PE"></option>
+  <option value="Salvador · Bahia, BA"></option>
+  <option value="Ilhéus · Bahia, BA"></option>
+  <option value="Porto Seguro · Bahia, BA"></option>
+  <option value="Florianópolis · Santa Catarina, SC"></option>
+  <option value="Balneário Camboriú · Santa Catarina, SC"></option>
+  <option value="Itajaí · Santa Catarina, SC"></option>
+  <option value="Natal · Rio Grande do Norte, RN"></option>
+  <option value="Pipa · Rio Grande do Norte, RN"></option>
+  <option value="Fortaleza · Ceará, CE"></option>
+  <option value="Vitória · Espírito Santo, ES"></option>
+  <option value="Vila Velha · Espírito Santo, ES"></option>
+  <option value="Guarapari · Espírito Santo, ES"></option>
+  <option value="Maceió · Alagoas, AL"></option>
+  <option value="Maragogi · Alagoas, AL"></option>
+</datalist>`;
+
+html = replace(html, '<label>Local<input name="location" maxlength="100" required placeholder="Praia, rio ou cidade" /></label>', `<label>Local<input name="location" list="coastalSpotsDatalist" maxlength="100" required placeholder="Praia, rio ou cidade (busque a praia)" /></label>${coastalDatalistHtml}`);
+
 // Upgrade #accountProfile inside #accountDialog into a Complete Fisherman Profile
 const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-profile" hidden>
           <div id="myRichProfileContainer" class="my-rich-profile">
@@ -603,9 +639,12 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
                     <input name="extDisplayName" maxlength="40" minlength="2" required placeholder="Seu nome no ranking e feed" />
                   </label>
                   <div class="form-group-loc">
-                    <label>Localidade (Cidade / Praia principal)
+                    <label for="extLocationInput">Localidade (Cidade / Praia principal)
                       <div class="input-with-action-row">
-                        <input name="extLocation" id="extLocationInput" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
+                        <div class="autocomplete-wrapper">
+                          <input name="extLocation" id="extLocationInput" list="coastalSpotsDatalist" maxlength="80" autocomplete="off" placeholder="Digite para buscar praia ou cidade (Ex.: Santos, Bessa, Ubatuba...)" />
+                          <div id="extLocationResults" class="ext-loc-dropdown" hidden role="listbox"></div>
+                        </div>
                         <button type="button" id="extUseForecastLocBtn" class="ext-loc-preset-btn" title="Preencher com o local atual selecionado na Previsão">📍 Praia Atual</button>
                       </div>
                     </label>
@@ -1644,8 +1683,8 @@ if ($('extendedProfileForm')) {
     }
 
     const syncWithForecast = form.elements.syncWithForecast ? form.elements.syncWithForecast.checked : true;
-    let targetLoc = null;
-    if (locationVal) {
+    let targetLoc = form._selectedSpot || null;
+    if (!targetLoc && locationVal) {
       targetLoc = resolveLocationByQuery(locationVal);
       if (!targetLoc) {
         try {

@@ -863,6 +863,111 @@ export function resolveLocationByQuery(query = '') {
   return null;
 }
 
+export const COASTAL_ALIASES = [
+  // SP
+  { keys: ['sp', 'sao paulo', 'são paulo', 'santos', 'baixada santista'], spot: { name: 'Santos (Porto & Praias)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9619, longitude: -46.3042 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'sao sebastiao', 'são sebastião', 'litoral norte'], spot: { name: 'São Sebastião (Litoral Norte)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.8111, longitude: -45.4014 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'guaruja', 'guarujá'], spot: { name: 'Guarujá (Praia da Enseada)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.9931, longitude: -46.2564 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'ubatuba'], spot: { name: 'Ubatuba (Itamambuca / Grande)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.4339, longitude: -45.0839 } },
+  { keys: ['sp', 'sao paulo', 'são paulo', 'ilhabela'], spot: { name: 'Ilhabela (Litoral Norte)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.7781, longitude: -45.3581 } },
+  { keys: ['sp', 'praia grande'], spot: { name: 'Praia Grande (Boqueirão)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -24.0058, longitude: -46.4028 } },
+  { keys: ['sp', 'bertioga'], spot: { name: 'Bertioga (Riviera)', admin1: 'São Paulo, SP', country_code: 'BR', latitude: -23.8547, longitude: -46.1383 } },
+  // RJ
+  { keys: ['rj', 'rio', 'rio de janeiro', 'copacabana', 'maracana', 'guanabara'], spot: { name: 'Rio de Janeiro (Copacabana)', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9064, longitude: -43.1822 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'arraial', 'arraial do cabo', 'buzios', 'búzios', 'cabo frio', 'regiao dos lagos'], spot: { name: 'Arraial do Cabo / Búzios', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9661, longitude: -42.0278 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'angra', 'angra dos reis', 'ilha grande', 'paraty'], spot: { name: 'Angra dos Reis / Ilha Grande', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -23.0111, longitude: -44.3186 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'niteroi', 'niterói', 'itaipu', 'icarai'], spot: { name: 'Niterói (Icaraí / Itaipu)', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.9035, longitude: -43.1111 } },
+  { keys: ['rj', 'rio', 'rio de janeiro', 'macae', 'macaé', 'imbetiba'], spot: { name: 'Macaé (Terminal de Imbetiba)', admin1: 'Rio de Janeiro, RJ', country_code: 'BR', latitude: -22.3842, longitude: -41.7719 } },
+  // PE
+  { keys: ['pe', 'recife', 'pernambuco', 'boa viagem'], spot: { name: 'Recife (Boa Viagem / Porto)', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -8.0539, longitude: -34.8711 } },
+  { keys: ['pe', 'suape', 'porto de galinhas', 'pernambuco', 'ipojuca'], spot: { name: 'Porto de Galinhas / Suape', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -8.5058, longitude: -35.0003 } },
+  { keys: ['pe', 'noronha', 'fernando de noronha'], spot: { name: 'Fernando de Noronha', admin1: 'Pernambuco, PE', country_code: 'BR', latitude: -3.8372, longitude: -32.4033 } },
+  // BA
+  { keys: ['ba', 'salvador', 'bahia', 'barra', 'rio vermelho', 'itapua'], spot: { name: 'Salvador (Farol da Barra / Itapuã)', admin1: 'Bahia, BA', country_code: 'BR', latitude: -12.9714, longitude: -38.5014 } },
+  { keys: ['ba', 'ilheus', 'ilhéus', 'bahia'], spot: { name: 'Ilhéus (Porto do Malhado)', admin1: 'Bahia, BA', country_code: 'BR', latitude: -14.7828, longitude: -39.0292 } },
+  // SC
+  { keys: ['sc', 'florianopolis', 'florianópolis', 'floripa', 'santa catarina'], spot: { name: 'Florianópolis (Joaquina / Campeche)', admin1: 'Santa Catarina, SC', country_code: 'BR', latitude: -27.5969, longitude: -48.5556 } },
+  { keys: ['sc', 'itajai', 'itajaí', 'balneario camboriu', 'camboriu'], spot: { name: 'Porto de Itajaí / Balneário', admin1: 'Santa Catarina, SC', country_code: 'BR', latitude: -26.9111, longitude: -48.6583 } },
+  // RN
+  { keys: ['rn', 'natal', 'rio grande do norte', 'ponta negra'], spot: { name: 'Natal (Ponta Negra / Porto)', admin1: 'Rio Grande do Norte, RN', country_code: 'BR', latitude: -5.7792, longitude: -35.2047 } },
+  { keys: ['rn', 'pipa', 'tibau do sul'], spot: { name: 'Pipa (Tibau do Sul)', admin1: 'Rio Grande do Norte, RN', country_code: 'BR', latitude: -6.2294, longitude: -35.0489 } },
+  // CE
+  { keys: ['ce', 'fortaleza', 'ceara', 'ceará', 'mucuripe', 'iracema'], spot: { name: 'Fortaleza (Porto de Mucuripe)', admin1: 'Ceará, CE', country_code: 'BR', latitude: -3.7150, longitude: -38.4767 } },
+  // ES
+  { keys: ['es', 'vitoria', 'vitória', 'espirito santo', 'espírito santo'], spot: { name: 'Vitória (Praia de Camburi)', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.3222, longitude: -40.3375 } },
+  { keys: ['es', 'guarapari'], spot: { name: 'Guarapari', admin1: 'Espírito Santo, ES', country_code: 'BR', latitude: -20.6711, longitude: -40.4981 } },
+  // PB
+  { keys: ['pb', 'joao pessoa', 'joão pessoa', 'paraiba', 'paraíba', 'bessa'], spot: { name: 'Praia do Bessa (João Pessoa)', admin1: 'Paraíba, PB', country_code: 'BR', latitude: -7.0633, longitude: -34.8428 } },
+  { keys: ['pb', 'cabedelo', 'intermares', 'poco'], spot: { name: 'Intermares (Cabedelo)', admin1: 'Cabedelo, PB', country_code: 'BR', latitude: -7.0319, longitude: -34.8375 } },
+  // AL
+  { keys: ['al', 'maceio', 'alagoas', 'pajuçara'], spot: { name: 'Maceió (Pajuçara)', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.6658, longitude: -35.7350 } },
+  { keys: ['al', 'maragogi'], spot: { name: 'Maragogi', admin1: 'Alagoas, AL', country_code: 'BR', latitude: -9.0122, longitude: -35.2225 } }
+];
+
+export async function searchCoastalLocations(term = '') {
+  const clean = String(term || '').trim();
+  if (!clean) return PRESET_SPOTS.slice(0, 6);
+  const norm = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  const results = [];
+  const seen = new Set();
+  const addSpot = spot => {
+    if (!spot) return;
+    const key = `${spot.name}::${spot.admin1 || ''}`.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      results.push(spot);
+    }
+  };
+
+  // 1. Matches em COASTAL_ALIASES
+  for (const item of COASTAL_ALIASES) {
+    if (item.keys.some(k => norm === k || (norm.length >= 2 && k.includes(norm)) || (k.length >= 3 && norm.includes(k)))) {
+      addSpot(item.spot);
+    }
+  }
+
+  // 2. Matches em PRESET_SPOTS
+  for (const preset of PRESET_SPOTS) {
+    const pNorm = preset.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const pAdminNorm = (preset.admin1 || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (pNorm.includes(norm) || pAdminNorm.includes(norm) || norm.includes(pNorm)) {
+      addSpot(preset);
+    }
+  }
+
+  // 3. Matches em SEO_COASTAL_LOCATIONS
+  for (const seo of SEO_COASTAL_LOCATIONS) {
+    const sNorm = seo.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const sAdminNorm = (seo.admin1 || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (sNorm.includes(norm) || sAdminNorm.includes(norm) || norm.includes(sNorm)) {
+      addSpot(seo);
+    }
+  }
+
+  // 4. Se tiver pelo menos 3 caracteres e estiver online, consulta Geocoding Open-Meteo
+  if (clean.length >= 3 && typeof fetch !== 'undefined') {
+    try {
+      const resp = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(clean)}&count=6&language=pt&format=json`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const rawResults = data.results || [];
+        for (const r of rawResults) {
+          addSpot({
+            name: r.name,
+            admin1: [r.admin1, r.country_code === 'BR' ? (r.admin1 ? '' : 'Brasil') : r.country].filter(Boolean).join(', ') || 'Brasil',
+            country_code: r.country_code || 'BR',
+            latitude: r.latitude,
+            longitude: r.longitude
+          });
+        }
+      }
+    } catch {}
+  }
+
+  return results.slice(0, 8);
+}
+
 export function buildAdaptiveSeoMetadata({
   location = {},
   events = [],
