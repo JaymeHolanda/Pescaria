@@ -503,6 +503,33 @@ export function grantFreeProToUser({
     rawMap[cleanEmail] = { ...record, key: cleanEmail };
   }
   saveAdminVipGrants(rawMap);
+
+  // Também sincroniza diretamente no extendedProfiles do Firebase Realtime Database
+  if (cleanUid) {
+    const extMap = loadFisherExtendedProfiles();
+    extMap[cleanUid] = {
+      ...(extMap[cleanUid] || {}),
+      displayName: String(displayName || extMap[cleanUid]?.displayName || 'Pescador VIP').trim(),
+      isPro: true,
+      proPlan: 'vip_cortesia',
+      proDurationDays: 3650,
+      proActivatedAt: Date.now()
+    };
+    try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(extMap)); } catch {}
+    if (typeof window !== 'undefined') {
+      try {
+        update(ref(database, `mareCerta/extendedProfiles/${cleanUid}`), {
+          displayName: String(displayName || extMap[cleanUid]?.displayName || 'Pescador VIP').trim(),
+          isPro: true,
+          proPlan: 'vip_cortesia',
+          proDurationDays: 3650,
+          proActivatedAt: Date.now()
+        }).catch(() => {});
+      } catch {}
+    }
+  }
+
+  renderAdminProPanel();
   return record;
 }
 
@@ -525,6 +552,25 @@ export function revokeFreeProFromUser(identifier) {
     }
   }
 
+  // Também desativa no extendedProfiles tanto local quanto no Firebase Realtime Database
+  const extMap = loadFisherExtendedProfiles();
+  let extChanged = false;
+  for (const [k, prof] of Object.entries(extMap)) {
+    if (k === cleanId || k.toLowerCase() === cleanLower) {
+      extMap[k] = { ...prof, isPro: false };
+      extChanged = true;
+    }
+  }
+  if (extChanged) {
+    try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(extMap)); } catch {}
+  }
+  if (typeof window !== 'undefined' && cleanId) {
+    try {
+      update(ref(database, `mareCerta/extendedProfiles/${cleanId}`), { isPro: false }).catch(() => {});
+      update(ref(database, `mareCerta/vipGrants/${cleanId}`), { active: false, revokedAt: Date.now() }).catch(() => {});
+    } catch {}
+  }
+
   // If revoking the current local user who also had sandbox PRO active, turn it off so revocation takes immediate effect
   const currentUid = adminContext.currentUser?.uid || 'local-current-user';
   const currentEmail = String(adminContext.currentUser?.email || '').trim().toLowerCase();
@@ -538,6 +584,7 @@ export function revokeFreeProFromUser(identifier) {
   }
 
   saveAdminVipGrants(rawMap);
+  renderAdminProPanel();
   return changed;
 }
 
@@ -2465,6 +2512,7 @@ export function initFirebaseRealtimeSync() {
         updateProStatusUI();
         window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
         window.dispatchEvent(new CustomEvent('mare-certa:vip-grants-changed', { detail: merged }));
+        renderAdminProPanel();
       }
     }, () => {});
 
@@ -2486,10 +2534,29 @@ export function initFirebaseRealtimeSync() {
         const local = loadFisherExtendedProfiles();
         const merged = { ...local, ...val };
         try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(merged)); } catch {}
+        renderAdminProPanel();
       }
     }, () => {});
 
-    // 5. Sincroniza comentários sociais da nuvem
+    // 5. Sincroniza perfis cadastrados do Firebase Auth
+    onValue(ref(database, 'profiles'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        adminContext.profiles = val;
+        renderAdminProPanel();
+      }
+    }, () => {});
+
+    // 6. Sincroniza capturas do Diário/Ranking da comunidade
+    onValue(ref(database, 'captures'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        adminContext.captures = val;
+        renderAdminProPanel();
+      }
+    }, () => {});
+
+    // 7. Sincroniza comentários sociais da nuvem
     onValue(ref(database, 'mareCerta/comments'), snapshot => {
       const val = snapshot.val();
       if (val && typeof val === 'object') {
@@ -2818,11 +2885,23 @@ export function collectAdminManageableUsers(profiles = {}, captures = {}) {
   return Array.from(usersMap.values()).map(u => {
     const grant = isUserAdminGrantedPro(u.uid, u.email);
     const mod = getUserModerationStatus(u.uid, u.email);
+    const ext = extMap[u.uid] || {};
+    const isExtPro = Boolean(ext.isPro && (!ext.proExpiresAt || ext.proExpiresAt > Date.now()));
+    const isGrantPro = Boolean(grant && grant.active !== false && (!grant.expiresAt || grant.expiresAt > Date.now()));
+    const isPro = (isGrantPro || isExtPro) && !mod.isRestricted;
+
+    let roleLabel = grant?.roleLabel || grant?.planName || null;
+    if (!roleLabel && isExtPro) {
+      const planName = ext.proPlan === 'monthly' ? 'Mensal (Mercado Pago)' : 'Anual (Mercado Pago)';
+      roleLabel = `Assinante PRO ${planName}`;
+    }
+
     return {
       ...u,
-      isVipPro: Boolean(grant) && !mod.isRestricted,
-      vipRoleLabel: grant?.roleLabel || null,
-      grantedAt: grant?.grantedAt || null,
+      isVipPro: isPro,
+      vipRoleLabel: roleLabel,
+      grantedAt: grant?.grantedAt || ext.proActivatedAt || null,
+      proExpiresAt: grant?.expiresAt || ext.proExpiresAt || null,
       moderationStatus: mod.status,
       isRestricted: mod.isRestricted,
       moderationLabel: mod.label,

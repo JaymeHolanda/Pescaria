@@ -1,7 +1,5 @@
 // Página isolada do Painel Admin (dist/admin.html).
-// ATENÇÃO: login provisório no navegador — não é seguro para produção.
-// Substituir por Firebase Auth + custom claim "admin" e regras no Realtime Database.
-import { renderAdminProPanel, setAdminCommunityContext } from './community-enhancements.js';
+import { renderAdminProPanel, setAdminCommunityContext, initFirebaseRealtimeSync } from './community-enhancements.js';
 
 export const ADMIN_CREDENTIALS = { user: 'admin', pass: 'marecerta@2026' };
 const SESSION_KEY = 'mare-certa-admin-session-v1';
@@ -16,6 +14,7 @@ function showPanel(loggedIn) {
   if (login) login.hidden = loggedIn;
   if (panel) panel.hidden = !loggedIn;
   if (loggedIn) {
+    initFirebaseRealtimeSync();
     setAdminCommunityContext({ uid: 'admin-master', email: 'admin@marecerta.com.br', displayName: 'Administrador' }, {}, {});
     renderAdminProPanel();
   }
@@ -25,6 +24,9 @@ if (typeof document !== 'undefined') {
   let logged = false;
   try { logged = sessionStorage.getItem(SESSION_KEY) === '1'; } catch {}
   showPanel(logged);
+  if (logged) {
+    initFirebaseRealtimeSync();
+  }
 
   document.getElementById('adminLoginForm')?.addEventListener('submit', event => {
     event.preventDefault();
