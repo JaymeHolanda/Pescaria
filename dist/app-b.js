@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js?v=e2046439115a';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js?v=b51d6bc911fb';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js?v=f155a29720da';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js?v=3ea5c3a39ab9';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js?v=9f1d10bbe931';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };

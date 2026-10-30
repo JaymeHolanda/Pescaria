@@ -260,3 +260,76 @@ test('Clube PRO Mercado Pago e compressão de foto WebP para S3 validam planos e
   assert.equal(canUseProSocialFeature({ active: true, expiresAt: Date.now() + 60000 }), true);
   assert.equal(canUseProSocialFeature({ active: true, expiresAt: Date.now() - 60000 }), false);
 });
+
+
+test('Perfil do pescador, seguidores reais, relato de captura e exclusão de comentários funcionam corretamente', async () => {
+  const { computeAchievements } = await import('../src/preview-b/model.js');
+  const {
+    getFisherFollowersCount,
+    toggleFollowFisher,
+    deletePostComment,
+    getCaptureCaption,
+    saveCaptureCaption,
+    getFisherExtendedProfile,
+    saveFisherExtendedProfile
+  } = await import('../src/preview-b/community-enhancements.js');
+
+  // 1. Seguidores reais: pescador novo começa com 0 seguidores (e não 14 fixos)
+  const newFisherState = { followersCount: { 'demo-fisher-1': 42 }, followingByMe: {} };
+  assert.equal(getFisherFollowersCount('real-user-123', newFisherState), 0);
+  assert.equal(getFisherFollowersCount('demo-fisher-1', newFisherState), 42);
+
+  // Ao seguir, incrementa +1
+  const followedState = { followersCount: { 'demo-fisher-1': 42 }, followingByMe: { 'real-user-123': true, 'demo-fisher-1': true } };
+  assert.equal(getFisherFollowersCount('real-user-123', followedState), 1);
+  assert.equal(getFisherFollowersCount('demo-fisher-1', followedState), 43);
+
+  // 2. Maiores conquistas e medalhas costeiras no perfil
+  const sampleCaptures = {
+    c1: { uid: 'u1', species: 'Robalo-flecha', quantity: 2, weight: 4.5, location: 'Praia do Bessa' },
+    c2: { uid: 'u1', species: 'Pampo', quantity: 5, weight: 2.1, location: 'Intermares' }
+  };
+  const ach = computeAchievements(sampleCaptures, 'u1');
+  assert.equal(ach.personal.topSpecies, 'Pampo');
+  assert.equal(ach.personal.topTrophySpecies, 'Robalo-flecha');
+  assert.equal(ach.personal.maxWeight, 4.5);
+  assert.equal(ach.personal.unlockedMedalsCount, 2);
+  assert.equal(ach.personal.totalMedalsCount, 6);
+
+  // 3. Relato / comentário de captura e perfil estendido com localStorage simulado
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => store.get(k) ?? null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k)
+  };
+
+  saveCaptureCaption('cap-99', 'Peguei na maré enchente com corrupto vivo!');
+  assert.equal(getCaptureCaption('cap-99'), 'Peguei na maré enchente com corrupto vivo!');
+
+  saveFisherExtendedProfile('u1', {
+    displayName: 'Jayme Holanda',
+    location: 'João Pessoa, PB',
+    bio: 'Robalo 4.5kg no 2º valão',
+    instagram: '@jaymepesca',
+    phone: '(83) 99999-0000'
+  });
+  const ext = getFisherExtendedProfile('u1');
+  assert.equal(ext.displayName, 'Jayme Holanda');
+  assert.equal(ext.location, 'João Pessoa, PB');
+  assert.equal(ext.instagram, '@jaymepesca');
+  assert.equal(ext.phone, '(83) 99999-0000');
+
+  // 4. Seguir e apagar comentário no chat
+  const toggle1 = toggleFollowFisher('u1');
+  assert.equal(toggle1.following, true);
+  assert.equal(toggle1.followers, 1);
+
+  const toggle2 = toggleFollowFisher('u1');
+  assert.equal(toggle2.following, false);
+  assert.equal(toggle2.followers, 0);
+
+  const remainingComments = deletePostComment('demo-1', 'c-101');
+  assert.equal(remainingComments.some(c => c.id === 'c-101'), false);
+  assert.equal(remainingComments.some(c => c.id === 'c-102'), true);
+});

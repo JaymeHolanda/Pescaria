@@ -633,6 +633,20 @@ export function computeAchievements(capturesObj = {}, uid = null) {
   const userMaxWeight = userEntries.reduce((max, c) => Math.max(max, Number(c.weight) || 0), 0);
   const userSpeciesSet = new Set(userEntries.map(c => normalize(c.species)).filter(Boolean));
   const userSpotsSet = new Set(userEntries.map(c => normalize(c.location)).filter(Boolean));
+  const userSpeciesMap = new Map();
+  let topTrophySpecies = '—';
+  let bestWeight = 0;
+  for (const c of userEntries) {
+    const sp = String(c.species || '').trim();
+    const qty = Number(c.quantity) || 1;
+    const w = Number(c.weight) || 0;
+    if (sp) userSpeciesMap.set(sp, (userSpeciesMap.get(sp) || 0) + qty);
+    if (w > bestWeight && sp) {
+      bestWeight = w;
+      topTrophySpecies = sp;
+    }
+  }
+  const userTopSpecies = [...userSpeciesMap.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
 
   const badges = [
     {
@@ -698,7 +712,11 @@ export function computeAchievements(capturesObj = {}, uid = null) {
       totalTrips: userTrips,
       maxWeight: userMaxWeight,
       speciesCount: userSpeciesSet.size,
-      spotsCount: userSpotsSet.size
+      spotsCount: userSpotsSet.size,
+      topSpecies: userTopSpecies,
+      topTrophySpecies,
+      unlockedMedalsCount: badges.filter(b => b.unlocked).length,
+      totalMedalsCount: badges.length
     },
     badges
   };

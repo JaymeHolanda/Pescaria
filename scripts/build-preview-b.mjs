@@ -286,8 +286,8 @@ const achievementsHtml = `<section id="proClubBar" class="card pro-club-bar" ari
               <span class="eyebrow">REDE SOCIAL DO PESCADOR · CLUBE PRO</span>
               <span id="proCurrentStatusPill" class="pro-status-pill is-free">🔒 Conta Gratuita (Modo Leitura no Feed)</span>
             </div>
-            <h2>Publique a foto do seu troféu, responda pescadores e conquiste seguidores.</h2>
-            <p>Assinantes PRO postam 1 foto otimizada por captura (AWS S3 WebP), comentam nos posts da comunidade e exibem o selo 👑 PRO por apenas <strong>R$ 5/mês no plano anual</strong> (ou R$ 15/mês avulso) via Mercado Pago.</p>
+            <h2>Faça parte da nossa família de pescadores e compartilhe seus troféus.</h2>
+            <p>Conecte-se com quem ama a pesca costeira: poste fotos dos seus melhores peixes, troque dicas de isca e praia nos comentários, acompanhe amigos de areia e destaque sua jornada com o selo oficial da comunidade.</p>
           </div>
           <div class="pro-club-actions">
             <button id="openProModalBtn" class="primary-button pro-cta-btn" type="button">⚡ Assinar PRO · R$ 5/mês</button>
@@ -325,21 +325,24 @@ html = replace(html, '<label>Peixe / espécie<input name="species" required maxl
                 <button type="button" data-species="Bagre">Bagre</button>
               </div>`);
 
-const trophyPhotoUploadFieldHtml = `<div class="trophy-upload-box">
+const trophyPhotoUploadFieldHtml = `<label>Comentário / relato da captura (opcional)
+                <textarea id="captureCommentInput" name="captureComment" rows="2" maxlength="300" placeholder="Conte como foi a pescaria: isca usada, maré, distância do arremesso ou detalhe especial…"></textarea>
+              </label>
+              <div class="trophy-upload-box">
                 <div class="trophy-upload-top">
-                  <span>📸 Foto do seu troféu (máx. 1 foto)</span>
-                  <span id="photoProLockBadge" class="photo-pro-badge locked">🔒 Recurso PRO · R$ 5/mês</span>
+                  <span>📸 Foto do seu troféu</span>
+                  <span id="photoProLockBadge" class="photo-pro-badge locked">🔒 Recurso da Família PRO</span>
                 </div>
                 <input id="capturePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
                 <button id="capturePhotoTriggerBtn" class="trophy-upload-btn" type="button">
                   <span>Selecionar ou Tirar Foto do Peixe</span>
-                  <small>Compressão automática WebP 1080p p/ Amazon S3</small>
+                  <small>Mostre seu troféu para toda a nossa família de pescadores</small>
                 </button>
                 <div id="capturePhotoPreviewWrap" class="trophy-photo-preview" hidden>
-                  <img id="capturePhotoPreviewImg" src="" alt="Prévia comprimida da foto do troféu" />
+                  <img id="capturePhotoPreviewImg" src="" alt="Prévia da foto do troféu" />
                   <button id="removeCapturePhotoBtn" class="text-button" type="button">Remover foto</button>
                 </div>
-                <small id="capturePhotoStatus" class="photo-compression-status">1 foto do troféu por captura · Compressão WebP automática p/ AWS S3</small>
+                <small id="capturePhotoStatus" class="photo-compression-status">Compartilhe a foto da sua pescaria com a comunidade</small>
               </div>
               <button class="primary-button" type="submit">Salvar captura</button>`;
 
@@ -349,8 +352,119 @@ html = replace(html, '<section id="myCapturesSection"', `<section class="b-captu
 
 html = replace(html, '<p class="eyebrow">DIÁRIO DA COMUNIDADE</p><h2 id="catchesTitle">Capturas recentes</h2>', '<p class="eyebrow">FEED SOCIAL DA COMUNIDADE · TROFÉUS, RESPOSTAS & SEGUIDORES</p><h2 id="catchesTitle">Feed de capturas & troféus</h2>');
 
-// Add Shareable Trophy Card Dialog AND Mercado Pago PRO Paywall Dialog right after #accountDialog
-const shareAndPaywallDialogsHtml = `\n      <dialog id="shareCardDialog" class="account-dialog share-card-dialog" aria-labelledby="shareCardTitle">
+// Upgrade #accountProfile inside #accountDialog into a Complete Fisherman Profile
+const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-profile" hidden>
+          <div id="myRichProfileContainer" class="my-rich-profile">
+            <div class="my-profile-header-card">
+              <div class="my-profile-avatar-col">
+                <div id="myProfileAvatarPreview" class="my-profile-avatar-box">
+                  <span class="my-profile-avatar-initials">P</span>
+                </div>
+                <input id="myProfileAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                <button id="myProfileAvatarBtn" class="profile-avatar-upload-btn" type="button">📷 Foto do perfil</button>
+              </div>
+              <div class="my-profile-main-info">
+                <p class="eyebrow">PERFIL DO PESCADOR · SUA CONTA</p>
+                <div class="my-profile-title-row">
+                  <h2 id="profileName"></h2>
+                  <span class="pro-member-badge">👑 PRO</span>
+                </div>
+                <p id="profileEmail" class="my-profile-email"></p>
+                <p id="myProfileLocationBadge" class="my-profile-loc">📍 Adicione sua localidade abaixo</p>
+                <p id="myProfileBioLine" class="my-profile-bio">🏆 Destaque suas maiores conquistas na pesca.</p>
+                <div id="myProfileSocialLinksBar" class="fisher-profile-socials" hidden></div>
+              </div>
+            </div>
+
+            <div class="fisher-profile-stats-bar">
+              <div class="profile-stat-box">
+                <strong id="myProfileFollowersCount">0</strong>
+                <span>Seguidores</span>
+              </div>
+              <div class="profile-stat-box">
+                <strong id="myProfileFollowingCount">0</strong>
+                <span>Seguindo</span>
+              </div>
+              <div class="profile-stat-box">
+                <strong id="myProfileMedalsCount">0 / 6</strong>
+                <span>Medalhas Costeiras</span>
+              </div>
+              <div class="profile-stat-box">
+                <strong id="myProfileBestWeight">—</strong>
+                <span>Maior Troféu</span>
+              </div>
+            </div>
+
+            <details class="profile-edit-accordion" open>
+              <summary>✏️ Editar Perfil, Localidade, Redes Sociais &amp; Telefone</summary>
+              <form id="extendedProfileForm" class="extended-profile-form">
+                <div class="form-grid">
+                  <label>Nome público
+                    <input name="extDisplayName" maxlength="40" minlength="2" required placeholder="Seu nome no ranking e feed" />
+                  </label>
+                  <label>Localidade (Cidade / Praia principal)
+                    <input name="extLocation" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
+                  </label>
+                </div>
+                <label>Maiores conquistas / Bio do pescador
+                  <input name="extBio" maxlength="160" placeholder="Ex.: Robalo de 4,5 kg no 2º valão · Surfcasting" />
+                </label>
+                <div class="form-grid">
+                  <label>Instagram (opcional)
+                    <input name="extInstagram" maxlength="60" placeholder="Ex.: @seu_instagram" />
+                  </label>
+                  <label>YouTube / TikTok / Outra rede (opcional)
+                    <input name="extSocial2" maxlength="60" placeholder="Ex.: @seucanal" />
+                  </label>
+                </div>
+                <label>Telefone / WhatsApp (opcional do perfil)
+                  <input name="extPhone" type="tel" maxlength="25" placeholder="Ex.: (83) 99999-9999 (opcional)" />
+                </label>
+                <div class="extended-profile-actions">
+                  <button class="primary-button" type="submit">💾 Salvar dados do perfil</button>
+                  <span id="extendedProfileSavedMsg" class="profile-saved-pill" hidden>✓ Perfil atualizado!</span>
+                </div>
+              </form>
+            </details>
+
+            <section class="profile-section-block">
+              <div class="profile-section-head">
+                <h3>🏆 Maiores Conquistas &amp; Medalhas Costeiras (Achievements)</h3>
+              </div>
+              <div id="myProfileAchievementsSummary" class="profile-records-row"></div>
+              <div id="myProfileMedalsList" class="profile-medals-strip"></div>
+            </section>
+
+            <section class="profile-section-block">
+              <div class="profile-section-head">
+                <div>
+                  <h3>📸 Galeria das Fotos Postadas &amp; Troféus</h3>
+                  <small id="myProfileGalleryCount" class="profile-gallery-count">0 foto(s)</small>
+                </div>
+                <div>
+                  <input id="myProfileTrophyInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                  <button id="addProfileTrophyBtn" class="secondary-share-btn profile-add-trophy-btn" type="button">➕ Adicionar foto de troféu</button>
+                </div>
+              </div>
+              <div id="myProfileGalleryGrid" class="profile-gallery-grid"></div>
+            </section>
+          </div>
+
+          <form id="profileForm" hidden><label>Nome público<input name="displayName" required minlength="2" maxlength="40" autocomplete="nickname" /></label><button class="primary-button" type="submit">Concluir perfil</button></form>
+          <p id="profileStatus" class="form-message" role="status"></p>
+          <button id="logoutButton" class="text-button logout-outline-btn" type="button">Sair da conta</button>
+        </div>`;
+
+html = html.replace(/<div id="accountProfile" hidden>[\s\S]*?<\/div>/, richAccountProfileHtml);
+
+// Add Fisherman Public Profile Dialog, Shareable Trophy Card Dialog AND Mercado Pago PRO Paywall Dialog right after #accountDialog
+const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" class="account-dialog fisher-profile-dialog" aria-labelledby="fisherProfileTitle">
+        <button id="closeFisherProfile" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <p class="eyebrow">PERFIL DO PESCADOR · COMUNIDADE MARÉ CERTA</p>
+        <div id="fisherProfileBody" class="fisher-profile-body"></div>
+      </dialog>
+
+      <dialog id="shareCardDialog" class="account-dialog share-card-dialog" aria-labelledby="shareCardTitle">
         <button id="closeShareCard" class="close-dialog" type="button" aria-label="Fechar">×</button>
         <p class="eyebrow">TROFÉU DIGITAL · STORIES & WHATSAPP</p>
         <h2 id="shareCardTitle">Compartilhar captura</h2>
@@ -372,10 +486,10 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="shareCardDialog" class="
         </div>
 
         <ul class="pro-benefits-list">
-          <li>📸 <strong>1 Foto do Troféu por Captura:</strong> Upload ultrarrápido com compressão WebP automática no Amazon S3.</li>
-          <li>💬 <strong>Chat &amp; Respostas nos Posts:</strong> Pergunte qual isca, anzol ou praia nos troféus de outros pescadores.</li>
-          <li>➕ <strong>Seguir Pescadores &amp; Achievements:</strong> Monte sua rede costeira e exiba suas medalhas no topo do feed.</li>
-          <li>👑 <strong>Selo Oficial PRO:</strong> Destaque dourado ao lado do seu nome no Ranking e nos comentários.</li>
+          <li>📸 <strong>Fotos dos seus Troféus:</strong> Compartilhe suas capturas em foto para inspirar toda a nossa família de pescadores.</li>
+          <li>💬 <strong>Resenha &amp; Dicas nos Posts:</strong> Troque experiências, pergunte sobre iscas e praias e comente nos troféus dos amigos.</li>
+          <li>➕ <strong>Seguir Pescadores &amp; Conquistas:</strong> Acompanhe amigos de pesca de praia e exiba suas medalhas no topo do feed.</li>
+          <li>👑 <strong>Selo Oficial PRO:</strong> Destaque dourado de apoiador ao lado do seu nome no Ranking e nos relatos.</li>
         </ul>
 
         <div class="pro-plans-grid" role="group" aria-label="Escolha seu plano Mercado Pago">
@@ -522,18 +636,49 @@ import {
   saveLocalS3Photo,
   isUserPro,
   setProSubscription,
-  openProPaywallModal
+  openProPaywallModal,
+  getCaptureCaption,
+  saveCaptureCaption,
+  getFisherExtendedProfile,
+  saveFisherExtendedProfile,
+  compressTrophyPhoto,
+  renderMyAccountProfile,
+  openFisherProfileModal
 } from './preview-b/community-enhancements.js';`
 );
 ranking = replace(
   ranking,
+  "$('cancelCaptureEdit').hidden = true;",
+  "$('cancelCaptureEdit').hidden = true;\n  if ($('captureCommentInput')) $('captureCommentInput').value = '';\n  clearPendingTrophyPhoto();"
+);
+ranking = replace(
+  ranking,
+  "for (const name of captureFields) form.elements.namedItem(name).value = capture[name] ?? '';",
+  "for (const name of captureFields) form.elements.namedItem(name).value = capture[name] ?? '';\n  if ($('captureCommentInput')) $('captureCommentInput').value = getCaptureCaption(id, capture);"
+);
+ranking = replace(
+  ranking,
+  "if (!result.committed) throw new CaptureValidationError('Esta captura não está mais disponível para edição.');",
+  `if (!result.committed) throw new CaptureValidationError('Esta captura não está mais disponível para edição.');
+      if ($('captureCommentInput')) saveCaptureCaption(edit.id, $('captureCommentInput').value);
+      const pendingPhotoEdit = getPendingTrophyPhoto();
+      if (pendingPhotoEdit) {
+        saveLocalS3Photo(edit.id, pendingPhotoEdit);
+        clearPendingTrophyPhoto();
+      }`
+);
+ranking = replace(
+  ranking,
   "addCell(row, String(person.rank).padStart(2, '0'), 'rank-position');",
-  "const medal = person.rank === 1 ? '🥇 ' : person.rank === 2 ? '🥈 ' : person.rank === 3 ? '🥉 ' : '';\n    addCell(row, medal + String(person.rank).padStart(2, '0'), 'rank-position');"
+  "const medal = person.rank === 1 ? '🥇 ' : person.rank === 2 ? '🥈 ' : person.rank === 3 ? '🥉 ' : '';\n    addCell(row, medal + String(person.rank).padStart(2, '0'), 'rank-position');\n    row.style.cursor = 'pointer';\n    row.title = 'Clique para ver o perfil completo deste pescador';\n    row.addEventListener('click', () => openFisherProfileModal(person.uid, profiles, captures, auth.currentUser?.uid || null));"
 );
 ranking = replace(
   ranking,
   "await push(ref(database, 'mareCerta/captures'), capture);",
   `const pushedRef = await push(ref(database, 'mareCerta/captures'), capture);
+      if ($('captureCommentInput') && pushedRef?.key) {
+        saveCaptureCaption(pushedRef.key, $('captureCommentInput').value);
+      }
       const pendingPhoto = getPendingTrophyPhoto();
       if (pendingPhoto && pushedRef?.key) {
         saveLocalS3Photo(pushedRef.key, pendingPhoto);
@@ -544,8 +689,8 @@ ranking = replace(
   ranking,
   '  card.append(title, author, details);',
   `  const shareWrap = document.createElement('div'); shareWrap.className = 'capture-share-row';
-  const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-card-btn'; shareBtn.textContent = '📤 Compartilhar card';
-  shareBtn.addEventListener('click', () => openShareCardModal(capture, profiles[capture.uid]?.displayName || capture.authorName || 'Pescador'));
+  const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-card-btn'; shareBtn.textContent = '📤 Compartilhar captura';
+  shareBtn.addEventListener('click', () => openShareCardModal(capture, profiles[capture.uid]?.displayName || capture.authorName || 'Pescador', id));
   shareWrap.append(shareBtn);
   card.append(title, author, details, shareWrap);
   enhanceSocialCaptureCard(card, id, capture, profiles, captures, auth.currentUser?.uid || null);`
@@ -562,6 +707,7 @@ const demoSocialPostsSnippet = `  const demoCaptures = [
   const combinedWithDemos = [...all, ...demoCaptures.filter(([id]) => !captures[id])];
   const combinedCapturesMap = { ...Object.fromEntries(demoCaptures), ...captures };
   renderAchievementsAndStats(combinedCapturesMap, auth.currentUser?.uid || 'demo-fisher-1');
+  if (auth.currentUser) renderMyAccountProfile(auth.currentUser, profiles, combinedCapturesMap);
   const filters = { species: $('filterSpecies').value, location: $('filterLocation').value, from: $('filterFrom').value, to: $('filterTo').value };
   const filtered = filterCaptures(combinedWithDemos, filters);
   const recent = filtered.slice(0, 30);
@@ -614,8 +760,8 @@ const blurredFeedSnippet = `  const isPro = isUserPro();
           <span class="teaser-badge-text">CLUBE PESCADOR PRO · MERCADO PAGO</span>
           <span class="teaser-limit-pill">🔒 Limite gratuito atingido (3 posts exibidos)</span>
         </div>
-        <h3 class="paywall-teaser-title">Desbloqueie todo o feed social, fotos de troféus e dicas de pesqueiro</h3>
-        <p class="paywall-teaser-desc">Você visualizou as 3 publicações gratuitas de hoje. Assine o <strong>Clube Pescador PRO</strong> por apenas <strong>R$ 5,00/mês</strong> no plano anual via Mercado Pago para liberar todas as capturas sem censura, ver locais exatos, interagir com pescadores e publicar suas próprias fotos no Amazon S3.</p>
+        <h3 class="paywall-teaser-title">Faça parte da nossa família de pescadores</h3>
+        <p class="paywall-teaser-desc">Aproveite todo o feed social sem limites: veja as fotos de todos os troféus da costa, troque dicas nos comentários com outros pescadores e publique suas próprias capturas para fortalecer a nossa comunidade.</p>
         <div class="feed-paywall-teaser-actions">
           <button type="button" class="primary-button paywall-teaser-cta-btn">⚡ Desbloquear Feed Completo · R$ 5/mês</button>
           <button type="button" class="feed-paywall-sandbox-btn">🧪 Sandbox Local: Simular Assinante PRO Ativo</button>
@@ -636,7 +782,106 @@ ranking = replace(
   }`,
   blurredFeedSnippet
 );
-ranking += `\nlet filterTimer;\n$('captureFilterForm').addEventListener('submit', event => event.preventDefault());\n$('captureFilterForm').addEventListener('input', () => { clearTimeout(filterTimer); filterTimer = setTimeout(renderCommunity, 150); });\n$('clearCaptureFilters').addEventListener('click', () => { clearTimeout(filterTimer); $('captureFilterForm').reset(); renderCommunity(); });\nwindow.addEventListener('mare-certa:pro-changed', () => renderCommunity());\n`;
+ranking += `\nlet filterTimer;
+$('captureFilterForm').addEventListener('submit', event => event.preventDefault());
+$('captureFilterForm').addEventListener('input', () => { clearTimeout(filterTimer); filterTimer = setTimeout(renderCommunity, 150); });
+$('clearCaptureFilters').addEventListener('click', () => { clearTimeout(filterTimer); $('captureFilterForm').reset(); renderCommunity(); });
+window.addEventListener('mare-certa:pro-changed', () => renderCommunity());
+
+if ($('myProfileAvatarBtn') && $('myProfileAvatarInput')) {
+  $('myProfileAvatarBtn').addEventListener('click', () => $('myProfileAvatarInput').click());
+  $('myProfileAvatarInput').addEventListener('change', async () => {
+    const file = $('myProfileAvatarInput').files?.[0];
+    const user = auth.currentUser;
+    if (!file || !user) return;
+    try {
+      const compressed = await compressTrophyPhoto(file, 420, 0.85);
+      saveFisherExtendedProfile(user.uid, { avatarUrl: compressed.dataUrl });
+      renderCommunity();
+      message('profileStatus', '✓ Foto do perfil atualizada!');
+    } catch (err) {
+      message('profileStatus', err.message || 'Erro ao atualizar foto do perfil.', true);
+    } finally {
+      $('myProfileAvatarInput').value = '';
+    }
+  });
+}
+
+if ($('addProfileTrophyBtn') && $('myProfileTrophyInput')) {
+  $('addProfileTrophyBtn').addEventListener('click', () => $('myProfileTrophyInput').click());
+  $('myProfileTrophyInput').addEventListener('change', async () => {
+    const file = $('myProfileTrophyInput').files?.[0];
+    const user = auth.currentUser;
+    if (!file || !user) return;
+    try {
+      const compressed = await compressTrophyPhoto(file, 1080, 0.82);
+      const currentExt = getFisherExtendedProfile(user.uid, profiles?.[user.uid]);
+      const extraTrophyPhotos = [
+        {
+          id: 'trophy-' + Date.now(),
+          dataUrl: compressed.dataUrl,
+          title: 'Troféu do Pescador',
+          date: today().split('-').reverse().join('/')
+        },
+        ...(currentExt.extraTrophyPhotos || [])
+      ];
+      saveFisherExtendedProfile(user.uid, { extraTrophyPhotos });
+      renderCommunity();
+      message('profileStatus', '✓ Foto adicionada à sua galeria de troféus!');
+    } catch (err) {
+      message('profileStatus', err.message || 'Erro ao adicionar foto na galeria.', true);
+    } finally {
+      $('myProfileTrophyInput').value = '';
+    }
+  });
+}
+
+if ($('extendedProfileForm')) {
+  $('extendedProfileForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+    const form = event.currentTarget;
+    const newName = String(form.elements.extDisplayName?.value || '').trim();
+    const locationVal = String(form.elements.extLocation?.value || '').trim();
+    const bioVal = String(form.elements.extBio?.value || '').trim();
+    const instagramVal = String(form.elements.extInstagram?.value || '').trim();
+    const social2Val = String(form.elements.extSocial2?.value || '').trim();
+    const phoneVal = String(form.elements.extPhone?.value || '').trim();
+
+    if (newName.length < 2 || newName.length > 40) {
+      message('profileStatus', 'Informe um nome público entre 2 e 40 caracteres.', true);
+      return;
+    }
+
+    saveFisherExtendedProfile(user.uid, {
+      displayName: newName,
+      location: locationVal,
+      bio: bioVal,
+      instagram: instagramVal,
+      social2: social2Val,
+      phone: phoneVal
+    });
+
+    if (newName !== user.displayName) {
+      try {
+        await updateProfile(user, { displayName: newName });
+        await ensureProfile(user, newName);
+      } catch {}
+    }
+
+    $('profileName').textContent = newName;
+    $('accountButton').textContent = newName;
+    const savedPill = $('extendedProfileSavedMsg');
+    if (savedPill) {
+      savedPill.hidden = false;
+      setTimeout(() => { savedPill.hidden = true; }, 3500);
+    }
+    message('profileStatus', '✓ Perfil completo atualizado com sucesso!');
+    renderCommunity();
+  });
+}
+`;
 
 const baseOptions = { bundle: true, format: 'esm', minify: true, logLevel: 'silent' };
 await Promise.all([

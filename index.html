@@ -13,7 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23061b2a'/%3E%3Cpath d='M10 33c8-10 14-10 22 0s14 10 22 0v10c-8 10-14 10-22 0s-14-10-22 0z' fill='%234de1c1'/%3E%3Ccircle cx='44' cy='18' r='8' fill='%23dff76d'/%3E%3C/svg%3E" />
     <link rel="manifest" href="./dist/manifest.webmanifest" />
     <link rel="stylesheet" href="./dist/styles.css?v=150638ac77fa" />
-    <link rel="stylesheet" href="./dist/versao-b.css?v=18ab1119cddf" />
+    <link rel="stylesheet" href="./dist/versao-b.css?v=583585ded65a" />
     <title>Maré Certa — sua próxima pescaria</title>
   </head>
   <body class="preview-b">
@@ -368,8 +368,8 @@
               <span class="eyebrow">REDE SOCIAL DO PESCADOR · CLUBE PRO</span>
               <span id="proCurrentStatusPill" class="pro-status-pill is-free">🔒 Conta Gratuita (Modo Leitura no Feed)</span>
             </div>
-            <h2>Publique a foto do seu troféu, responda pescadores e conquiste seguidores.</h2>
-            <p>Assinantes PRO postam 1 foto otimizada por captura (AWS S3 WebP), comentam nos posts da comunidade e exibem o selo 👑 PRO por apenas <strong>R$ 5/mês no plano anual</strong> (ou R$ 15/mês avulso) via Mercado Pago.</p>
+            <h2>Faça parte da nossa família de pescadores e compartilhe seus troféus.</h2>
+            <p>Conecte-se com quem ama a pesca costeira: poste fotos dos seus melhores peixes, troque dicas de isca e praia nos comentários, acompanhe amigos de areia e destaque sua jornada com o selo oficial da comunidade.</p>
           </div>
           <div class="pro-club-actions">
             <button id="openProModalBtn" class="primary-button pro-cta-btn" type="button">⚡ Assinar PRO · R$ 5/mês</button>
@@ -416,21 +416,24 @@
               <div class="form-grid"><label>Quantidade<input name="quantity" type="number" min="1" max="1000" step="1" value="1" required /></label><label>Peso total (kg)<input name="weight" type="number" min="0" max="10000" step="0.01" placeholder="Opcional" /></label></div>
               <label>Data da pescaria<input name="date" type="date" required /></label>
               <label>Local<input name="location" maxlength="100" required placeholder="Praia, rio ou cidade" /></label>
+              <label>Comentário / relato da captura (opcional)
+                <textarea id="captureCommentInput" name="captureComment" rows="2" maxlength="300" placeholder="Conte como foi a pescaria: isca usada, maré, distância do arremesso ou detalhe especial…"></textarea>
+              </label>
               <div class="trophy-upload-box">
                 <div class="trophy-upload-top">
-                  <span>📸 Foto do seu troféu (máx. 1 foto)</span>
-                  <span id="photoProLockBadge" class="photo-pro-badge locked">🔒 Recurso PRO · R$ 5/mês</span>
+                  <span>📸 Foto do seu troféu</span>
+                  <span id="photoProLockBadge" class="photo-pro-badge locked">🔒 Recurso da Família PRO</span>
                 </div>
                 <input id="capturePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
                 <button id="capturePhotoTriggerBtn" class="trophy-upload-btn" type="button">
                   <span>Selecionar ou Tirar Foto do Peixe</span>
-                  <small>Compressão automática WebP 1080p p/ Amazon S3</small>
+                  <small>Mostre seu troféu para toda a nossa família de pescadores</small>
                 </button>
                 <div id="capturePhotoPreviewWrap" class="trophy-photo-preview" hidden>
-                  <img id="capturePhotoPreviewImg" src="" alt="Prévia comprimida da foto do troféu" />
+                  <img id="capturePhotoPreviewImg" src="" alt="Prévia da foto do troféu" />
                   <button id="removeCapturePhotoBtn" class="text-button" type="button">Remover foto</button>
                 </div>
-                <small id="capturePhotoStatus" class="photo-compression-status">1 foto do troféu por captura · Compressão WebP automática p/ AWS S3</small>
+                <small id="capturePhotoStatus" class="photo-compression-status">Compartilhe a foto da sua pescaria com a comunidade</small>
               </div>
               <button class="primary-button" type="submit">Salvar captura</button>
               <button id="cancelCaptureEdit" class="text-button" type="button" hidden>Cancelar edição</button>
@@ -450,12 +453,115 @@
           <form id="authForm"><label id="nameField" hidden>Nome público<input name="displayName" maxlength="40" minlength="2" autocomplete="nickname" /></label><label>E-mail<input name="email" type="email" required autocomplete="email" /></label><label>Senha<input name="password" type="password" minlength="6" required autocomplete="current-password" /></label><button id="authSubmit" class="primary-button" type="submit">Entrar</button></form>
           <button id="resetPassword" class="text-button" type="button">Esqueci minha senha</button>
         </div>
-        <div id="accountProfile" hidden><p class="eyebrow">SUA CONTA</p><h2 id="profileName"></h2><p id="profileEmail"></p>
+        <div id="accountProfile" class="rich-account-profile" hidden>
+          <div id="myRichProfileContainer" class="my-rich-profile">
+            <div class="my-profile-header-card">
+              <div class="my-profile-avatar-col">
+                <div id="myProfileAvatarPreview" class="my-profile-avatar-box">
+                  <span class="my-profile-avatar-initials">P</span>
+                </div>
+                <input id="myProfileAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                <button id="myProfileAvatarBtn" class="profile-avatar-upload-btn" type="button">📷 Foto do perfil</button>
+              </div>
+              <div class="my-profile-main-info">
+                <p class="eyebrow">PERFIL DO PESCADOR · SUA CONTA</p>
+                <div class="my-profile-title-row">
+                  <h2 id="profileName"></h2>
+                  <span class="pro-member-badge">👑 PRO</span>
+                </div>
+                <p id="profileEmail" class="my-profile-email"></p>
+                <p id="myProfileLocationBadge" class="my-profile-loc">📍 Adicione sua localidade abaixo</p>
+                <p id="myProfileBioLine" class="my-profile-bio">🏆 Destaque suas maiores conquistas na pesca.</p>
+                <div id="myProfileSocialLinksBar" class="fisher-profile-socials" hidden></div>
+              </div>
+            </div>
+
+            <div class="fisher-profile-stats-bar">
+              <div class="profile-stat-box">
+                <strong id="myProfileFollowersCount">0</strong>
+                <span>Seguidores</span>
+              </div>
+              <div class="profile-stat-box">
+                <strong id="myProfileFollowingCount">0</strong>
+                <span>Seguindo</span>
+              </div>
+              <div class="profile-stat-box">
+                <strong id="myProfileMedalsCount">0 / 6</strong>
+                <span>Medalhas Costeiras</span>
+              </div>
+              <div class="profile-stat-box">
+                <strong id="myProfileBestWeight">—</strong>
+                <span>Maior Troféu</span>
+              </div>
+            </div>
+
+            <details class="profile-edit-accordion" open>
+              <summary>✏️ Editar Perfil, Localidade, Redes Sociais &amp; Telefone</summary>
+              <form id="extendedProfileForm" class="extended-profile-form">
+                <div class="form-grid">
+                  <label>Nome público
+                    <input name="extDisplayName" maxlength="40" minlength="2" required placeholder="Seu nome no ranking e feed" />
+                  </label>
+                  <label>Localidade (Cidade / Praia principal)
+                    <input name="extLocation" maxlength="80" placeholder="Ex.: João Pessoa, PB · Praia do Bessa" />
+                  </label>
+                </div>
+                <label>Maiores conquistas / Bio do pescador
+                  <input name="extBio" maxlength="160" placeholder="Ex.: Robalo de 4,5 kg no 2º valão · Surfcasting" />
+                </label>
+                <div class="form-grid">
+                  <label>Instagram (opcional)
+                    <input name="extInstagram" maxlength="60" placeholder="Ex.: @seu_instagram" />
+                  </label>
+                  <label>YouTube / TikTok / Outra rede (opcional)
+                    <input name="extSocial2" maxlength="60" placeholder="Ex.: @seucanal" />
+                  </label>
+                </div>
+                <label>Telefone / WhatsApp (opcional do perfil)
+                  <input name="extPhone" type="tel" maxlength="25" placeholder="Ex.: (83) 99999-9999 (opcional)" />
+                </label>
+                <div class="extended-profile-actions">
+                  <button class="primary-button" type="submit">💾 Salvar dados do perfil</button>
+                  <span id="extendedProfileSavedMsg" class="profile-saved-pill" hidden>✓ Perfil atualizado!</span>
+                </div>
+              </form>
+            </details>
+
+            <section class="profile-section-block">
+              <div class="profile-section-head">
+                <h3>🏆 Maiores Conquistas &amp; Medalhas Costeiras (Achievements)</h3>
+              </div>
+              <div id="myProfileAchievementsSummary" class="profile-records-row"></div>
+              <div id="myProfileMedalsList" class="profile-medals-strip"></div>
+            </section>
+
+            <section class="profile-section-block">
+              <div class="profile-section-head">
+                <div>
+                  <h3>📸 Galeria das Fotos Postadas &amp; Troféus</h3>
+                  <small id="myProfileGalleryCount" class="profile-gallery-count">0 foto(s)</small>
+                </div>
+                <div>
+                  <input id="myProfileTrophyInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                  <button id="addProfileTrophyBtn" class="secondary-share-btn profile-add-trophy-btn" type="button">➕ Adicionar foto de troféu</button>
+                </div>
+              </div>
+              <div id="myProfileGalleryGrid" class="profile-gallery-grid"></div>
+            </section>
+          </div>
+
           <form id="profileForm" hidden><label>Nome público<input name="displayName" required minlength="2" maxlength="40" autocomplete="nickname" /></label><button class="primary-button" type="submit">Concluir perfil</button></form>
           <p id="profileStatus" class="form-message" role="status"></p>
-          <button id="logoutButton" class="primary-button" type="button" style="margin-top:16px">Sair da conta</button></div>
+          <button id="logoutButton" class="text-button logout-outline-btn" type="button">Sair da conta</button>
+        </div>
         <p id="authMessage" class="form-message" role="status"></p>
       </dialog>
+      <dialog id="fisherProfileDialog" class="account-dialog fisher-profile-dialog" aria-labelledby="fisherProfileTitle">
+        <button id="closeFisherProfile" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <p class="eyebrow">PERFIL DO PESCADOR · COMUNIDADE MARÉ CERTA</p>
+        <div id="fisherProfileBody" class="fisher-profile-body"></div>
+      </dialog>
+
       <dialog id="shareCardDialog" class="account-dialog share-card-dialog" aria-labelledby="shareCardTitle">
         <button id="closeShareCard" class="close-dialog" type="button" aria-label="Fechar">×</button>
         <p class="eyebrow">TROFÉU DIGITAL · STORIES & WHATSAPP</p>
@@ -478,10 +584,10 @@
         </div>
 
         <ul class="pro-benefits-list">
-          <li>📸 <strong>1 Foto do Troféu por Captura:</strong> Upload ultrarrápido com compressão WebP automática no Amazon S3.</li>
-          <li>💬 <strong>Chat &amp; Respostas nos Posts:</strong> Pergunte qual isca, anzol ou praia nos troféus de outros pescadores.</li>
-          <li>➕ <strong>Seguir Pescadores &amp; Achievements:</strong> Monte sua rede costeira e exiba suas medalhas no topo do feed.</li>
-          <li>👑 <strong>Selo Oficial PRO:</strong> Destaque dourado ao lado do seu nome no Ranking e nos comentários.</li>
+          <li>📸 <strong>Fotos dos seus Troféus:</strong> Compartilhe suas capturas em foto para inspirar toda a nossa família de pescadores.</li>
+          <li>💬 <strong>Resenha &amp; Dicas nos Posts:</strong> Troque experiências, pergunte sobre iscas e praias e comente nos troféus dos amigos.</li>
+          <li>➕ <strong>Seguir Pescadores &amp; Conquistas:</strong> Acompanhe amigos de pesca de praia e exiba suas medalhas no topo do feed.</li>
+          <li>👑 <strong>Selo Oficial PRO:</strong> Destaque dourado de apoiador ao lado do seu nome no Ranking e nos relatos.</li>
         </ul>
 
         <div class="pro-plans-grid" role="group" aria-label="Escolha seu plano Mercado Pago">
@@ -562,8 +668,8 @@
         <p>Previsões costeiras são estimativas. Consulte avisos locais antes de sair.</p>
       </footer>
     </div>
-    <script type="module" src="./dist/app-b.js?v=7c3f4cf0e32d"></script>
+    <script type="module" src="./dist/app-b.js?v=388a3930f317"></script>
     <script type="module" src="./dist/tabs.js?v=4c84b55dc424"></script>
-    <script type="module" src="./dist/ranking-b.js?v=36963ca98410"></script>
+    <script type="module" src="./dist/ranking-b.js?v=78c272469f30"></script>
   </body>
 </html>
