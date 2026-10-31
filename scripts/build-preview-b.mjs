@@ -1547,7 +1547,6 @@ import {
   renderAdminProPanel,
   validateTextAgainstModeration,
   getUserModerationStatus,
-  uploadTrophyPhotoToFirebaseStorage,
   uploadImageToS3,
   uploadCommunityImage,
   applyLocationToMainPage,

@@ -14,8 +14,7 @@ import {
 
 export { resolveLocationByQuery, searchCoastalLocations, COASTAL_ALIASES, PRESET_SPOTS, getProRemainingDays, formatProDurationLabel };
 import { ref, set, update, push, remove, onValue, get } from 'firebase/database';
-import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
-import { database, storage, auth } from '../firebase.js';
+import { database, auth } from '../firebase.js';
 
 const $ = id => (typeof document !== 'undefined' ? document.getElementById(id) : null);
 
@@ -646,28 +645,15 @@ export async function uploadImageToS3(photoDataUrl, folder = 'trophies', filenam
 
 export async function uploadCommunityImage(photoDataUrl, folder = 'trophies', id = null) {
   if (!photoDataUrl || typeof photoDataUrl !== 'string' || !photoDataUrl.startsWith('data:')) return null;
-  // 1. Tenta upload prioritário para o bucket AWS S3 (pescaimages)
+  // Upload exclusivo para o bucket AWS S3 (pescaimages) com fotos comprimidas WebP
   try {
     const cleanId = id ? String(id).replace(/[^a-zA-Z0-9_-]/g, '') : Date.now();
     const s3Url = await uploadImageToS3(photoDataUrl, folder, `${folder}-${cleanId}.webp`);
     if (s3Url) return s3Url;
-  } catch {}
-
-  // 2. Se falhar ou estiver sem backend, utiliza o Firebase Storage como fallback seguro
-  return uploadTrophyPhotoToFirebaseStorage(id, photoDataUrl);
-}
-
-export async function uploadTrophyPhotoToFirebaseStorage(captureId, photoDataUrl) {
-  if (!photoDataUrl || typeof photoDataUrl !== 'string' || !photoDataUrl.startsWith('data:')) return null;
-  try {
-    const fileRef = storageRef(storage, `mareCerta/trophies/${captureId || Date.now()}.webp`);
-    await uploadString(fileRef, photoDataUrl, 'data_url');
-    const downloadUrl = await getDownloadURL(fileRef);
-    return downloadUrl;
   } catch (err) {
-    console.warn('Fallback: foto salva localmente, upload no Firebase Storage não concluído:', err);
-    return null;
+    console.warn('Falha no upload para AWS S3:', err);
   }
+  return null;
 }
 
 export function loadAdminVipGrants(now = Date.now()) {

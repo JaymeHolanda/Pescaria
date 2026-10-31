@@ -1332,6 +1332,10 @@ test('Design Patterns de comentários: ações abaixo do texto do comentário e 
   const envExample = readFileSync('.env.example', 'utf8');
   assert.match(envExample, /AWS_ACCESS_KEY_ID=sua_access_key_aqui/);
   assert.doesNotMatch(envExample, /AKIASNXINGS2GKFRTUGR/);
+
+  // 5. Garante que nenhuma foto é enviada para o Firebase Storage (exclusivo AWS S3 pescaimages)
+  assert.doesNotMatch(commEnhanceCode, /from ['"]firebase\/storage['"]/);
+  assert.equal(typeof commModule.uploadTrophyPhotoToFirebaseStorage, 'undefined');
 });
 
 
