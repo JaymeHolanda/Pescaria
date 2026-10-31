@@ -3354,21 +3354,36 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
       commentsListEl.innerHTML = `<p class="social-no-comments">Seja o primeiro a comentar ou perguntar sobre esta captura.</p>`;
       return;
     }
-    commentsListEl.innerHTML = list.map(c => `
-      <article class="social-comment-item" data-comment-id="${escapeHtml(c.id)}">
+    const myExt = currentUid ? getFisherExtendedProfile(currentUid, profiles?.[currentUid]) : null;
+    const myName = String(myExt?.displayName || profiles?.[currentUid]?.displayName || adminContext.currentUser?.displayName || '').trim().toLowerCase();
+
+    commentsListEl.innerHTML = list.map(c => {
+      const authorLabel = String(c.author || 'Pescador').trim();
+      const initials = authorLabel.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || 'P').join('');
+      const isMyComment = Boolean(
+        (currentUid && c.authorUid && c.authorUid === currentUid) ||
+        c.authorUid === 'me' ||
+        (myName && authorLabel.toLowerCase() === myName)
+      );
+
+      return `
+      <article class="social-comment-item ${isMyComment ? 'is-my-comment' : ''}" data-comment-id="${escapeHtml(c.id)}">
         <div class="social-comment-top">
-          <strong>${escapeHtml(c.author)}</strong>
-          ${c.isPro ? '<span class="pro-mini-tag">👑 PRO</span>' : ''}
-          <small>${escapeHtml(c.time || 'agora')}</small>
+          <div class="social-comment-meta">
+            <span class="social-comment-avatar" aria-hidden="true">${escapeHtml(initials)}</span>
+            <strong class="social-comment-author">${escapeHtml(authorLabel)}</strong>
+            ${c.isPro ? '<span class="pro-mini-tag">👑 PRO</span>' : ''}
+            <small class="social-comment-time">· ${escapeHtml(c.time || 'agora')}</small>
+          </div>
           <div class="social-comment-actions">
-            <button type="button" class="social-reply-link" data-reply-to="${escapeHtml(c.author)}">↩ Responder</button>
-            <button type="button" class="social-report-comment-btn" data-report-post-id="${escapeHtml(id)}" data-report-comment-id="${escapeHtml(c.id)}" data-report-comment-text="${escapeHtml(c.text)}" data-report-offender="${escapeHtml(c.author)}" data-report-offender-uid="${escapeHtml(c.authorUid || '')}" title="Denunciar este comentário ao administrador">🚩 Denunciar</button>
-            <button type="button" class="social-delete-comment-btn" data-delete-comment="${escapeHtml(c.id)}" title="Apagar comentário">🗑️ Apagar</button>
+            ${!isMyComment ? `<button type="button" class="social-reply-link" data-reply-to="${escapeHtml(authorLabel)}">Responder</button>` : ''}
+            ${!isMyComment ? `<button type="button" class="social-report-comment-btn" data-report-post-id="${escapeHtml(id)}" data-report-comment-id="${escapeHtml(c.id)}" data-report-comment-text="${escapeHtml(c.text)}" data-report-offender="${escapeHtml(authorLabel)}" data-report-offender-uid="${escapeHtml(c.authorUid || '')}" title="Denunciar este comentário ao administrador">Denunciar</button>` : ''}
+            ${isMyComment ? `<button type="button" class="social-delete-comment-btn" data-delete-comment="${escapeHtml(c.id)}" title="Apagar comentário">Apagar</button>` : ''}
           </div>
         </div>
-        <p>${escapeHtml(c.text)}</p>
-      </article>
-    `).join('');
+        <p class="social-comment-body">${escapeHtml(c.text)}</p>
+      </article>`;
+    }).join('');
 
     commentsListEl.querySelectorAll('.social-reply-link').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -4281,18 +4296,11 @@ export async function openShareCardModal(capture, fisherName, captureId = null) 
   const photoDataUrl = capture.photoUrl || (captureId && localPhotos[captureId]?.dataUrl) || generateTrophyFallbackIllustration(capture);
   const caption = getCaptureCaption(captureId, capture);
 
-  const alertEl = $('shareStatusAlert');
-  if (alertEl) {
-    alertEl.hidden = true;
-    alertEl.textContent = '';
-  }
-
   dialog.showModal();
   await drawTrophyCanvas(canvas, capture, fisherName, photoDataUrl, caption);
 
   const slug = String(capture.species || 'pescaria').toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const formattedDate = String(capture.date || '').split('-').reverse().join('/');
-  const captionSnippet = caption ? ` — “${caption}”` : '';
 
   // Constrói a URL canônica com parâmetros diretos para abrir o ranking e a captura
   const origin = (typeof window !== 'undefined' && window.location.origin) || 'https://marecerta.com.br';
@@ -4313,13 +4321,6 @@ export async function openShareCardModal(capture, fisherName, captureId = null) 
   lines.push(`👉 ${shareUrl}`);
   const fullShareText = lines.join('\n');
 
-  const showAlert = (msg, isSuccess = true) => {
-    if (!alertEl) return;
-    alertEl.hidden = false;
-    alertEl.className = `share-status-alert ${isSuccess ? 'is-success' : 'is-info'}`;
-    alertEl.textContent = msg;
-  };
-
   const downloadBtn = $('downloadTrophyBtn');
   if (downloadBtn) {
     downloadBtn.onclick = () => {
@@ -4327,23 +4328,6 @@ export async function openShareCardModal(capture, fisherName, captureId = null) 
       link.download = `mare-certa-${slug}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-      showAlert('💾 Imagem do troféu baixada com sucesso!');
-    };
-  }
-
-  const copyLinkBtn = $('copyShareLinkBtn');
-  if (copyLinkBtn) {
-    copyLinkBtn.onclick = async () => {
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(shareUrl);
-        } else {
-          prompt('Copie o link da pescaria:', shareUrl);
-        }
-        showAlert('🔗 Link direto copiado! Ao clicar nele, a pessoa vai direto para o ranking e esta captura.');
-      } catch {
-        prompt('Copie o link da pescaria:', shareUrl);
-      }
     };
   }
 
@@ -4355,44 +4339,32 @@ export async function openShareCardModal(capture, fisherName, captureId = null) 
           if (!blob) return;
           const file = new File([blob], `trofeu-mare-certa-${slug}.png`, { type: 'image/png' });
 
-          // No mobile: passando files e text juntos SEM title, o WhatsApp agrupa o texto diretamente como LEGENDA (caption) da foto!
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
               await navigator.share({
                 files: [file],
                 text: fullShareText
               });
-              showAlert('✅ Compartilhado no WhatsApp com a foto e o link!');
               return;
             } catch (err) {
               if (err.name === 'AbortError') return;
             }
           }
 
-          // No desktop / WhatsApp Web: copia a imagem para o Clipboard para o usuário colar na conversa (Ctrl+V)
-          let copiedImage = false;
           try {
             if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
               await navigator.clipboard.write([
                 new ClipboardItem({ 'image/png': blob })
               ]);
-              copiedImage = true;
             }
           } catch {}
 
           const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`;
           window.open(waUrl, '_blank', 'noopener,noreferrer');
-
-          if (copiedImage) {
-            showAlert('📋 Imagem do troféu copiada! Na conversa do WhatsApp, pressione Ctrl+V para colar a foto junto com a mensagem e o link!');
-          } else {
-            showAlert('💬 WhatsApp aberto com a mensagem e o link! Baixe a imagem caso deseje anexar junto.');
-          }
         }, 'image/png');
       } else {
         const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`;
         window.open(waUrl, '_blank', 'noopener,noreferrer');
-        showAlert('💬 WhatsApp aberto com a mensagem e o link da captura!');
       }
     };
   }

@@ -761,13 +761,9 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
           <canvas id="trophyCanvas" width="1080" height="1350" aria-label="Cartão visual da captura"></canvas>
         </div>
         <div class="share-dialog-actions">
-          <button id="nativeShareTrophyBtn" class="primary-button whatsapp-share-btn" type="button">🟢 Compartilhar no WhatsApp (com Foto & Link)</button>
-          <div class="share-dialog-sub-actions">
-            <button id="copyShareLinkBtn" class="secondary-share-btn" type="button">🔗 Copiar Link da Captura</button>
-            <button id="downloadTrophyBtn" class="secondary-share-btn" type="button">⬇ Baixar Imagem (PNG)</button>
-          </div>
+          <button id="nativeShareTrophyBtn" class="primary-button whatsapp-share-btn" type="button">🟢 Compartilhar no WhatsApp</button>
+          <button id="downloadTrophyBtn" class="secondary-share-btn" type="button">⬇ Baixar Imagem</button>
         </div>
-        <div id="shareStatusAlert" class="share-status-alert" role="status" hidden></div>
       </dialog>
 
       <dialog id="proPaywallDialog" class="account-dialog pro-paywall-dialog" aria-labelledby="proPaywallTitle">

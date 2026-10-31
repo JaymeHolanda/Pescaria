@@ -27,5 +27,19 @@
     "email": "g2tiaxd8ecnljiohvplbxebouk53",
     "active": false,
     "revokedAt": 1793431535034
+  },
+  "e5JYl1VLKubcCPcP2iNc1pl2mwy1": {
+    "uid": "e5JYl1VLKubcCPcP2iNc1pl2mwy1",
+    "email": "e5jyl1vlkubccpcp2inc1pl2mwy1@comunidade.marecerta.com.br",
+    "name": "teste3",
+    "active": true,
+    "planId": "annual",
+    "isFreeGrant": true,
+    "roleLabel": "PRO Cortesia (1 ano)",
+    "durationDays": 365,
+    "activatedAt": 1793432774768,
+    "expiresAt": 1824968774768,
+    "paymentId": "admin-1793432774767",
+    "revokedAt": null
   }
 }

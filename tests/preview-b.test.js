@@ -1035,12 +1035,12 @@ test('Compartilhamento WhatsApp (mensagem junta com foto e link direto) e auto-r
   } = await import('../src/preview-b/community-enhancements.js');
   const { readFileSync } = await import('fs');
 
-  // 1. Presença dos botões dedicados e alertas no HTML
+  // 1. Presença apenas dos botões de Compartilhar no WhatsApp e Baixar Imagem (sem botão de copiar link nem textos redundantes)
   const html = readFileSync('dist/index.html', 'utf8');
   assert.match(html, /id="nativeShareTrophyBtn"/);
-  assert.match(html, /id="copyShareLinkBtn"/);
   assert.match(html, /id="downloadTrophyBtn"/);
-  assert.match(html, /id="shareStatusAlert"/);
+  assert.doesNotMatch(html, /id="copyShareLinkBtn"/);
+  assert.doesNotMatch(html, /id="shareStatusAlert"/);
   assert.match(html, /whatsapp-share-btn/);
 
   // 2. Simulação de navegação por URL compartilhada (?tab=ranking&capture=cap-123#ranking)

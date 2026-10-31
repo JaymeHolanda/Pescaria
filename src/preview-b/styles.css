@@ -5913,5 +5913,164 @@ a.profile-social-pill:hover {
   height: 14px;
 }
 
+/* ============================================================
+   DESIGN PATTERN DE COMENTÁRIOS (CLEAN SOCIAL THREAD)
+   ============================================================ */
+.social-comment-item {
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  border: 1px solid rgba(151, 218, 214, 0.1) !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.social-comment-item:hover {
+  border-color: rgba(151, 218, 214, 0.2) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.social-comment-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 0 !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+.social-comment-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.social-comment-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(77, 225, 193, 0.22), rgba(14, 52, 68, 0.92));
+  border: 1px solid rgba(77, 225, 193, 0.38);
+  color: #4de1c1;
+  font-size: 0.64rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.social-comment-author {
+  color: #f0f9f8 !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+}
+
+.social-comment-meta .pro-mini-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 2px 7px !important;
+  border-radius: 999px !important;
+  font-size: 0.62rem !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  overflow-wrap: normal !important;
+}
+
+.social-comment-time {
+  color: #7d9ea8 !important;
+  font-size: 0.72rem !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.social-comment-actions {
+  margin-left: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex-shrink: 0 !important;
+}
+
+.social-comment-actions .social-reply-link,
+.social-comment-actions .social-report-comment-btn,
+.social-comment-actions .social-delete-comment-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  text-decoration: none !important;
+}
+
+.social-comment-actions .social-reply-link {
+  color: #4de1c1 !important;
+}
+
+.social-comment-actions .social-reply-link:hover {
+  background: rgba(77, 225, 193, 0.12) !important;
+  border-color: rgba(77, 225, 193, 0.28) !important;
+  color: #ffffff !important;
+}
+
+.social-comment-actions .social-report-comment-btn {
+  color: #8daab3 !important;
+}
+
+.social-comment-actions .social-report-comment-btn:hover {
+  background: rgba(235, 75, 75, 0.12) !important;
+  border-color: rgba(235, 75, 75, 0.32) !important;
+  color: #ff8080 !important;
+}
+
+.social-comment-actions .social-delete-comment-btn {
+  color: #ff8b8b !important;
+  opacity: 0.9;
+}
+
+.social-comment-actions .social-delete-comment-btn:hover {
+  background: rgba(235, 75, 75, 0.18) !important;
+  border-color: rgba(235, 75, 75, 0.38) !important;
+  color: #ffffff !important;
+  opacity: 1;
+}
+
+.social-comment-item p.social-comment-body {
+  margin: 0 !important;
+  padding-left: 30px !important;
+  color: #d6eef2 !important;
+  font-size: 0.82rem !important;
+  line-height: 1.45 !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+
 
 
