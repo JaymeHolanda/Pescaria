@@ -299,45 +299,36 @@ export function getUnreadNotificationsData(allCaptures = {}, currentUid = null, 
   const readMap = loadReadCommentsMap();
   const allComments = socialState.comments || {};
 
-  const myCaptureIds = new Set();
-  const uidClean = currentUid || null;
-  const emailClean = (currentEmail || '').trim().toLowerCase();
+  const user = adminContext.currentUser || (typeof auth !== 'undefined' && auth?.currentUser) || null;
+  const uidClean = currentUid || user?.uid || null;
+  const emailClean = (currentEmail || user?.email || '').trim().toLowerCase();
 
-  for (const [cid, cap] of Object.entries(allCaptures || {})) {
-    if (!cap) continue;
-    const isOwner = (uidClean && cap.uid === uidClean) ||
-                    (emailClean && cap.email && cap.email.toLowerCase() === emailClean) ||
-                    (cap.authorName && (cap.authorName === 'Jayme Holanda' || cap.authorName === 'Você'));
-    if (isOwner) {
-      myCaptureIds.add(cid);
-    }
+  // Notificações são exclusivas para o perfil do usuário logado
+  if (!uidClean && !emailClean) {
+    return {
+      totalUnread: 0,
+      unreadPerCapture: {},
+      unreadCaptureIds: []
+    };
   }
 
-  // Se o usuário logado tem capturas mas ainda nenhuma tem comentários,
-  // ou se ele ainda não tem comentários registrados, adiciona um comentário cortesia inicial da comunidade
-  // na primeira captura dele para ativar a notificação com animação para teste:
-  if (myCaptureIds.size > 0) {
-    let hasAnyCommentInMyCaptures = false;
-    for (const myCid of myCaptureIds) {
-      if (Array.isArray(allComments[myCid]) && allComments[myCid].length > 0) {
-        hasAnyCommentInMyCaptures = true;
-        break;
-      }
-    }
-    if (!hasAnyCommentInMyCaptures) {
-      const firstMyCid = Array.from(myCaptureIds)[0];
-      allComments[firstMyCid] = [
-        {
-          id: `c-welcome-${firstMyCid}`,
-          author: 'Carlos Pescador',
-          authorUid: 'demo-fisher-6',
-          isPro: true,
-          time: 'há 10m',
-          text: 'Belo troféu registrado! Qual isca e maré você usou nessa pescaria?'
-        }
-      ];
-      socialState.comments = allComments;
-      saveSocialState(socialState);
+  const extMe = uidClean ? getFisherExtendedProfile(uidClean) : null;
+  const myName = (extMe?.displayName || user?.displayName || '').trim().toLowerCase();
+  const myFirstName = myName ? myName.split(' ')[0] : '';
+
+  // Capturas pertencentes exclusivamente ao perfil do usuário atual
+  const myCaptureIds = new Set();
+  for (const [cid, cap] of Object.entries(allCaptures || {})) {
+    if (!cap) continue;
+    const capUid = String(cap.uid || '').trim();
+    const capEmail = String(cap.email || '').trim().toLowerCase();
+    const capAuthor = String(cap.authorName || '').trim().toLowerCase();
+
+    const isOwner = (uidClean && capUid === uidClean) ||
+                    (emailClean && capEmail && capEmail === emailClean) ||
+                    (myName && capAuthor && (capAuthor === myName || (myName.includes('jayme') && capAuthor.includes('jayme'))));
+    if (isOwner) {
+      myCaptureIds.add(cid);
     }
   }
 
@@ -348,18 +339,38 @@ export function getUnreadNotificationsData(allCaptures = {}, currentUid = null, 
   for (const [cid, comments] of Object.entries(allComments)) {
     if (!Array.isArray(comments) || comments.length === 0) continue;
     const isMyPost = myCaptureIds.has(cid);
-    const incoming = comments.filter(c => c && c.authorUid !== uidClean && c.author !== 'Você');
-    if (!incoming.length) continue;
 
-    // Se é post do usuário OU no modo de demonstração inicial quando não há posts próprios:
-    if (isMyPost || (myCaptureIds.size === 0 && (cid === 'demo-1' || cid === 'demo-2'))) {
-      const readCount = Number(readMap[cid] || 0);
-      const unread = Math.max(0, incoming.length - readCount);
-      if (unread > 0) {
-        totalUnread += unread;
-        unreadPerCapture[cid] = unread;
-        unreadCaptureIds.push(cid);
-      }
+    // Regra estrita de notificação:
+    // 1) Post é do próprio usuário e outra pessoa comentou;
+    // 2) OU alguém respondeu marcando explicitamente o usuário (@Nome ou replyTo).
+    const relevantComments = comments.filter(c => {
+      if (!c) return false;
+      const authorUid = String(c.authorUid || '').trim();
+      const authorName = String(c.author || '').trim().toLowerCase();
+
+      // Ignora comentários feitos pelo próprio usuário
+      if (uidClean && authorUid === uidClean) return false;
+      if (myName && authorName === myName) return false;
+
+      // 1) O post pertence ao perfil do usuário
+      if (isMyPost) return true;
+
+      // 2) Alguém respondeu marcando o usuário em outro post
+      const text = String(c.text || '').toLowerCase();
+      const mentionsMe = (myName && text.includes(`@${myName}`)) ||
+                         (myFirstName && myFirstName.length >= 3 && text.includes(`@${myFirstName}`)) ||
+                         (c.replyTo && String(c.replyTo).trim().toLowerCase() === myName);
+      return Boolean(mentionsMe);
+    });
+
+    if (!relevantComments.length) continue;
+
+    const readCount = Number(readMap[cid] || 0);
+    const unread = Math.max(0, relevantComments.length - readCount);
+    if (unread > 0) {
+      totalUnread += unread;
+      unreadPerCapture[cid] = unread;
+      unreadCaptureIds.push(cid);
     }
   }
 
@@ -372,38 +383,17 @@ export function getUnreadNotificationsData(allCaptures = {}, currentUid = null, 
 
 export function getUnreadCommentsCountForCapture(captureId, currentUid = null, currentEmail = null) {
   if (!captureId) return 0;
-  const socialState = loadSocialState();
-  const readMap = loadReadCommentsMap();
-  const comments = Array.isArray(socialState.comments[captureId]) ? socialState.comments[captureId] : [];
-  const uidClean = currentUid || null;
-  const incoming = comments.filter(c => c && c.authorUid !== uidClean && c.author !== 'Você');
-  const readCount = Number(readMap[captureId] || 0);
-  return Math.max(0, incoming.length - readCount);
+  const data = getUnreadNotificationsData(adminContext.captures || adminContext.allCaptures || {}, currentUid, currentEmail);
+  return data.unreadPerCapture[captureId] || 0;
 }
 
 export function markCaptureCommentsAsRead(captureId, currentUid = null, currentEmail = null) {
   if (!captureId) return;
   const socialState = loadSocialState();
   const comments = Array.isArray(socialState.comments[captureId]) ? socialState.comments[captureId] : [];
-  const uidClean = currentUid || null;
-  const incoming = comments.filter(c => c && c.authorUid !== uidClean && c.author !== 'Você');
   const readMap = loadReadCommentsMap();
-  readMap[captureId] = incoming.length;
+  readMap[captureId] = comments.length;
   saveReadCommentsMap(readMap);
-
-  // Remove animação de pulse e indicador do card específico
-  const card = document.getElementById(`capture-card-${captureId}`) ||
-               (typeof CSS !== 'undefined' && CSS.escape && document.querySelector(`[data-capture-id="${CSS.escape(captureId)}"]`));
-  if (card) {
-    card.querySelectorAll('.post-unread-pill').forEach(p => {
-      p.style.opacity = '0';
-      p.style.transform = 'translateY(-4px)';
-      setTimeout(() => p.remove(), 250);
-    });
-    card.querySelectorAll('.comment-toggle-btn').forEach(btn => {
-      btn.classList.remove('has-unread', 'pulse-continuous');
-    });
-  }
 
   updateNotificationBell();
 }
@@ -3306,16 +3296,6 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     captionEl.textContent = `“${captionText}”`;
   }
 
-  // Notificação com Sininho e Pulse Continuous para mensagens não lidas no próprio post
-  const unreadCount = getUnreadCommentsCountForCapture(id, currentUid, adminContext.currentUser?.email);
-  if (unreadCount > 0) {
-    const unreadPill = document.createElement('div');
-    unreadPill.className = 'post-unread-pill pulse-continuous';
-    unreadPill.setAttribute('data-unread-capture', String(id));
-    unreadPill.innerHTML = `🔔 <strong>${unreadCount} nova${unreadCount > 1 ? 's' : ''} mensage${unreadCount > 1 ? 'ns' : 'm'}</strong> neste troféu · Toque para ler`;
-    header.prepend(unreadPill);
-  }
-
   // 2. Trophy Photo Container
   const photoFigure = document.createElement('figure');
   photoFigure.className = 'social-trophy-figure';
@@ -3334,7 +3314,7 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     <button type="button" class="social-action-btn like-btn ${isLiked ? 'is-liked' : ''}" aria-pressed="${isLiked}">
       👏 Boa pesca! <span data-likes-num>${likesCount}</span>
     </button>
-    <button type="button" class="social-action-btn comment-toggle-btn ${unreadCount > 0 ? 'has-unread pulse-continuous' : ''}">
+    <button type="button" class="social-action-btn comment-toggle-btn">
       💬 Responder / Comentar <span data-comments-num>${postComments.length}</span>
     </button>
   `;
@@ -3455,14 +3435,6 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
       openProPaywallModal('comentar');
     }
   });
-
-  const unreadPillEl = header.querySelector('.post-unread-pill');
-  if (unreadPillEl) {
-    unreadPillEl.addEventListener('click', () => {
-      markCaptureCommentsAsRead(id, currentUid, adminContext.currentUser?.email);
-      commentInput.focus();
-    });
-  }
 
   commentForm.addEventListener('submit', event => {
     event.preventDefault();

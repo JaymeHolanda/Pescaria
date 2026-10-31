@@ -1231,26 +1231,38 @@ test('Sininho de notificações com pulse continuous, navegação da galeria par
   assert.ok(css.includes('.pulse-continuous'), 'CSS deve conter classe de animação contínua');
   assert.ok(css.includes('@keyframes notifPulseContinuous'), 'CSS deve conter keyframes de pulso contínuo');
   assert.ok(css.includes('@keyframes notifBellSwing'), 'CSS deve conter animação de balanço do sininho');
-  assert.ok(css.includes('.post-unread-pill'), 'CSS deve conter pill de notificação no post');
   assert.ok(css.includes('.profile-gallery-item'), 'CSS deve conter estilo da galeria');
 
-  // 3. Testar lógica de mensagens não lidas
+  // 3. Testar lógica estrita de notificações: APENAS post do próprio usuário ou menção a ele
   saveReadCommentsMap({});
+  const { saveSocialState, loadSocialState } = await import('../src/preview-b/community-enhancements.js');
+  const social = loadSocialState();
+  social.comments['cap-jayme-1'] = [
+    { id: 'c-1', author: 'Carlos Pescador', authorUid: 'uid-other', text: 'Parabéns Jayme!' }
+  ];
+  social.comments['demo-2'] = [
+    { id: 'c-2', author: 'Juliana Mar', authorUid: 'demo-fisher-3', text: 'Comentário em post de outro pescador sem menção' }
+  ];
+  saveSocialState(social);
+
   const mockCaptures = {
     'cap-jayme-1': {
       uid: 'uid-jayme-test',
       authorName: 'Jayme Holanda',
       species: 'Pampo',
       weight: 0.5
+    },
+    'demo-2': {
+      uid: 'demo-fisher-2',
+      authorName: 'Marcos Surfcasting',
+      species: 'Pampo-galhudo'
     }
   };
 
   const initialNotifs = getUnreadNotificationsData(mockCaptures, 'uid-jayme-test');
-  assert.ok(initialNotifs.totalUnread >= 1, 'Deve detectar mensagens não lidas para o pescador');
-  assert.ok(initialNotifs.unreadCaptureIds.includes('cap-jayme-1'), 'Deve listar a captura com mensagens');
-
-  const unreadCount = getUnreadCommentsCountForCapture('cap-jayme-1', 'uid-jayme-test');
-  assert.ok(unreadCount >= 1, 'Contador por captura deve refletir mensagens pendentes');
+  assert.equal(initialNotifs.totalUnread, 1, 'Deve detectar apenas a notificação do post do Jayme, ignorando posts de terceiros');
+  assert.ok(initialNotifs.unreadCaptureIds.includes('cap-jayme-1'), 'Deve listar a captura do Jayme');
+  assert.ok(!initialNotifs.unreadCaptureIds.includes('demo-2'), 'NUNCA deve notificar post de terceiro (ex: Marcos Surfcasting)');
 
   // 4. Testar leitura de mensagens da captura
   markCaptureCommentsAsRead('cap-jayme-1', 'uid-jayme-test');
@@ -1258,7 +1270,7 @@ test('Sininho de notificações com pulse continuous, navegação da galeria par
   assert.equal(readAfter, 0, 'Após ler mensagens do post, a contagem daquele post deve zerar');
 
   const notifsAfterRead = getUnreadNotificationsData(mockCaptures, 'uid-jayme-test');
-  assert.equal(notifsAfterRead.unreadPerCapture['cap-jayme-1'] || 0, 0, 'Notificações ativas do post devem cessar');
+  assert.equal(notifsAfterRead.totalUnread, 0, 'Notificações ativas do post devem cessar completamente');
 
   // 5. Validar que o cropper no código exporta com a ordem correta de transformações (translate antes de scale)
   const commEnhanceCode = readFileSync('src/preview-b/community-enhancements.js', 'utf8');

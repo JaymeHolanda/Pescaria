@@ -5762,35 +5762,6 @@ a.profile-social-pill:hover {
   display: inline-block;
 }
 
-.post-unread-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 12px;
-  padding: 8px 14px;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.36));
-  border: 1px solid #f59e0b;
-  border-radius: 999px;
-  color: #fef3c7;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
-}
-
-.post-unread-pill:hover {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.32), rgba(217, 119, 6, 0.5));
-  border-color: #fbbf24;
-  transform: translateY(-1px);
-}
-
-.comment-toggle-btn.has-unread {
-  border-color: #f59e0b !important;
-  color: #fef3c7 !important;
-  background: rgba(245, 158, 11, 0.16) !important;
-}
-
 /* ===== GALERIA DAS FOTOS POSTADAS & TROFÉUS (NAVEGÁVEL PARA O RANKING) ===== */
 .profile-gallery-item {
   cursor: pointer !important;
