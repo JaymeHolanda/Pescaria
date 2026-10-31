@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://marecerta.com.br/sitemap.xml

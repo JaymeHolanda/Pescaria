@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#061b2a" />
+    <title>Admin · Maré Certa</title>
+    <link rel="icon" href="./assets/pwa-app-icon.jpg" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./versao-b.css" />
+  </head>
+  <body class="preview-b admin-page">
+    <div class="shell admin-shell">
+      <header class="topbar">
+        <span class="brand"><span>MARÉ <b>CERTA</b></span></span>
+        <span class="live-pill"><span></span> Área restrita · Administração</span>
+      </header>
+
+      <section id="adminLoginCard" class="card admin-login-card" aria-labelledby="adminLoginTitle">
+        <span class="eyebrow">🛡️ ACESSO RESTRITO</span>
+        <h1 id="adminLoginTitle">Login do Administrador</h1>
+        <form id="adminLoginForm" class="admin-login-form">
+          <label>Usuário<input name="adminUser" autocomplete="username" required /></label>
+          <label>Senha<input name="adminPass" type="password" autocomplete="current-password" required /></label>
+          <button class="primary-button" type="submit">Entrar no painel</button>
+          <p id="adminLoginError" class="form-message is-error" role="alert" hidden>Usuário ou senha inválidos.</p>
+        </form>
+      </section>
+
+      <main id="adminPanelArea" hidden>
+        
+
+      
+      <section id="adminProDialog" class="card admin-pro-page-panel" aria-labelledby="adminProDialogTitle">
+        
+        <div class="admin-dialog-head">
+          <div class="admin-head-badges">
+            <span class="compliance-badge">🛡️ CONTA DE ADMINISTRADOR · GESTÃO DE COMUNIDADE</span>
+            <span class="admin-zero-cost-pill">👑 Liberação PRO 100% Gratuita (R$ 0)</span>
+          </div>
+          <h2 id="adminProDialogTitle">Painel Admin — Selecionar Pessoas Premium Sem Pagar</h2>
+          <p class="legal-dialog-meta">Conceda ou revogue o acesso <strong>Clube Pescador PRO (Cortesia / VIP)</strong> para pescadores parceiros, amigos, embaixadores ou membros da comunidade sem necessidade de pagamento no Mercado Pago.</p>
+        </div>
+
+        <div class="admin-sync-bar" role="region" aria-label="Sincronização em tempo real">
+          <div class="admin-sync-info">
+            <span class="admin-sync-dot" aria-hidden="true"></span>
+            <span id="adminSyncStatusText">Sincronização em tempo real ativa</span>
+            <span id="adminSyncCountdown" class="admin-sync-countdown">· Atualizando em 15s</span>
+          </div>
+          <div class="admin-sync-actions">
+            <button id="adminRefreshNowBtn" class="admin-refresh-btn" type="button" title="Buscar novas contas e capturas no Firebase agora">
+              <span class="refresh-icon" aria-hidden="true">🔄</span> <span>Atualizar agora</span>
+            </button>
+            <label class="admin-auto-refresh-toggle" title="Ativar ou pausar atualização automática a cada 15 segundos">
+              <input type="checkbox" id="adminAutoRefreshCheck" checked />
+              <span>A cada 15s</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-kpi-strip">
+          <div class="admin-kpi-box">
+            <strong id="adminTotalUsersCount">0</strong>
+            <span>Pescadores na Lista</span>
+          </div>
+          <div class="admin-kpi-box is-gold">
+            <strong id="adminTotalVipCount">0</strong>
+            <span>Com PRO Grátis Ativo</span>
+          </div>
+          <div class="admin-kpi-box is-danger">
+            <strong id="adminTotalBannedCount">0</strong>
+            <span>Banidos / Excluídos</span>
+          </div>
+          <div class="admin-kpi-box is-danger">
+            <strong id="adminTotalReportsCount">0</strong>
+            <span>Denúncias Pendentes</span>
+          </div>
+          <div class="admin-kpi-box">
+            <strong id="adminMyCurrentStatus">Padrão</strong>
+            <span>Sua Conta Atual</span>
+          </div>
+        </div>
+
+        <div class="admin-self-quick-bar">
+          <div>
+            <strong>⚡ Atalho para sua própria conta</strong>
+            <small>Libere ou teste o status PRO Cortesia imediatamente no seu usuário atual.</small>
+          </div>
+          <button id="adminGrantCurrentMeBtn" class="primary-button admin-self-btn" type="button">
+            👑 Liberar PRO Grátis na Minha Conta Atual
+          </button>
+        </div>
+
+        <form id="adminGrantByEmailForm" class="admin-grant-form">
+          <div class="admin-form-title">➕ Adicionar / Pré-Aprovar Pessoa por Nome ou E-mail</div>
+          <div class="admin-form-grid">
+            <label>Nome do pescador(a)
+              <input name="vipName" maxlength="50" placeholder="Ex.: João Pescador" required />
+            </label>
+            <label>E-mail da conta (ou identificador)
+              <input name="vipEmail" type="text" maxlength="80" placeholder="Ex.: joao@email.com" required />
+            </label>
+            <label>Categoria da Cortesia
+              <select name="vipRole">
+                <option value="PRO Cortesia (Liberado pelo Admin)">👑 PRO Cortesia (Sem Custo)</option>
+                <option value="Parceiro Oficial · VIP">⚓ Parceiro Oficial · VIP</option>
+                <option value="Embaixador Maré Certa">🏆 Embaixador Maré Certa</option>
+                <option value="Convidado da Família PRO">🎣 Convidado da Família PRO</option>
+              </select>
+            </label>
+            <label>Duração do Premium
+              <select name="vipDuration">
+                <option value="3">3 dias (Degustação)</option>
+                <option value="30">1 mês (30 dias)</option>
+                <option value="365" selected>1 ano (365 dias)</option>
+                <option value="3650">Vitalício / Cortesia Indeterminada</option>
+              </select>
+            </label>
+          </div>
+          <div class="admin-form-actions">
+            <button type="submit" class="primary-button">👑 Conceder Premium Sem Pagar</button>
+            <span id="adminGrantFeedback" class="profile-saved-pill" hidden>✓ Acesso PRO Cortesia liberado!</span>
+          </div>
+        </form>
+
+        <div class="admin-users-section">
+          <div class="admin-users-toolbar">
+            <input id="adminUserSearchInput" type="search" placeholder="🔍 Buscar pescador por nome, e-mail ou praia…" autocomplete="off" />
+            <div class="admin-filter-pills" role="group" aria-label="Filtrar usuários">
+              <button type="button" class="admin-filter-btn is-active" data-admin-filter="all" aria-pressed="true">Todos</button>
+              <button type="button" class="admin-filter-btn" data-admin-filter="vip" aria-pressed="false">👑 Com PRO Grátis</button>
+              <button type="button" class="admin-filter-btn" data-admin-filter="free" aria-pressed="false">🔒 Contas Gratuitas</button>
+              <button type="button" class="admin-filter-btn" data-admin-filter="banned" aria-pressed="false">🚫 Banidos / Excluídos</button>
+            </div>
+          </div>
+          <div id="adminUsersList" class="admin-users-list" role="region" aria-live="polite"></div>
+        </div>
+
+        <section class="admin-word-filter-section" aria-labelledby="adminWordFilterTitle">
+          <div class="admin-word-filter-head">
+            <div>
+              <h3 id="adminWordFilterTitle">🛡️ Filtro Automático de Palavras Proibidas e Ilícitas</h3>
+              <p class="legal-dialog-meta">Postagens, relatos de captura, perfis e comentários contendo palavrões, pesca predatória (bomba, rede de arrasto, defeso), golpes ou drogas são bloqueados automaticamente.</p>
+            </div>
+            <span id="adminBlockedWordsCount" class="admin-source-tag">0 termos bloqueados</span>
+          </div>
+          <form id="adminWordFilterForm" class="admin-word-filter-form">
+            <input name="blockedWord" type="text" maxlength="40" placeholder="Adicionar palavra ou expressão proibida (ex.: tarrafa ilegal)…" required />
+            <button type="submit" class="primary-button">➕ Bloquear Termo</button>
+            <span id="adminWordFilterFeedback" class="profile-saved-pill" hidden>✓ Termo adicionado!</span>
+          </form>
+          <div id="adminProhibitedWordsList" class="admin-prohibited-words-list" aria-label="Lista de palavras bloqueadas"></div>
+        </section>
+
+        <section class="admin-reports-section" aria-labelledby="adminReportsTitle">
+          <div class="admin-reports-head">
+            <div>
+              <h3 id="adminReportsTitle">🚨 Denúncias de Comentários Recebidas</h3>
+              <p class="legal-dialog-meta">Comentários denunciados por donos de postagens e pescadores da comunidade. Veja o autor, o comentário, o relato do ocorrido e aplique a punição cabível.</p>
+            </div>
+            <span id="adminReportsCountBadge" class="admin-source-tag">0 denúncias</span>
+          </div>
+          <div id="adminReportsList" class="admin-reports-list" role="region" aria-live="polite"></div>
+        </section>
+
+        <div class="legal-dialog-footer">
+          <button id="adminLogoutBtn" class="text-button logout-outline-btn" type="button">Sair do painel admin</button>
+        </div>
+      </section>
+      </main>
+    </div>
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>

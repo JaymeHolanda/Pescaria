@@ -1,7 +1,7 @@
 import { conditionsSummary, hourlyDay } from './conditions.js?v=e2046439115a';
 import { marinePoints, findTideEvents, fishingWindow, isNearCabedelo, officialTideDay } from './tides.js?v=b51d6bc911fb';
 import { renderMarinePanel, clearMarinePanel, windowMarineSummary } from './marine-b.js?v=f155a29720da';
-import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation } from './preview-b.js?v=ad94f3855ab8';
+import { clearPreview, renderPreview, forecastDays, PRESET_SPOTS, solunarPeriods, checkSolunarSync, buildHarborTideDay, fetchBrazilianHarborTides, findNearestBrazilianHarbor, setSpeciesLocation, applyAdaptiveSeo, resolveSeoLocationBySlug, resolveLocationByQuery, slugifyLocation } from './preview-b.js?v=b202d9e111ae';
 
 const DEFAULT_LOCATION = { name: "João Pessoa", admin1: "Paraíba", country_code: "BR", latitude: -7.115, longitude: -34.8631 };
 const state = { location: loadLocation(), favorites: loadFavorites(), weather: null, marine: null, brazilTides: null, selectedDay: 0, aborter: null };
@@ -52,7 +52,32 @@ function hideLocationLoader() {
 }
 
 function loadLocation() {
-  try { return JSON.parse(localStorage.getItem("mare-certa-location")) || DEFAULT_LOCATION; }
+  try {
+    if (typeof window !== "undefined" && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      const localSlug = params.get("local") || params.get("cidade") || params.get("praia");
+      if (localSlug) {
+        const matched = resolveSeoLocationBySlug(localSlug) || resolveLocationByQuery(localSlug);
+        if (matched) return matched;
+      }
+    }
+    const savedCustomLoc = localStorage.getItem("mare-certa-location");
+    if (!savedCustomLoc) {
+      try {
+        const profiles = JSON.parse(localStorage.getItem('mare-certa-fisher-profiles-v1') || '{}');
+        const lastUid = localStorage.getItem('mare-certa-last-active-uid');
+        const p = lastUid ? profiles[lastUid] : Object.values(profiles)[0];
+        if (p?.preferredLocation && Number.isFinite(Number(p.preferredLocation.latitude))) {
+          return p.preferredLocation;
+        }
+        if (p?.location) {
+          const resolved = resolveLocationByQuery(p.location);
+          if (resolved) return resolved;
+        }
+      } catch {}
+    }
+    return JSON.parse(savedCustomLoc) || DEFAULT_LOCATION;
+  }
   catch { return DEFAULT_LOCATION; }
 }
 
@@ -114,6 +139,18 @@ function saveLocation(location) {
   updateLocationLabel();
   renderSpotQuickBar();
   setSpeciesLocation(location);
+  try {
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      const slug = slugifyLocation(location.name, location.admin1);
+      if (slug) window.history.replaceState(null, "", `?local=${encodeURIComponent(slug)}`);
+    }
+  } catch {}
+  applyAdaptiveSeo({ location });
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent('mare-certa:location-changed', { detail: location }));
+    }
+  } catch {}
 }
 
 function updateLocationLabel() {
@@ -406,7 +443,12 @@ function renderEvents(events) {
 
 function renderWindows(events, moon, date) {
   const springTide = moon.name === 'Lua nova' || moon.name === 'Lua cheia';
-  const springBadge = springTide ? '<span class="spring-tide-badge">' + moon.name + ' · Marés de sizígia</span><p class="spring-tide-note">Período associado a maior amplitude entre maré alta e baixa.</p>' : '';
+  const neapTide = moon.name === 'Quarto crescente' || moon.name === 'Quarto minguante';
+  const tideBadge = springTide
+    ? '<span class="spring-tide-badge">' + moon.name + ' · Marés de sizígia</span><p class="spring-tide-note">Período associado a maior amplitude entre maré alta e baixa.</p>'
+    : neapTide
+      ? '<span class="spring-tide-badge neap-tide-badge">' + moon.name + ' · Marés de quadratura</span><p class="spring-tide-note">Período associado a menor amplitude entre maré alta e baixa.</p>'
+      : '<span class="spring-tide-badge normal-tide-badge">' + moon.name + ' · Ciclo Lunar</span><p class="spring-tide-note">Amplitude de maré intermediária para pesca costeira.</p>';
   const highs = events.filter(e => e.type === "high").slice(0, 2);
   if (!highs.length) { els.fishingWindows.innerHTML = `<div class="window-card"><span class="window-label">SEM JANELA CALCULADA</span><strong>Dados insuficientes</strong><small>Tente outro dia ou um ponto mais próximo da costa.</small></div>`; return; }
   const solunar = solunarPeriods(date, moon.phase, state.location?.longitude ?? -34.8631);
@@ -415,9 +457,9 @@ function renderWindows(events, moon, date) {
     const wind = windowMarineSummary(window, state.weather.hourly, state.marine.hourly).values.wind_speed_10m;
     const windMean = Number.isFinite(wind) ? wind.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km/h' : 'Indisponível';
     const sync = checkSolunarSync(window, solunar);
-    const syncHtml = sync ? `<span class="window-solunar-chip">⚡ ${sync.badge}</span>` : '';
+    const syncHtml = sync ? `<span class="window-solunar-chip">⚡ ${sync.badge}</span>` : `<span class="window-solunar-chip is-neutral">🕒 Janela Sugerida</span>`;
     const peakNote = Number.isFinite(event.level) ? `<small class="window-peak-note">Preamar prevista: ${event.level.toFixed(2).replace('.', ',')} m às ${event.hour}</small>` : '';
-    return `<div class="window-card ${springTide ? 'spring-tide-window' : ''}">${springBadge}${syncHtml}<span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${peakNote}<p class="window-wind"><span aria-hidden="true">↗</span> Vento médio <b>${windMean}</b></p><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
+    return `<div class="window-card ${springTide ? 'spring-tide-window' : ''}">${tideBadge}${syncHtml}<span class="window-label">${i === 0 ? "PRIMEIRA JANELA" : "SEGUNDA JANELA"} SUGERIDA</span><strong>${window.startHour} — ${window.endHour}</strong>${peakNote}<p class="window-wind"><span aria-hidden="true">↗</span> Vento médio <b>${windMean}</b></p><span class="wave-lines" aria-hidden="true">≈≈</span></div>`;
   }).join("");
 }
 
@@ -570,9 +612,41 @@ function registerWebMcp() {
 }
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (isLocal) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      let hadSw = false;
+      Promise.all(regs.map(r => { hadSw = true; return r.unregister(); })).then(() => {
+        if ('caches' in window) caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+        if (hadSw && !sessionStorage.getItem('sw-purged-v4')) {
+          sessionStorage.setItem('sw-purged-v4', '1');
+          location.reload();
+        }
+      });
+    }).catch(() => {});
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
 }
 
-updateLocationLabel(); renderSpotQuickBar(); registerWebMcp(); loadForecast();
+document.addEventListener("click", event => {
+  const seoLink = event.target.closest("[data-seo-spot-slug]");
+  if (!seoLink) return;
+  event.preventDefault();
+  const matched = resolveSeoLocationBySlug(seoLink.dataset.seoSpotSlug);
+  if (matched) {
+    selectLocation(matched);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+
+window.addEventListener('mare-certa:set-location', event => {
+  const loc = event.detail;
+  if (loc && Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude))) {
+    selectLocation(loc);
+  }
+});
+
+updateLocationLabel(); renderSpotQuickBar(); applyAdaptiveSeo({ location: state.location }); registerWebMcp(); loadForecast();

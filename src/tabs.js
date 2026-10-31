@@ -7,9 +7,9 @@ export function initTabs(doc) {
   function select(name) {
     for (const tab of names) {
       const active = tab === name;
-      get(`${tab}Tab`).setAttribute('aria-selected', String(active));
-      get(`${tab}Tab`).tabIndex = active ? 0 : -1;
-      get(`${tab}Panel`).hidden = !active;
+      get(`${tab}Tab`)?.setAttribute('aria-selected', String(active));
+      if (get(`${tab}Tab`)) get(`${tab}Tab`).tabIndex = active ? 0 : -1;
+      if (get(`${tab}Panel`)) get(`${tab}Panel`).hidden = !active;
     }
   }
   names.forEach((name, index) => {
@@ -22,6 +22,27 @@ export function initTabs(doc) {
       select(next); get(`${next}Tab`).focus();
     });
   });
+
+  if (typeof window !== 'undefined') {
+    const checkUrlTab = () => {
+      try {
+        const hash = (window.location.hash || '').toLowerCase();
+        const search = window.location.search || '';
+        const params = new URLSearchParams(search);
+        const tab = params.get('tab');
+        if (tab === 'ranking' || hash === '#ranking' || hash === '#capturas' || hash === '#diario' || params.has('capture')) {
+          if (names.includes('ranking')) select('ranking');
+        } else if (tab === 'tips' || hash === '#dicas' || hash === '#tips') {
+          if (names.includes('tips')) select('tips');
+        } else if (tab === 'species' || hash === '#especies' || hash === '#species') {
+          if (names.includes('species')) select('species');
+        }
+      } catch {}
+    };
+    checkUrlTab();
+    window.addEventListener('hashchange', checkUrlTab);
+    window.addEventListener('popstate', checkUrlTab);
+  }
 }
 // Navigation remains available even if the community's Firebase module fails.
 if (typeof document !== 'undefined') initTabs(document);
