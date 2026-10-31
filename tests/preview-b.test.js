@@ -1338,5 +1338,38 @@ test('Design Patterns de comentários: ações abaixo do texto do comentário e 
   assert.equal(typeof commModule.uploadTrophyPhotoToFirebaseStorage, 'undefined');
 });
 
+test('Espaçamento em Minhas capturas e proxy autenticado de visualização para imagens AWS S3', async () => {
+  const { readFileSync } = await import('node:fs');
+  const commModule = await import('../src/preview-b/community-enhancements.js');
+
+  // 1. Verifica resolveS3DisplayUrl para links do S3
+  assert.equal(typeof commModule.resolveS3DisplayUrl, 'function');
+  const s3Url = 'https://pescaimages.s3.us-east-2.amazonaws.com/trophies/trophies--P3ucvJt95bYo8TkPNB5.webp';
+  const resolved = commModule.resolveS3DisplayUrl(s3Url);
+  assert.equal(resolved, '/api/s3/image?key=trophies%2Ftrophies--P3ucvJt95bYo8TkPNB5.webp');
+
+  // Mantém dataUrl sem alteração
+  const dataUrl = 'data:image/webp;base64,UklGRmYAAABXRUJQVlA4TFsAAAAvAAAAAAfQ//73v/+BiOh/AAA=';
+  assert.equal(commModule.resolveS3DisplayUrl(dataUrl), dataUrl);
+
+  // 2. Verifica estilos de espaçamento em Minhas capturas
+  const stylesCss = readFileSync('src/preview-b/styles.css', 'utf8');
+  assert.match(stylesCss, /#myCapturesSection \.card-heading/);
+  assert.match(stylesCss, /margin-bottom:\s*22px/);
+  assert.match(stylesCss, /#myCaptures,\s*#recentCatches/);
+
+  // 3. Verifica suporte a GET /api/s3/image no backend Node
+  const s3UploaderCode = readFileSync('backend-hostinger/s3-uploader.js', 'utf8');
+  assert.match(s3UploaderCode, /getObjectBufferFromS3/);
+  assert.match(s3UploaderCode, /\/api\/s3\/image/);
+  assert.match(s3UploaderCode, /Cache-Control/);
+
+  // 4. Verifica suporte a GET na versão PHP da Hostinger
+  const phpCode = readFileSync('backend-hostinger/upload_s3.php', 'utf8');
+  assert.match(phpCode, /\$_SERVER\['REQUEST_METHOD'\] === 'GET'/);
+  assert.match(phpCode, /header\("Content-Type: {\$contentType}"\)/);
+});
+
+
 
 

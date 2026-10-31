@@ -104,8 +104,140 @@ export async function uploadBufferToS3(key, buffer, contentType = 'image/webp') 
   return endpoint;
 }
 
+export async function getObjectBufferFromS3(key) {
+  const env = loadEnvConfig();
+  if (!env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY) {
+    throw new Error('Credenciais da AWS S3 não configuradas no .env');
+  }
+
+  const cleanKey = String(key || '').replace(/^\/+/, '');
+  const region = env.AWS_REGION || 'us-east-2';
+  const bucket = env.S3_BUCKET || 'pescaimages';
+  const host = `${bucket}.s3.${region}.amazonaws.com`;
+  const endpoint = `https://${host}/${encodeURI(cleanKey)}`;
+
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.slice(0, 8);
+
+  const payloadHash = hash('');
+  const canonicalUri = `/${encodeURIComponent(cleanKey).replace(/%2F/g, '/')}`;
+
+  const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+  const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+
+  const canonicalRequest = `GET\n${canonicalUri}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+  const algorithm = 'AWS4-HMAC-SHA256';
+  const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
+  const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${hash(canonicalRequest)}`;
+
+  const kDate = hmac(`AWS4${env.AWS_SECRET_ACCESS_KEY}`, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, 's3');
+  const kSigning = hmac(kService, 'aws4_request');
+  const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
+
+  const authorizationHeader = `${algorithm} Credential=${env.AWS_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Host': host,
+      'x-amz-date': amzDate,
+      'x-amz-content-sha256': payloadHash,
+      'Authorization': authorizationHeader
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return {
+      ok: false,
+      status: response.status,
+      error: `S3 Error (${response.status}): ${errorText}`
+    };
+  }
+
+  const contentType = response.headers.get('content-type') || 'image/webp';
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  return {
+    ok: true,
+    status: 200,
+    buffer,
+    contentType
+  };
+}
+
 export function handleS3BackendRoutes(req, res) {
-  const urlPath = (req.url || '').split('?')[0];
+  const [urlPath, queryString] = (req.url || '').split('?');
+  const params = new URLSearchParams(queryString || '');
+
+  // Proxy / View de Imagens Autenticado do S3 (evita 403 Forbidden no navegador)
+  if ((urlPath === '/api/s3/image' || urlPath === '/api/s3/proxy') && (req.method === 'GET' || req.method === 'HEAD')) {
+    let key = params.get('key') || '';
+    if (!key) {
+      const rawUrl = params.get('url') || '';
+      if (rawUrl) {
+        try {
+          const parsed = new URL(rawUrl);
+          key = parsed.pathname.replace(/^\/+/, '');
+        } catch {
+          key = rawUrl.replace(/^https?:\/\/[^\/]+\//, '');
+        }
+      }
+    }
+
+    key = decodeURIComponent(key || '').replace(/^\/+/, '');
+    if (!key || key.includes('..')) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: false, error: 'Chave de imagem S3 ausente ou inválida.' }));
+      return true;
+    }
+
+    getObjectBufferFromS3(key).then(result => {
+      if (!result.ok) {
+        res.writeHead(result.status || 404, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(JSON.stringify({ ok: false, error: result.error || 'Imagem não encontrada.' }));
+        return;
+      }
+
+      res.writeHead(200, {
+        'Content-Type': result.contentType,
+        'Content-Length': result.buffer.length,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*'
+      });
+      if (req.method === 'HEAD') {
+        res.end();
+      } else {
+        res.end(result.buffer);
+      }
+    }).catch(err => {
+      res.writeHead(500, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+    });
+    return true;
+  }
+
+  // Preflight CORS para visualização de imagem
+  if ((urlPath === '/api/s3/image' || urlPath === '/api/s3/proxy') && req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    res.end();
+    return true;
+  }
 
   if (urlPath === '/api/s3/upload' && req.method === 'POST') {
     let body = '';

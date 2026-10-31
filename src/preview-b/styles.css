@@ -1984,10 +1984,20 @@ footer a:hover {
 }
 
 /* Cards da Mini Rede Social de Pesca */
+#myCapturesSection .card-heading,
+.catches-card .card-heading {
+  margin-bottom: 22px;
+}
+#myCapturesTitle,
+#catchesTitle {
+  margin-bottom: 6px;
+}
+#myCaptures,
 #recentCatches {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  margin-top: 10px;
 }
 .social-post-card {
   padding: 20px;
@@ -2634,6 +2644,7 @@ footer a:hover {
     position: static;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  #myCaptures,
   #recentCatches {
     grid-template-columns: 1fr;
   }

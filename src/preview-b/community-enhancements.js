@@ -656,6 +656,35 @@ export async function uploadCommunityImage(photoDataUrl, folder = 'trophies', id
   return null;
 }
 
+/**
+ * Converte URLs do bucket pescaimages do S3 para a rota de visualização autenticada do backend (/api/s3/image?key=...)
+ * protegendo o app contra 403 Forbidden do S3 e mantendo suporte nativo caso o bucket seja público ou local.
+ */
+export function resolveS3DisplayUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return rawUrl || '';
+  if (rawUrl.startsWith('data:') || rawUrl.startsWith('blob:') || rawUrl.startsWith('/api/s3/image')) return rawUrl;
+
+  // Reconhece URLs de imagens do bucket pescaimages ou AWS S3
+  if (
+    rawUrl.includes('pescaimages.s3.') ||
+    rawUrl.includes('pescaimages.s3-') ||
+    rawUrl.includes('pescaimages.s3.amazonaws.com') ||
+    rawUrl.includes('.amazonaws.com/trophies/') ||
+    rawUrl.includes('.amazonaws.com/avatars/') ||
+    rawUrl.includes('.amazonaws.com/captures/')
+  ) {
+    try {
+      const parsed = new URL(rawUrl);
+      const key = parsed.pathname.replace(/^\/+/, '');
+      if (key) return `/api/s3/image?key=${encodeURIComponent(key)}`;
+    } catch {
+      const key = rawUrl.replace(/^https?:\/\/[^\/]+\//, '');
+      if (key) return `/api/s3/image?key=${encodeURIComponent(key)}`;
+    }
+  }
+  return rawUrl;
+}
+
 export function loadAdminVipGrants(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_ADMIN_VIP_KEY) || 'null');
@@ -1804,14 +1833,23 @@ export function setupCaptureEditPhoto(id, capture) {
   pendingTrophyPhoto = null;
   pendingTrophyPhotoRemoved = false;
   const localPhotos = loadLocalS3Photos();
-  const existingPhoto = capture?.photoUrl || localPhotos[id]?.dataUrl || null;
+  const rawExistingPhoto = capture?.photoUrl || localPhotos[id]?.dataUrl || null;
+  const existingPhoto = resolveS3DisplayUrl(rawExistingPhoto);
   const previewWrap = $('capturePhotoPreviewWrap');
   const previewImg = $('capturePhotoPreviewImg');
   const statusEl = $('capturePhotoStatus');
   const removePhotoBtn = $('removeCapturePhotoBtn');
 
   if (existingPhoto) {
-    if (previewImg) previewImg.src = existingPhoto;
+    if (previewImg) {
+      previewImg.onerror = () => {
+        if (!previewImg.dataset.triedFallback && rawExistingPhoto && !previewImg.src.includes('/api/s3/image')) {
+          previewImg.dataset.triedFallback = '1';
+          previewImg.src = `/api/s3/image?url=${encodeURIComponent(rawExistingPhoto)}`;
+        }
+      };
+      previewImg.src = existingPhoto;
+    }
     if (previewWrap) previewWrap.hidden = false;
     if (removePhotoBtn) {
       removePhotoBtn.textContent = '🗑️ Apagar foto da captura';
@@ -2739,7 +2777,8 @@ function collectFisherGalleryPhotos(fisherUid, allCaptures = {}, extProfile = {}
     .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
 
   for (const [cid, c] of entries) {
-    const src = c.photoUrl || localPhotos[cid]?.dataUrl || generateTrophyFallbackIllustration(c);
+    const rawSrc = c.photoUrl || localPhotos[cid]?.dataUrl || generateTrophyFallbackIllustration(c);
+    const src = resolveS3DisplayUrl(rawSrc);
     const dateStr = String(c.date || '').split('-').reverse().join('/');
     items.push({
       id: cid,
@@ -2779,7 +2818,7 @@ export function openFisherProfileModal(fisherUid, profiles = {}, allCaptures = {
     <div class="fisher-profile-top">
       <div class="fisher-profile-avatar-wrap">
         ${ext.avatarUrl
-          ? `<img class="fisher-profile-avatar-img" src="${ext.avatarUrl}" alt="Foto de ${escapeHtml(ext.displayName)}" />`
+          ? `<img class="fisher-profile-avatar-img" src="${resolveS3DisplayUrl(ext.avatarUrl)}" alt="Foto de ${escapeHtml(ext.displayName)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'fisher-profile-avatar-fallback\\' aria-hidden=\\'true\\'>${escapeHtml(initials)}</div>';" />`
           : `<div class="fisher-profile-avatar-fallback" aria-hidden="true">${escapeHtml(initials)}</div>`
         }
       </div>
@@ -2950,8 +2989,9 @@ export function renderMyAccountProfile(user, profiles = {}, allCaptures = {}) {
 
   const avatarPreview = $('myProfileAvatarPreview');
   if (avatarPreview) {
-    avatarPreview.innerHTML = ext.avatarUrl
-      ? `<img src="${ext.avatarUrl}" alt="Sua foto de perfil" class="my-profile-avatar-img" />`
+    const myAvatarUrl = resolveS3DisplayUrl(ext.avatarUrl);
+    avatarPreview.innerHTML = myAvatarUrl
+      ? `<img src="${myAvatarUrl}" alt="Sua foto de perfil" class="my-profile-avatar-img" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'my-profile-avatar-initials\\'>${escapeHtml(initials)}</span>';" />`
       : `<span class="my-profile-avatar-initials">${escapeHtml(initials)}</span>`;
   }
 
@@ -3255,7 +3295,8 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
 
   const socialState = loadSocialState();
   const localPhotos = loadLocalS3Photos();
-  const photoData = capture.photoUrl || localPhotos[id]?.dataUrl || generateTrophyFallbackIllustration(capture);
+  const rawPhoto = capture.photoUrl || localPhotos[id]?.dataUrl || generateTrophyFallbackIllustration(capture);
+  const photoData = resolveS3DisplayUrl(rawPhoto);
   const photoMeta = capture.photoUrl || localPhotos[id] ? '📸 Troféu da Comunidade' : '🎣 Registro Oficial';
 
   const followers = getFisherFollowersCount(fisherUid, socialState);
@@ -3265,6 +3306,7 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
   const postComments = socialState.comments[id] || [];
   const badgesHtml = renderFisherBadgesInline(allCaptures, fisherUid);
   const captionText = getCaptureCaption(id, capture);
+  const displayAvatarUrl = resolveS3DisplayUrl(extProfile.avatarUrl);
 
   // 1. Social Header (Fisher Info + Avatar + Location + Achievements + Follow Button)
   const header = document.createElement('header');
@@ -3272,8 +3314,8 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
   header.innerHTML = `
     <div class="social-fisher-ident">
       <button type="button" class="social-avatar-btn" title="Ver perfil completo de ${escapeHtml(fisherName)}">
-        ${extProfile.avatarUrl
-          ? `<img class="social-avatar-img" src="${extProfile.avatarUrl}" alt="${escapeHtml(fisherName)}" />`
+        ${displayAvatarUrl
+          ? `<img class="social-avatar-img" src="${displayAvatarUrl}" alt="${escapeHtml(fisherName)}" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'social-avatar\\' aria-hidden=\\'true\\'>${escapeHtml(initials)}</div>';" />`
           : `<div class="social-avatar" aria-hidden="true">${escapeHtml(initials)}</div>`
         }
       </button>
@@ -3322,8 +3364,9 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
   // 2. Trophy Photo Container
   const photoFigure = document.createElement('figure');
   photoFigure.className = 'social-trophy-figure';
+  const trophyFallbackSvg = generateTrophyFallbackIllustration(capture);
   photoFigure.innerHTML = `
-    <img src="${photoData}" alt="Troféu: ${escapeHtml(String(capture.quantity))}x ${escapeHtml(capture.species)} em ${escapeHtml(capture.location)}" loading="lazy" />
+    <img src="${photoData}" alt="Troféu: ${escapeHtml(String(capture.quantity))}x ${escapeHtml(capture.species)} em ${escapeHtml(capture.location)}" loading="lazy" onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';if(this.src.indexOf('/api/s3/image')===-1){this.src='/api/s3/image?url='+encodeURIComponent(this.src);}else{this.src='${escapeHtml(trophyFallbackSvg)}';}}" />
     <div class="social-trophy-overlays">
       <span class="s3-storage-pill">${photoMeta}</span>
       ${capture.weight ? `<span class="trophy-weight-pill">⚖️ ${Number(capture.weight).toLocaleString('pt-BR')} kg</span>` : ''}
@@ -4242,12 +4285,19 @@ async function drawTrophyCanvas(canvas, capture, fisherName, photoDataUrl, capti
 
   if (photoDataUrl) {
     try {
+      const resolvedCanvasPhoto = resolveS3DisplayUrl(photoDataUrl);
       const img = await new Promise((resolve, reject) => {
         const el = new Image();
         el.crossOrigin = 'anonymous';
         el.onload = () => resolve(el);
-        el.onerror = reject;
-        el.src = photoDataUrl;
+        el.onerror = () => {
+          if (!el.src.includes('/api/s3/image') && photoDataUrl) {
+            el.src = `/api/s3/image?url=${encodeURIComponent(photoDataUrl)}`;
+          } else {
+            reject(new Error('Falha ao carregar imagem'));
+          }
+        };
+        el.src = resolvedCanvasPhoto;
       });
       drawCoverImage(ctx, img, photoBoxX, photoBoxY, photoBoxW, photoBoxH, 28);
     } catch {}
@@ -4316,7 +4366,8 @@ export async function openShareCardModal(capture, fisherName, captureId = null) 
   if (!dialog || !canvas) return;
 
   const localPhotos = loadLocalS3Photos();
-  const photoDataUrl = capture.photoUrl || (captureId && localPhotos[captureId]?.dataUrl) || generateTrophyFallbackIllustration(capture);
+  const rawSharePhoto = capture.photoUrl || (captureId && localPhotos[captureId]?.dataUrl) || generateTrophyFallbackIllustration(capture);
+  const photoDataUrl = resolveS3DisplayUrl(rawSharePhoto);
   const caption = getCaptureCaption(captureId, capture);
 
   dialog.showModal();

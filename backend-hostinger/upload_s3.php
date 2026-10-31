@@ -4,19 +4,12 @@
  * Recebe JSON via POST com { dataUrl, folder, filename } e envia para o bucket pescaimages.
  */
 
-header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['ok' => false, 'error' => 'Método não permitido']);
     exit;
 }
 
@@ -48,6 +41,84 @@ if ($awsRegion === 'us-east-1' && $s3Bucket === 'pescaimages') {
 }
 
 if (!$awsKey || !$awsSecret) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Credenciais AWS não configuradas.']);
+    exit;
+}
+
+// Rota GET: Visualização/Proxy Autenticado de Imagens do S3
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $key = $_GET['key'] ?? '';
+    if (!$key && !empty($_GET['url'])) {
+        $parsed = parse_url($_GET['url']);
+        $key = ltrim($parsed['path'] ?? '', '/');
+    }
+    $key = ltrim($key, '/');
+    if (!$key || strpos($key, '..') !== false) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Chave S3 ausente ou inválida.']);
+        exit;
+    }
+
+    $host = "{$s3Bucket}.s3.{$awsRegion}.amazonaws.com";
+    $endpoint = "https://{$host}/" . str_replace('%2F', '/', rawurlencode($key));
+    $amzDate = gmdate('Ymd\THis\Z');
+    $dateStamp = gmdate('Ymd');
+    $payloadHash = hash('sha256', '');
+
+    $canonicalHeaders = "host:{$host}\nx-amz-content-sha256:{$payloadHash}\nx-amz-date:{$amzDate}\n";
+    $signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+    $canonicalRequest = "GET\n/" . str_replace('%2F', '/', rawurlencode($key)) . "\n\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
+
+    $algorithm = 'AWS4-HMAC-SHA256';
+    $credentialScope = "{$dateStamp}/{$awsRegion}/s3/aws4_request";
+    $stringToSign = "{$algorithm}\n{$amzDate}\n{$credentialScope}\n" . hash('sha256', $canonicalRequest);
+
+    $kDate = hash_hmac('sha256', $dateStamp, "AWS4{$awsSecret}", true);
+    $kRegion = hash_hmac('sha256', $awsRegion, $kDate, true);
+    $kService = hash_hmac('sha256', 's3', $kRegion, true);
+    $kSigning = hash_hmac('sha256', 'aws4_request', $kService, true);
+    $signature = hash_hmac('sha256', $stringToSign, $kSigning);
+
+    $authorization = "{$algorithm} Credential={$awsKey}/{$credentialScope}, SignedHeaders={$signedHeaders}, Signature={$signature}";
+
+    $ch = curl_init($endpoint);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Host: {$host}",
+        "x-amz-date: {$amzDate}",
+        "x-amz-content-sha256: {$payloadHash}",
+        "Authorization: {$authorization}"
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/webp';
+    curl_close($ch);
+
+    if ($httpCode === 200) {
+        header("Content-Type: {$contentType}");
+        header("Cache-Control: public, max-age=31536000, immutable");
+        echo $response;
+        exit;
+    }
+
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code($httpCode ?: 404);
+    echo json_encode(['ok' => false, 'error' => "Imagem não encontrada (HTTP {$httpCode})."]);
+    exit;
+}
+
+header('Content-Type: application/json; charset=utf-8');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['ok' => false, 'error' => 'Método não permitido']);
+    exit;
+}
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'Credenciais AWS não configuradas.']);
     exit;
