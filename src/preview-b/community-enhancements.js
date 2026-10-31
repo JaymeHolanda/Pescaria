@@ -4475,10 +4475,11 @@ export function collectAdminManageableUsers(profiles = {}, captures = {}) {
     if (!uid) return;
     const prev = usersMap.get(uid) || { uid, displayName: '', email: '', location: '', source: 'Comunidade' };
     const ext = extMap[uid] || {};
+    const finalEmail = info.email || ext.email || prev.email || (uid.includes('@') ? uid : `${uid}@comunidade.marecerta.com.br`);
     usersMap.set(uid, {
       uid,
       displayName: info.displayName || ext.displayName || prev.displayName || 'Pescador',
-      email: info.email || prev.email || (uid.includes('@') ? uid : `${uid}@comunidade.marecerta.com.br`),
+      email: finalEmail,
       location: info.location || ext.location || prev.location || 'Litoral Brasileiro',
       source: info.source || prev.source
     });
@@ -4504,6 +4505,7 @@ export function collectAdminManageableUsers(profiles = {}, captures = {}) {
   for (const [uid, ext] of Object.entries(extMap)) {
     upsert(uid, {
       displayName: ext.displayName,
+      email: ext.email || '',
       location: ext.location,
       source: uid.startsWith('demo-') ? 'Comunidade' : 'Perfil Cadastrado'
     });
@@ -4512,9 +4514,11 @@ export function collectAdminManageableUsers(profiles = {}, captures = {}) {
   // 3. Firebase Profiles
   for (const [uid, prof] of Object.entries(profiles || {})) {
     if (prof && typeof prof === 'object') {
+      const ext = extMap[uid] || {};
       upsert(uid, {
-        displayName: prof.displayName,
-        email: prof.email || '',
+        displayName: prof.displayName || ext.displayName,
+        email: prof.email || ext.email || '',
+        location: ext.location,
         source: 'Conta Firebase'
       });
     }

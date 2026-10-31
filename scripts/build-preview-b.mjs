@@ -1579,7 +1579,6 @@ ranking = replace(
   const finalEmail = user.email || '';
   await runTransaction(path, existing => ({
     displayName: finalName,
-    email: finalEmail || existing?.email || '',
     createdAt: existing?.createdAt ?? serverTimestamp()
   }), { applyLocally: false });
   try {
@@ -2023,6 +2022,7 @@ if ($('extendedProfileForm')) {
 
     saveFisherExtendedProfile(user.uid, {
       displayName: newName,
+      email: user.email || '',
       location: locationVal,
       preferredLocation: targetLoc,
       bio: bioVal,
@@ -2038,12 +2038,12 @@ if ($('extendedProfileForm')) {
       } catch {}
     }
 
-    if (newName !== user.displayName) {
-      try {
+    try {
+      if (newName !== user.displayName) {
         await updateProfile(user, { displayName: newName });
-        await ensureProfile(user, newName);
-      } catch {}
-    }
+      }
+      await ensureProfile(user, newName);
+    } catch {}
 
     $('profileName').textContent = newName;
     $('accountButton').textContent = newName;

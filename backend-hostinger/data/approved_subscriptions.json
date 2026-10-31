@@ -21,5 +21,11 @@
     "activatedAt": 1793416824178,
     "expiresAt": 1824952824178,
     "paymentId": "186994779842"
+  },
+  "g2tiAxd8ECNLJioHVplBxEboUk53": {
+    "uid": "g2tiAxd8ECNLJioHVplBxEboUk53",
+    "email": "g2tiaxd8ecnljiohvplbxebouk53",
+    "active": false,
+    "revokedAt": 1793431535034
   }
 }
