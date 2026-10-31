@@ -56,6 +56,10 @@
             <strong id="adminTotalBannedCount">0</strong>
             <span>Banidos / Excluídos</span>
           </div>
+          <div class="admin-kpi-box is-danger">
+            <strong id="adminTotalReportsCount">0</strong>
+            <span>Denúncias Pendentes</span>
+          </div>
           <div class="admin-kpi-box">
             <strong id="adminMyCurrentStatus">Padrão</strong>
             <span>Sua Conta Atual</span>
@@ -87,6 +91,14 @@
                 <option value="Parceiro Oficial · VIP">⚓ Parceiro Oficial · VIP</option>
                 <option value="Embaixador Maré Certa">🏆 Embaixador Maré Certa</option>
                 <option value="Convidado da Família PRO">🎣 Convidado da Família PRO</option>
+              </select>
+            </label>
+            <label>Duração do Premium
+              <select name="vipDuration">
+                <option value="3">3 dias (Degustação)</option>
+                <option value="30">1 mês (30 dias)</option>
+                <option value="365" selected>1 ano (365 dias)</option>
+                <option value="3650">Vitalício / Cortesia Indeterminada</option>
               </select>
             </label>
           </div>
@@ -123,6 +135,17 @@
             <span id="adminWordFilterFeedback" class="profile-saved-pill" hidden>✓ Termo adicionado!</span>
           </form>
           <div id="adminProhibitedWordsList" class="admin-prohibited-words-list" aria-label="Lista de palavras bloqueadas"></div>
+        </section>
+
+        <section class="admin-reports-section" aria-labelledby="adminReportsTitle">
+          <div class="admin-reports-head">
+            <div>
+              <h3 id="adminReportsTitle">🚨 Denúncias de Comentários Recebidas</h3>
+              <p class="legal-dialog-meta">Comentários denunciados por donos de postagens e pescadores da comunidade. Veja o autor, o comentário, o relato do ocorrido e aplique a punição cabível.</p>
+            </div>
+            <span id="adminReportsCountBadge" class="admin-source-tag">0 denúncias</span>
+          </div>
+          <div id="adminReportsList" class="admin-reports-list" role="region" aria-live="polite"></div>
         </section>
 
         <div class="legal-dialog-footer">

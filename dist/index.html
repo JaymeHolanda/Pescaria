@@ -64,7 +64,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Maré Certa" />
     <link rel="stylesheet" href="./styles.css?v=150638ac77fa" />
-    <link rel="stylesheet" href="./versao-b.css?v=96275b8bc54c" />
+    <link rel="stylesheet" href="./versao-b.css?v=75814c978222" />
     <title>Tábua de Maré João Pessoa, PB Hoje e Amanhã | Horários e Pesca — Maré Certa</title>
   </head>
   <body class="preview-b">
@@ -97,6 +97,10 @@
         </div>
 
         <div class="topbar-right-actions">
+          <button id="notifBellBtn" class="notif-bell-btn" type="button" aria-label="Notificações de mensagens nos seus troféus" title="Notificações de comentários">
+            <span class="bell-icon" aria-hidden="true">🔔</span>
+            <span id="notifBellBadge" class="notif-bell-badge" hidden>0</span>
+          </button>
           <button id="pwaHeaderInstallBtn" class="pwa-header-install-btn" type="button" aria-label="Instalar aplicativo Maré Certa na tela inicial">
             <svg class="pwa-header-btn-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v10m0 0l-3.5-3.5m3.5 3.5l3.5-3.5M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/>
@@ -135,13 +139,13 @@
         <button id="forecastTab" role="tab" aria-controls="forecastPanel" aria-selected="true" type="button">Condições de pesca</button>
         <button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>
         <button id="speciesTab" role="tab" aria-controls="speciesPanel" aria-selected="false" tabindex="-1" type="button">Espécies</button>
-        <button id="rankingTab" role="tab" aria-controls="rankingPanel" aria-selected="false" tabindex="-1" type="button">Ranking & capturas</button>
+        <button id="rankingTab" role="tab" aria-controls="rankingPanel" aria-selected="false" tabindex="-1" type="button"><span>Ranking & capturas</span><span id="rankingTabBadge" class="ranking-tab-badge" hidden>0</span></button>
         <button id="accountButton" class="account-button" type="button">Entrar / cadastrar</button>
       </nav>
       <main id="forecastPanel" role="tabpanel" aria-labelledby="forecastTab">
         <section class="intro b-intro" aria-labelledby="pageTitle">
           <div class="b-hero-copy">
-            <div class="b-eyebrow-row"><p class="eyebrow">AO RITMO DO MAR · SURFCASTING</p><span class="b-pro-pill">EDIÇÃO PRO</span></div>
+            <div class="b-eyebrow-row"><p class="eyebrow">AO RITMO DO MAR · SURFCASTING</p><span id="heroProPill" class="b-pro-pill is-free">VERSÃO GRATUITA</span></div>
             <h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1>
             <p class="b-intro-note">Tábua de maré oficial, períodos solunares, recomendação dinâmica de equipamento e diário de capturas em tempo real.</p>
             <div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div>
@@ -507,6 +511,7 @@
         <div class="ranking-layout">
           <section class="card leaderboard" aria-labelledby="rankingTitle">
             <div class="card-heading"><div><p class="eyebrow">TODAS AS CAPTURAS</p><h2 id="rankingTitle">Ranking de pescadores</h2></div><span id="rankingCount" class="ranking-count">0 participantes</span></div>
+            <div id="rankingTopPodium" class="ranking-top-podium" hidden></div>
             <div class="table-scroll"><table><thead><tr><th scope="col">Posição</th><th scope="col">Pescador</th><th scope="col">Peixes</th><th scope="col">Espécies</th></tr></thead><tbody id="rankingRows"></tbody></table></div>
             <p id="rankingEmpty" class="empty-note">Nenhuma captura ainda. Seja a primeira pessoa a registrar uma pescaria.</p>
             <p class="chart-note">Capturas informadas pelos participantes. Empates compartilham a mesma posição.</p>
@@ -575,18 +580,21 @@
                 </button>
                 <div id="capturePhotoPreviewWrap" class="trophy-photo-preview" hidden>
                   <img id="capturePhotoPreviewImg" src="" alt="Prévia da foto do troféu" />
-                  <button id="removeCapturePhotoBtn" class="text-button" type="button">Remover foto</button>
+                  <button id="removeCapturePhotoBtn" class="text-button is-danger-text" type="button">🗑️ Apagar foto da captura</button>
                 </div>
                 <small id="capturePhotoStatus" class="photo-compression-status">Compartilhe a foto da sua pescaria com a comunidade</small>
               </div>
-              <button class="primary-button" type="submit">Salvar captura</button>
+              <div class="capture-form-actions-row">
+                <button class="primary-button" type="submit">Salvar captura</button>
+                <button id="deleteCaptureInEditBtn" class="text-button is-danger-text delete-capture-edit-btn" type="button" hidden>🗑️ Apagar esta publicação</button>
+              </div>
               <button id="cancelCaptureEdit" class="text-button" type="button" hidden>Cancelar edição</button>
               <p class="chart-note">Seu nome, espécie, quantidade, peso, data e local ficam visíveis à comunidade.</p>
             </form>
             <p id="captureMessage" class="form-message" role="status"></p>
           </section>
         </div>
-        <section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Encontre uma pescaria no feed.</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<input id="filterLocation" type="search" placeholder="Ex.: Intermares" autocomplete="off"></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o feed social…</p></section>
+        <section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Procure amigos de pesca e veja troféus</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<div class="autocomplete-wrapper"><input id="filterLocation" type="search" placeholder="Ex.: Intermares, Santos..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" /><div id="filterLocationResults" class="ext-loc-dropdown" hidden role="listbox"></div></div></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o feed social…</p></section>
         <section id="myCapturesSection" class="card catches-card" aria-labelledby="myCapturesTitle" hidden><div class="card-heading"><div><p class="eyebrow">SEU DIÁRIO</p><h2 id="myCapturesTitle">Minhas capturas</h2></div></div><div id="myCaptures" class="recent-catches"></div></section>
         <section class="card catches-card" aria-labelledby="catchesTitle"><div class="card-heading"><div><p class="eyebrow">FEED SOCIAL DA COMUNIDADE · TROFÉUS, RESPOSTAS & SEGUIDORES</p><h2 id="catchesTitle">Feed de capturas & troféus</h2></div></div><div id="recentCatches" class="recent-catches"></div></section>
       </main>
@@ -594,7 +602,25 @@
       <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountTitle">
         <button id="closeAccount" class="close-dialog" type="button" aria-label="Fechar">×</button>
         <div id="authForms"><p class="eyebrow">SUA CONTA</p><h2 id="accountTitle">Bem-vindo a bordo</h2><div class="auth-switch"><button id="loginMode" type="button" aria-pressed="true">Entrar</button><button id="signupMode" type="button" aria-pressed="false">Criar conta</button></div>
-          <form id="authForm"><label id="nameField" hidden>Nome público<input name="displayName" maxlength="40" minlength="2" autocomplete="nickname" /></label><label>E-mail<input name="email" type="email" required autocomplete="email" /></label><label>Senha<input name="password" type="password" minlength="6" required autocomplete="current-password" /></label><button id="authSubmit" class="primary-button" type="submit">Entrar</button></form>
+          <form id="authForm">
+            <label id="nameField" hidden>Nome público<input name="displayName" maxlength="40" minlength="2" autocomplete="nickname" /></label>
+            <label>E-mail<input name="email" type="email" required autocomplete="email" /></label>
+            <label>Senha<input name="password" type="password" minlength="6" required autocomplete="current-password" /></label>
+            <label id="confirmPasswordField" hidden>Confirmar senha<input name="confirmPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Repita a senha para confirmar" /></label>
+            <button id="authSubmit" class="primary-button" type="submit">Entrar</button>
+            <div class="auth-social-wrap">
+              <div class="auth-divider-line"><span>ou continue com</span></div>
+              <button id="googleAuthBtn" class="google-auth-btn" type="button">
+                <svg class="google-svg-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span id="googleAuthBtnText">Entrar com Google</span>
+              </button>
+            </div>
+          </form>
           <button id="resetPassword" class="text-button" type="button">Esqueci minha senha</button>
         </div>
         <div id="accountProfile" class="rich-account-profile" hidden>
@@ -611,7 +637,7 @@
                 <p class="eyebrow">PERFIL DO PESCADOR · SUA CONTA</p>
                 <div class="my-profile-title-row">
                   <h2 id="profileName"></h2>
-                  <span class="pro-member-badge">👑 PRO</span>
+                  <span id="myProfileProBadge" class="free-member-badge">🔒 GRATUITO</span>
                 </div>
                 <p id="profileEmail" class="my-profile-email"></p>
                 <div class="my-profile-loc-container">
@@ -731,9 +757,13 @@
           <canvas id="trophyCanvas" width="1080" height="1350" aria-label="Cartão visual da captura"></canvas>
         </div>
         <div class="share-dialog-actions">
-          <button id="downloadTrophyBtn" class="primary-button" type="button">⬇ Baixar Imagem (PNG)</button>
-          <button id="nativeShareTrophyBtn" class="secondary-share-btn" type="button">📲 Compartilhar no WhatsApp / Redes</button>
+          <button id="nativeShareTrophyBtn" class="primary-button whatsapp-share-btn" type="button">🟢 Compartilhar no WhatsApp (com Foto & Link)</button>
+          <div class="share-dialog-sub-actions">
+            <button id="copyShareLinkBtn" class="secondary-share-btn" type="button">🔗 Copiar Link da Captura</button>
+            <button id="downloadTrophyBtn" class="secondary-share-btn" type="button">⬇ Baixar Imagem (PNG)</button>
+          </div>
         </div>
+        <div id="shareStatusAlert" class="share-status-alert" role="status" hidden></div>
       </dialog>
 
       <dialog id="proPaywallDialog" class="account-dialog pro-paywall-dialog" aria-labelledby="proPaywallTitle">
@@ -783,6 +813,56 @@
           <div id="mpSelectedPlanSummary" class="mp-selected-plan-summary">
             Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90/ano via PIX ou Cartão em até 12x)
           </div>
+        </div>
+      </dialog>
+
+      <!-- Dialog de Enquadramento e Zoom de Imagens (Cropper) -->
+      <dialog id="imageCropperDialog" class="account-dialog image-cropper-dialog" aria-labelledby="cropperTitle">
+        <button id="closeImageCropperBtn" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="cropper-head">
+          <span class="compliance-badge">✂️ ENQUADRAMENTO &amp; ZOOM</span>
+          <h2 id="cropperTitle">Ajustar e Enquadrar Foto</h2>
+          <p id="cropperSubtitle" class="cropper-subtitle">Enquadramento 100% proporcional ao post. Use o zoom e arraste para posicionar o peixe perfeitamente.</p>
+        </div>
+
+        <div class="cropper-viewport-wrap">
+          <div id="cropperViewport" class="cropper-viewport" role="region" aria-label="Área de corte da imagem">
+            <img id="cropperImg" class="cropper-img" alt="Foto para ajuste" draggable="false" />
+            <div id="cropperMask" class="cropper-mask is-rect" data-ratio="post">
+              <div class="cropper-grid-lines">
+                <span class="grid-line-h h1"></span>
+                <span class="grid-line-h h2"></span>
+                <span class="grid-line-v v1"></span>
+                <span class="grid-line-v v2"></span>
+              </div>
+            </div>
+          </div>
+          <div class="cropper-drag-hint"><span>✥ Arraste para mover · Use a roda do mouse ou o controle abaixo para zoom</span></div>
+        </div>
+
+        <div class="cropper-controls-bar">
+          <div class="cropper-zoom-row">
+            <span class="zoom-label">🔍 Zoom:</span>
+            <button type="button" id="cropperZoomOutBtn" class="cropper-tool-btn" title="Diminuir zoom" aria-label="Diminuir zoom">−</button>
+            <input type="range" id="cropperZoomRange" min="0.7" max="3.5" step="0.02" value="1" aria-label="Nível de zoom da imagem" />
+            <button type="button" id="cropperZoomInBtn" class="cropper-tool-btn" title="Aumentar zoom" aria-label="Aumentar zoom">+</button>
+            <span id="cropperZoomValue" class="zoom-val-badge">1.0x</span>
+          </div>
+
+          <div class="cropper-extra-tools">
+            <div id="cropperRatioOptions" class="cropper-ratio-group" hidden>
+              <span class="ratio-label">Formato:</span>
+              <button type="button" class="cropper-ratio-btn active" data-cropper-ratio="post" aria-pressed="true">📸 Encaixe no Post (100%)</button>
+              <button type="button" class="cropper-ratio-btn" data-cropper-ratio="1:1" aria-pressed="false">1:1 Quadrado</button>
+            </div>
+            <button type="button" id="cropperRotateBtn" class="cropper-tool-btn cropper-rotate-btn" title="Girar 90 graus">↷ Girar 90°</button>
+            <button type="button" id="cropperResetBtn" class="cropper-tool-btn cropper-reset-btn" title="Centralizar foto">↺ Centralizar</button>
+          </div>
+        </div>
+
+        <div class="cropper-actions-footer">
+          <button type="button" id="cropperCancelBtn" class="text-button">Cancelar</button>
+          <button type="button" id="cropperApplyBtn" class="primary-button cropper-apply-btn">✓ Confirmar e Aplicar Foto</button>
         </div>
       </dialog>
 
@@ -1022,6 +1102,34 @@
         </div>
       </dialog>
 
+      <!-- Diálogo de Denúncia de Comentário Abusivo ao Admin -->
+      <dialog id="reportCommentDialog" class="account-dialog report-dialog" aria-labelledby="reportCommentDialogTitle">
+        <button id="closeReportCommentDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="report-dialog-head">
+          <span class="compliance-badge">🛡️ MODERAÇÃO E SEGURANÇA DA COMUNIDADE</span>
+          <h2 id="reportCommentDialogTitle">Denunciar Comentário ao Administrador</h2>
+          <p class="legal-dialog-meta">Relate ofensas, desrespeito, ameaças, spam ou pesca irregular. Sua denúncia será analisada diretamente pelo Administrador no painel de controle.</p>
+        </div>
+        <div class="report-comment-preview card">
+          <small>Comentário a ser denunciado:</small>
+          <blockquote id="reportTargetCommentText">""</blockquote>
+          <div class="report-target-author">Autor: <strong id="reportTargetAuthorName">Pescador</strong></div>
+        </div>
+        <form id="reportCommentForm" class="report-comment-form">
+          <input type="hidden" name="reportPostId" id="reportPostIdInput" />
+          <input type="hidden" name="reportCommentId" id="reportCommentIdInput" />
+          <input type="hidden" name="reportOffenderUid" id="reportOffenderUidInput" />
+          <input type="hidden" name="reportOffenderName" id="reportOffenderNameInput" />
+          <label for="reportReasonInput">Descreva o que ocorreu (motivo da denúncia) *
+            <textarea id="reportReasonInput" name="reportReason" rows="3" required placeholder="Escreva detalhadamente o ocorrido para análise do administrador..."></textarea>
+          </label>
+          <div class="report-dialog-actions">
+            <button type="button" id="cancelReportBtn" class="text-button">Cancelar</button>
+            <button type="submit" class="primary-button is-danger-btn">🚩 Enviar Denúncia ao Admin</button>
+          </div>
+        </form>
+      </dialog>
+
       <div id="locationLoader" class="loc-loader" role="status" aria-live="polite" hidden>
         <div class="loc-loader-card">
           <div class="loc-loader-scene" aria-hidden="true">
@@ -1131,8 +1239,8 @@
         </div>
       </footer>
     </div>
-    <script type="module" src="./app-b.js?v=b277683a33d5"></script>
-    <script type="module" src="./tabs.js?v=4c84b55dc424"></script>
-    <script type="module" src="./ranking-b.js?v=6ff523bcadca"></script>
+    <script type="module" src="./app-b.js?v=e6a8369b01a7"></script>
+    <script type="module" src="./tabs.js?v=7304aae89695"></script>
+    <script type="module" src="./ranking-b.js?v=2f2145ee7cd0"></script>
   </body>
 </html>

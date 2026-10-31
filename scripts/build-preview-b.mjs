@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
@@ -72,11 +72,15 @@ html = replace(html, '<link rel="preconnect" href="https://geocoding-api.open-me
 // Aba própria para espécies, entre "Dicas de pesca" e "Ranking"
 html = replace(html, '<button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>', '<button id="tipsTab" role="tab" aria-controls="tipsPanel" aria-selected="false" tabindex="-1" type="button">Dicas de pesca</button>\n        <button id="speciesTab" role="tab" aria-controls="speciesPanel" aria-selected="false" tabindex="-1" type="button">Espécies</button>');
 
-// Topbar right actions: PWA Install App Button + Live Status Pill
+// Topbar right actions: Notif Bell + PWA Install App Button + Live Status Pill
 html = replace(
   html,
   '<div class="live-pill"><span></span> Previsão atualizada</div>',
   `<div class="topbar-right-actions">
+          <button id="notifBellBtn" class="notif-bell-btn" type="button" aria-label="Notificações de mensagens nos seus troféus" title="Notificações de comentários">
+            <span class="bell-icon" aria-hidden="true">🔔</span>
+            <span id="notifBellBadge" class="notif-bell-badge" hidden>0</span>
+          </button>
           <button id="pwaHeaderInstallBtn" class="pwa-header-install-btn" type="button" aria-label="Instalar aplicativo Maré Certa na tela inicial">
             <svg class="pwa-header-btn-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3v10m0 0l-3.5-3.5m3.5 3.5l3.5-3.5M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/>
@@ -85,6 +89,13 @@ html = replace(
           </button>
           <div class="live-pill"><span></span> Previsão atualizada</div>
         </div>`
+);
+
+// Ranking Tab com Badge de Notificações
+html = replace(
+  html,
+  '<button id="rankingTab" role="tab" aria-controls="rankingPanel" aria-selected="false" tabindex="-1" type="button">Ranking & capturas</button>',
+  '<button id="rankingTab" role="tab" aria-controls="rankingPanel" aria-selected="false" tabindex="-1" type="button"><span>Ranking & capturas</span><span id="rankingTabBadge" class="ranking-tab-badge" hidden>0</span></button>'
 );
 
 // Smart App Banner & Quick Spot Bar right below topbar
@@ -117,7 +128,7 @@ html = replace(html, '<nav class="view-tabs"', `<aside id="pwaSmartBanner" class
 // Upgraded Hero + Next Window with Progress Bar, Solunar Sync Badge, and Alert Reminder Button
 html = html.replace(/<section class="intro" aria-labelledby="pageTitle">[\s\S]*?<\/section>/, `<section class="intro b-intro" aria-labelledby="pageTitle">
           <div class="b-hero-copy">
-            <div class="b-eyebrow-row"><p class="eyebrow">AO RITMO DO MAR · SURFCASTING</p><span class="b-pro-pill">EDIÇÃO PRO</span></div>
+            <div class="b-eyebrow-row"><p class="eyebrow">AO RITMO DO MAR · SURFCASTING</p><span id="heroProPill" class="b-pro-pill is-free">VERSÃO GRATUITA</span></div>
             <h1 id="pageTitle">Seu próximo encontro<br><em>com o mar.</em></h1>
             <p class="b-intro-note">Tábua de maré oficial, períodos solunares, recomendação dinâmica de equipamento e diário de capturas em tempo real.</p>
             <div class="today-line"><span id="todayLabel">Hoje</span><span id="dataStatus">Buscando dados…</span></div>
@@ -509,6 +520,7 @@ const achievementsHtml = `<section id="proClubBar" class="card pro-club-bar" ari
         </section>`;
 
 html = replace(html, '<div class="ranking-layout">', `${achievementsHtml}\n        <div class="ranking-layout">`);
+html = replace(html, '<div class="table-scroll">', '<div id="rankingTopPodium" class="ranking-top-podium" hidden></div>\n            <div class="table-scroll">');
 
 // Add Quick Species Chips AND Trophy Photo Upload (1 Photo per Capture + WebP Compression for S3) to #captureForm
 html = replace(html, '<label>Peixe / espécie<input name="species" required maxlength="60" placeholder="Ex.: Robalo" /></label>', `<label>Peixe / espécie<input name="species" required maxlength="60" placeholder="Ex.: Robalo" /></label>
@@ -537,15 +549,19 @@ const trophyPhotoUploadFieldHtml = `<label>Comentário / relato da captura (opci
                 </button>
                 <div id="capturePhotoPreviewWrap" class="trophy-photo-preview" hidden>
                   <img id="capturePhotoPreviewImg" src="" alt="Prévia da foto do troféu" />
-                  <button id="removeCapturePhotoBtn" class="text-button" type="button">Remover foto</button>
+                  <button id="removeCapturePhotoBtn" class="text-button is-danger-text" type="button">🗑️ Apagar foto da captura</button>
                 </div>
                 <small id="capturePhotoStatus" class="photo-compression-status">Compartilhe a foto da sua pescaria com a comunidade</small>
               </div>
-              <button class="primary-button" type="submit">Salvar captura</button>`;
+              <div class="capture-form-actions-row">
+                <button class="primary-button" type="submit">Salvar captura</button>
+                <button id="deleteCaptureInEditBtn" class="text-button is-danger-text delete-capture-edit-btn" type="button" hidden>🗑️ Apagar esta publicação</button>
+              </div>`;
 
 html = replace(html, '<button class="primary-button" type="submit">Salvar captura</button>', trophyPhotoUploadFieldHtml);
+html = replace(html, '<button id="cancelCaptureEdit" class="text-button" type="button" hidden>Cancelar edição</button>', '<button id="cancelCaptureEdit" class="text-button" type="button" hidden>Cancelar edição</button>');
 
-html = replace(html, '<section id="myCapturesSection"', `<section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Encontre uma pescaria no feed.</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<input id="filterLocation" type="search" placeholder="Ex.: Intermares" autocomplete="off"></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o feed social…</p></section>\n        <section id="myCapturesSection"`);
+html = replace(html, '<section id="myCapturesSection"', `<section class="b-capture-filters card" aria-labelledby="captureFiltersTitle"><div><p class="eyebrow">SEU DIÁRIO, MAIS PERTO</p><h2 id="captureFiltersTitle">Procure amigos de pesca e veja troféus</h2></div><form id="captureFilterForm"><label>Espécie<input id="filterSpecies" type="search" placeholder="Ex.: pampo" autocomplete="off"></label><label>Local<div class="autocomplete-wrapper"><input id="filterLocation" type="search" placeholder="Ex.: Intermares, Santos..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" /><div id="filterLocationResults" class="ext-loc-dropdown" hidden role="listbox"></div></div></label><label>De<input id="filterFrom" type="date"></label><label>Até<input id="filterTo" type="date"></label><button id="clearCaptureFilters" type="button">Limpar filtros</button></form><p id="captureFilterResult" role="status">Carregando o feed social…</p></section>\n        <section id="myCapturesSection"`);
 
 html = replace(html, '<p class="eyebrow">DIÁRIO DA COMUNIDADE</p><h2 id="catchesTitle">Capturas recentes</h2>', '<p class="eyebrow">FEED SOCIAL DA COMUNIDADE · TROFÉUS, RESPOSTAS & SEGUIDORES</p><h2 id="catchesTitle">Feed de capturas & troféus</h2>');
 
@@ -600,7 +616,7 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
                 <p class="eyebrow">PERFIL DO PESCADOR · SUA CONTA</p>
                 <div class="my-profile-title-row">
                   <h2 id="profileName"></h2>
-                  <span class="pro-member-badge">👑 PRO</span>
+                  <span id="myProfileProBadge" class="free-member-badge">🔒 GRATUITO</span>
                 </div>
                 <p id="profileEmail" class="my-profile-email"></p>
                 <div class="my-profile-loc-container">
@@ -708,6 +724,28 @@ const richAccountProfileHtml = `<div id="accountProfile" class="rich-account-pro
 
 html = html.replace(/<div id="accountProfile" hidden>[\s\S]*?<\/div>/, richAccountProfileHtml);
 
+const enhancedAuthFormHtml = `<form id="authForm">
+            <label id="nameField" hidden>Nome público<input name="displayName" maxlength="40" minlength="2" autocomplete="nickname" /></label>
+            <label>E-mail<input name="email" type="email" required autocomplete="email" /></label>
+            <label>Senha<input name="password" type="password" minlength="6" required autocomplete="current-password" /></label>
+            <label id="confirmPasswordField" hidden>Confirmar senha<input name="confirmPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Repita a senha para confirmar" /></label>
+            <button id="authSubmit" class="primary-button" type="submit">Entrar</button>
+            <div class="auth-social-wrap">
+              <div class="auth-divider-line"><span>ou continue com</span></div>
+              <button id="googleAuthBtn" class="google-auth-btn" type="button">
+                <svg class="google-svg-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span id="googleAuthBtnText">Entrar com Google</span>
+              </button>
+            </div>
+          </form>`;
+
+html = replace(html, '<form id="authForm"><label id="nameField" hidden>Nome público<input name="displayName" maxlength="40" minlength="2" autocomplete="nickname" /></label><label>E-mail<input name="email" type="email" required autocomplete="email" /></label><label>Senha<input name="password" type="password" minlength="6" required autocomplete="current-password" /></label><button id="authSubmit" class="primary-button" type="submit">Entrar</button></form>', enhancedAuthFormHtml);
+
 // Add Fisherman Public Profile Dialog, Shareable Trophy Card Dialog AND Mercado Pago PRO Paywall Dialog right after #accountDialog
 const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" class="account-dialog fisher-profile-dialog" aria-labelledby="fisherProfileTitle">
         <button id="closeFisherProfile" class="close-dialog" type="button" aria-label="Fechar">×</button>
@@ -723,9 +761,13 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
           <canvas id="trophyCanvas" width="1080" height="1350" aria-label="Cartão visual da captura"></canvas>
         </div>
         <div class="share-dialog-actions">
-          <button id="downloadTrophyBtn" class="primary-button" type="button">⬇ Baixar Imagem (PNG)</button>
-          <button id="nativeShareTrophyBtn" class="secondary-share-btn" type="button">📲 Compartilhar no WhatsApp / Redes</button>
+          <button id="nativeShareTrophyBtn" class="primary-button whatsapp-share-btn" type="button">🟢 Compartilhar no WhatsApp (com Foto & Link)</button>
+          <div class="share-dialog-sub-actions">
+            <button id="copyShareLinkBtn" class="secondary-share-btn" type="button">🔗 Copiar Link da Captura</button>
+            <button id="downloadTrophyBtn" class="secondary-share-btn" type="button">⬇ Baixar Imagem (PNG)</button>
+          </div>
         </div>
+        <div id="shareStatusAlert" class="share-status-alert" role="status" hidden></div>
       </dialog>
 
       <dialog id="proPaywallDialog" class="account-dialog pro-paywall-dialog" aria-labelledby="proPaywallTitle">
@@ -775,6 +817,56 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
           <div id="mpSelectedPlanSummary" class="mp-selected-plan-summary">
             Plano Anual selecionado: <strong>R$ 8,33/mês</strong> (R$ 99,90/ano via PIX ou Cartão em até 12x)
           </div>
+        </div>
+      </dialog>
+
+      <!-- Dialog de Enquadramento e Zoom de Imagens (Cropper) -->
+      <dialog id="imageCropperDialog" class="account-dialog image-cropper-dialog" aria-labelledby="cropperTitle">
+        <button id="closeImageCropperBtn" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="cropper-head">
+          <span class="compliance-badge">✂️ ENQUADRAMENTO &amp; ZOOM</span>
+          <h2 id="cropperTitle">Ajustar e Enquadrar Foto</h2>
+          <p id="cropperSubtitle" class="cropper-subtitle">Enquadramento 100% proporcional ao post. Use o zoom e arraste para posicionar o peixe perfeitamente.</p>
+        </div>
+
+        <div class="cropper-viewport-wrap">
+          <div id="cropperViewport" class="cropper-viewport" role="region" aria-label="Área de corte da imagem">
+            <img id="cropperImg" class="cropper-img" alt="Foto para ajuste" draggable="false" />
+            <div id="cropperMask" class="cropper-mask is-rect" data-ratio="post">
+              <div class="cropper-grid-lines">
+                <span class="grid-line-h h1"></span>
+                <span class="grid-line-h h2"></span>
+                <span class="grid-line-v v1"></span>
+                <span class="grid-line-v v2"></span>
+              </div>
+            </div>
+          </div>
+          <div class="cropper-drag-hint"><span>✥ Arraste para mover · Use a roda do mouse ou o controle abaixo para zoom</span></div>
+        </div>
+
+        <div class="cropper-controls-bar">
+          <div class="cropper-zoom-row">
+            <span class="zoom-label">🔍 Zoom:</span>
+            <button type="button" id="cropperZoomOutBtn" class="cropper-tool-btn" title="Diminuir zoom" aria-label="Diminuir zoom">−</button>
+            <input type="range" id="cropperZoomRange" min="0.7" max="3.5" step="0.02" value="1" aria-label="Nível de zoom da imagem" />
+            <button type="button" id="cropperZoomInBtn" class="cropper-tool-btn" title="Aumentar zoom" aria-label="Aumentar zoom">+</button>
+            <span id="cropperZoomValue" class="zoom-val-badge">1.0x</span>
+          </div>
+
+          <div class="cropper-extra-tools">
+            <div id="cropperRatioOptions" class="cropper-ratio-group" hidden>
+              <span class="ratio-label">Formato:</span>
+              <button type="button" class="cropper-ratio-btn active" data-cropper-ratio="post" aria-pressed="true">📸 Encaixe no Post (100%)</button>
+              <button type="button" class="cropper-ratio-btn" data-cropper-ratio="1:1" aria-pressed="false">1:1 Quadrado</button>
+            </div>
+            <button type="button" id="cropperRotateBtn" class="cropper-tool-btn cropper-rotate-btn" title="Girar 90 graus">↷ Girar 90°</button>
+            <button type="button" id="cropperResetBtn" class="cropper-tool-btn cropper-reset-btn" title="Centralizar foto">↺ Centralizar</button>
+          </div>
+        </div>
+
+        <div class="cropper-actions-footer">
+          <button type="button" id="cropperCancelBtn" class="text-button">Cancelar</button>
+          <button type="button" id="cropperApplyBtn" class="primary-button cropper-apply-btn">✓ Confirmar e Aplicar Foto</button>
         </div>
       </dialog>
 
@@ -1014,6 +1106,34 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
         </div>
       </dialog>
 
+      <!-- Diálogo de Denúncia de Comentário Abusivo ao Admin -->
+      <dialog id="reportCommentDialog" class="account-dialog report-dialog" aria-labelledby="reportCommentDialogTitle">
+        <button id="closeReportCommentDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
+        <div class="report-dialog-head">
+          <span class="compliance-badge">🛡️ MODERAÇÃO E SEGURANÇA DA COMUNIDADE</span>
+          <h2 id="reportCommentDialogTitle">Denunciar Comentário ao Administrador</h2>
+          <p class="legal-dialog-meta">Relate ofensas, desrespeito, ameaças, spam ou pesca irregular. Sua denúncia será analisada diretamente pelo Administrador no painel de controle.</p>
+        </div>
+        <div class="report-comment-preview card">
+          <small>Comentário a ser denunciado:</small>
+          <blockquote id="reportTargetCommentText">""</blockquote>
+          <div class="report-target-author">Autor: <strong id="reportTargetAuthorName">Pescador</strong></div>
+        </div>
+        <form id="reportCommentForm" class="report-comment-form">
+          <input type="hidden" name="reportPostId" id="reportPostIdInput" />
+          <input type="hidden" name="reportCommentId" id="reportCommentIdInput" />
+          <input type="hidden" name="reportOffenderUid" id="reportOffenderUidInput" />
+          <input type="hidden" name="reportOffenderName" id="reportOffenderNameInput" />
+          <label for="reportReasonInput">Descreva o que ocorreu (motivo da denúncia) *
+            <textarea id="reportReasonInput" name="reportReason" rows="3" required placeholder="Escreva detalhadamente o ocorrido para análise do administrador..."></textarea>
+          </label>
+          <div class="report-dialog-actions">
+            <button type="button" id="cancelReportBtn" class="text-button">Cancelar</button>
+            <button type="submit" class="primary-button is-danger-btn">🚩 Enviar Denúncia ao Admin</button>
+          </div>
+        </form>
+      </dialog>
+
       <!-- Painel Administrativo: Gestão de Contas PRO / VIP Sem Custo -->
       <dialog id="adminProDialog" class="account-dialog admin-pro-dialog" aria-labelledby="adminProDialogTitle">
         <button id="closeAdminProDialog" class="close-dialog" type="button" aria-label="Fechar">×</button>
@@ -1038,6 +1158,10 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
           <div class="admin-kpi-box is-danger">
             <strong id="adminTotalBannedCount">0</strong>
             <span>Banidos / Excluídos</span>
+          </div>
+          <div class="admin-kpi-box is-danger">
+            <strong id="adminTotalReportsCount">0</strong>
+            <span>Denúncias Pendentes</span>
           </div>
           <div class="admin-kpi-box">
             <strong id="adminMyCurrentStatus">Padrão</strong>
@@ -1070,6 +1194,14 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
                 <option value="Parceiro Oficial · VIP">⚓ Parceiro Oficial · VIP</option>
                 <option value="Embaixador Maré Certa">🏆 Embaixador Maré Certa</option>
                 <option value="Convidado da Família PRO">🎣 Convidado da Família PRO</option>
+              </select>
+            </label>
+            <label>Duração do Premium
+              <select name="vipDuration">
+                <option value="3">3 dias (Degustação)</option>
+                <option value="30">1 mês (30 dias)</option>
+                <option value="365" selected>1 ano (365 dias)</option>
+                <option value="3650">Vitalício / Cortesia Indeterminada</option>
               </select>
             </label>
           </div>
@@ -1106,6 +1238,17 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
             <span id="adminWordFilterFeedback" class="profile-saved-pill" hidden>✓ Termo adicionado!</span>
           </form>
           <div id="adminProhibitedWordsList" class="admin-prohibited-words-list" aria-label="Lista de palavras bloqueadas"></div>
+        </section>
+
+        <section class="admin-reports-section" aria-labelledby="adminReportsTitle">
+          <div class="admin-reports-head">
+            <div>
+              <h3 id="adminReportsTitle">🚨 Denúncias de Comentários Recebidas</h3>
+              <p class="legal-dialog-meta">Comentários denunciados por donos de postagens e pescadores da comunidade. Veja o autor, o comentário, o relato do ocorrido e aplique a punição cabível.</p>
+            </div>
+            <span id="adminReportsCountBadge" class="admin-source-tag">0 denúncias</span>
+          </div>
+          <div id="adminReportsList" class="admin-reports-list" role="region" aria-live="polite"></div>
         </section>
 
         <div class="legal-dialog-footer">
@@ -1177,6 +1320,8 @@ const adminHtml = `<!doctype html>
 </html>
 `;
 writeFileSync('dist/admin.html', adminHtml);
+mkdirSync('dist/admin', { recursive: true });
+writeFileSync('dist/admin/index.html', adminHtml.replace('src="./admin.js"', 'src="/admin.js"'));
 
 writeFileSync('dist/versao-b.html', html);
 writeFileSync('dist/versao-a.html', baseAHtml);
@@ -1355,6 +1500,11 @@ writeFileSync('dist/sw.js', swCode);
 let ranking = read('src/ranking.js');
 ranking = replace(
   ranking,
+  "import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut, sendPasswordResetEmail } from 'firebase/auth';",
+  "import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';"
+);
+ranking = replace(
+  ranking,
   "import { ref, runTransaction, onValue, push, remove, serverTimestamp } from 'firebase/database';",
   "import { ref, runTransaction, onValue, push, remove, serverTimestamp, update } from 'firebase/database';"
 );
@@ -1386,13 +1536,63 @@ import {
   getUserModerationStatus,
   uploadTrophyPhotoToFirebaseStorage,
   applyLocationToMainPage,
-  resolveLocationByQuery
+  resolveLocationByQuery,
+  openImageCropper,
+  renderRankingPodium,
+  handleSharedCaptureNavigation,
+  setupCaptureEditPhoto,
+  isPendingTrophyPhotoRemoved,
+  setPendingTrophyPhotoRemoved,
+  removeLocalS3Photo
 } from './preview-b/community-enhancements.js';`
 );
 ranking = replace(
   ranking,
+  `function setMode(next) {
+  mode = next;
+  $('nameField').hidden = next !== 'signup';
+  $('authForm').elements.displayName.required = next === 'signup';
+  $('authForm').elements.password.autocomplete = next === 'signup' ? 'new-password' : 'current-password';
+  $('loginMode').setAttribute('aria-pressed', String(next === 'login'));
+  $('signupMode').setAttribute('aria-pressed', String(next === 'signup'));
+  $('authSubmit').textContent = next === 'signup' ? 'Criar conta' : 'Entrar';
+  $('resetPassword').hidden = next !== 'login'; message('authMessage', '');
+}`,
+  `function setMode(next) {
+  mode = next;
+  $('nameField').hidden = next !== 'signup';
+  $('authForm').elements.displayName.required = next === 'signup';
+  if ($('confirmPasswordField')) {
+    $('confirmPasswordField').hidden = next !== 'signup';
+    if ($('authForm').elements.confirmPassword) {
+      $('authForm').elements.confirmPassword.required = next === 'signup';
+    }
+  }
+  $('authForm').elements.password.autocomplete = next === 'signup' ? 'new-password' : 'current-password';
+  $('loginMode').setAttribute('aria-pressed', String(next === 'login'));
+  $('signupMode').setAttribute('aria-pressed', String(next === 'signup'));
+  $('authSubmit').textContent = next === 'signup' ? 'Criar conta' : 'Entrar';
+  if ($('googleAuthBtnText')) {
+    $('googleAuthBtnText').textContent = next === 'signup' ? 'Criar conta com Google' : 'Entrar com Google';
+  }
+  $('resetPassword').hidden = next !== 'login'; message('authMessage', '');
+}`
+);
+ranking = replace(
+  ranking,
   "if (signup && (name.length < 2 || name.length > 40)) return message('authMessage', 'Informe um nome entre 2 e 40 caracteres.', true);",
-  "if (signup && (name.length < 2 || name.length > 40)) return message('authMessage', 'Informe um nome entre 2 e 40 caracteres.', true);\n  if (signup) { const nameMod = validateTextAgainstModeration(name, 'nome'); if (!nameMod.valid) return message('authMessage', nameMod.message, true); }\n  const emailModStatus = getUserModerationStatus(null, form.elements.email.value.trim());\n  if (emailModStatus.isRestricted) return message('authMessage', emailModStatus.message, true);"
+  `if (signup && (name.length < 2 || name.length > 40)) return message('authMessage', 'Informe um nome entre 2 e 40 caracteres.', true);
+  if (signup) {
+    const pwd = form.elements.password.value;
+    const confirmPwd = form.elements.confirmPassword ? form.elements.confirmPassword.value : '';
+    if (pwd !== confirmPwd) {
+      return message('authMessage', 'As senhas informadas não coincidem. Digite a mesma senha nos dois campos para confirmar.', true);
+    }
+    const nameMod = validateTextAgainstModeration(name, 'nome');
+    if (!nameMod.valid) return message('authMessage', nameMod.message, true);
+  }
+  const emailModStatus = getUserModerationStatus(null, form.elements.email.value.trim());
+  if (emailModStatus.isRestricted) return message('authMessage', emailModStatus.message, true);`
 );
 ranking = replace(
   ranking,
@@ -1417,7 +1617,25 @@ ranking = replace(
   ranking,
   "const ranking = makeRanking(profiles, captures);",
   `const activeCapturesForRanking = Object.fromEntries(Object.entries(captures).filter(([, cap]) => !getUserModerationStatus(cap?.uid).isRestricted));
-  const ranking = makeRanking(profiles, activeCapturesForRanking);`
+  const ranking = makeRanking(profiles, activeCapturesForRanking);
+  renderRankingPodium(ranking, profiles, captures, auth.currentUser?.uid || null);`
+);
+ranking = replace(
+  ranking,
+  "addCell(row, `${person.name}${person.uid === auth.currentUser?.uid ? ' (você)' : ''}`);",
+  `const extP = getFisherExtendedProfile(person.uid, profiles?.[person.uid]);
+    const av = extP?.avatarUrl || profiles?.[person.uid]?.avatarUrl || '';
+    const inits = (person.name || 'Pescador').trim().split(/\\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || 'P').join('');
+    const mClass = person.rank === 1 ? 'is-gold' : person.rank === 2 ? 'is-silver' : person.rank === 3 ? 'is-bronze' : 'is-default';
+    const isProM = isUserPro(person.uid, profiles?.[person.uid]?.email);
+    const isU = person.uid === auth.currentUser?.uid;
+    const tdFisher = document.createElement('td');
+    tdFisher.className = 'ranking-fisher-td';
+    tdFisher.innerHTML = '<div class="ranking-fisher-cell"><div class="ranking-avatar-wrap ' + mClass + '">' +
+      (av ? '<img src="' + av + '" class="ranking-avatar-img" alt="' + person.name + '" />' : '<span class="ranking-avatar-fallback ' + mClass + '">' + inits + '</span>') +
+      '</div><div class="ranking-fisher-info"><strong class="ranking-name-label">' + person.name + '</strong>' + (isU ? ' <small class="ranking-you-tag">(você)</small>' : '') +
+      (isProM ? '<span class="pro-member-badge mini">👑 PRO</span>' : '') + '</div></div>';
+    row.append(tdFisher);`
 );
 ranking = replace(
   ranking,
@@ -1427,12 +1645,19 @@ ranking = replace(
 ranking = replace(
   ranking,
   "$('cancelCaptureEdit').hidden = true;",
-  "$('cancelCaptureEdit').hidden = true;\n  if ($('captureCommentInput')) $('captureCommentInput').value = '';\n  clearPendingTrophyPhoto();"
+  `$('cancelCaptureEdit').hidden = true;
+  if ($('deleteCaptureInEditBtn')) $('deleteCaptureInEditBtn').hidden = true;
+  if ($('captureCommentInput')) $('captureCommentInput').value = '';
+  setPendingTrophyPhotoRemoved(false);
+  clearPendingTrophyPhoto();`
 );
 ranking = replace(
   ranking,
   "for (const name of captureFields) form.elements.namedItem(name).value = capture[name] ?? '';",
-  "for (const name of captureFields) form.elements.namedItem(name).value = capture[name] ?? '';\n  if ($('captureCommentInput')) $('captureCommentInput').value = getCaptureCaption(id, capture);"
+  `for (const name of captureFields) form.elements.namedItem(name).value = capture[name] ?? '';
+  if ($('captureCommentInput')) $('captureCommentInput').value = getCaptureCaption(id, capture);
+  if ($('deleteCaptureInEditBtn')) $('deleteCaptureInEditBtn').hidden = false;
+  setupCaptureEditPhoto(id, capture);`
 );
 ranking = replace(
   ranking,
@@ -1443,17 +1668,50 @@ ranking = replace(
         saveCaptureCaption(edit.id, editCaptionVal);
         update(ref(database, 'mareCerta/captures/' + edit.id), { caption: editCaptionVal }).catch(() => {});
       }
-      const pendingPhotoEdit = getPendingTrophyPhoto();
-      if (pendingPhotoEdit) {
-        saveLocalS3Photo(edit.id, pendingPhotoEdit);
-        uploadTrophyPhotoToFirebaseStorage(edit.id, pendingPhotoEdit.dataUrl).then(url => {
-          const finalPhotoUrl = url || pendingPhotoEdit.dataUrl;
-          if (finalPhotoUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: finalPhotoUrl }).catch(() => {});
-        }).catch(() => {
-          if (pendingPhotoEdit.dataUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: pendingPhotoEdit.dataUrl }).catch(() => {});
-        });
-        clearPendingTrophyPhoto();
+      if (isPendingTrophyPhotoRemoved()) {
+        removeLocalS3Photo(edit.id);
+        update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: null }).catch(() => {});
+        setPendingTrophyPhotoRemoved(false);
+      } else {
+        const pendingPhotoEdit = getPendingTrophyPhoto();
+        if (pendingPhotoEdit) {
+          saveLocalS3Photo(edit.id, pendingPhotoEdit);
+          uploadTrophyPhotoToFirebaseStorage(edit.id, pendingPhotoEdit.dataUrl).then(url => {
+            const finalPhotoUrl = url || pendingPhotoEdit.dataUrl;
+            if (finalPhotoUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: finalPhotoUrl }).catch(() => {});
+          }).catch(() => {
+            if (pendingPhotoEdit.dataUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: pendingPhotoEdit.dataUrl }).catch(() => {});
+          });
+          clearPendingTrophyPhoto();
+        }
       }`
+);
+ranking = replace(
+  ranking,
+  `$('cancelCaptureEdit').addEventListener('click', () => {`,
+  `const delEditBtn = $('deleteCaptureInEditBtn');
+if (delEditBtn) {
+  delEditBtn.addEventListener('click', async () => {
+    if (!editingCapture || savingCapture) return;
+    const captureIdToDelete = editingCapture.id;
+    const confirmed = typeof window !== 'undefined' && typeof window.confirm === 'function'
+      ? window.confirm('⚠️ Tem certeza que deseja apagar esta publicação do seu diário e do ranking?\\n\\nEsta ação excluirá o registro e a foto permanentemente.')
+      : true;
+    if (!confirmed) return;
+    delEditBtn.disabled = true;
+    message('captureMessage', 'Apagando publicação...');
+    try {
+      await remove(ref(database, 'mareCerta/captures/' + captureIdToDelete));
+      removeLocalS3Photo(captureIdToDelete);
+      resetCaptureEditor();
+      message('captureMessage', 'Publicação apagada com sucesso.');
+    } catch (err) {
+      message('captureMessage', explain(err), true);
+      delEditBtn.disabled = false;
+    }
+  });
+}
+$('cancelCaptureEdit').addEventListener('click', () => {`
 );
 ranking = replace(
   ranking,
@@ -1582,7 +1840,8 @@ const blurredFeedSnippet = `  const isPro = isUserPro();
     \`;
     teaser.querySelector('.paywall-teaser-cta-btn').addEventListener('click', () => openProPaywallModal('feed_blur'));
     $('recentCatches').append(teaser);
-  }`;
+  }
+  handleSharedCaptureNavigation();`;
 
 ranking = replace(
   ranking,
@@ -1600,49 +1859,59 @@ window.addEventListener('mare-certa:moderation-changed', () => renderCommunity()
 
 if ($('myProfileAvatarBtn') && $('myProfileAvatarInput')) {
   $('myProfileAvatarBtn').addEventListener('click', () => $('myProfileAvatarInput').click());
-  $('myProfileAvatarInput').addEventListener('change', async () => {
+  $('myProfileAvatarInput').addEventListener('change', () => {
     const file = $('myProfileAvatarInput').files?.[0];
     const user = auth.currentUser;
     if (!file || !user) return;
-    try {
-      const compressed = await compressTrophyPhoto(file, 420, 0.85);
-      saveFisherExtendedProfile(user.uid, { avatarUrl: compressed.dataUrl });
-      renderCommunity();
-      message('profileStatus', '✓ Foto do perfil atualizada!');
-    } catch (err) {
-      message('profileStatus', err.message || 'Erro ao atualizar foto do perfil.', true);
-    } finally {
-      $('myProfileAvatarInput').value = '';
-    }
+    openImageCropper({
+      file,
+      shape: 'circle',
+      title: 'Ajustar Foto do Perfil',
+      subtitle: 'Arraste a foto e use o zoom para centralizar seu rosto ou foto de pescaria perfeitamente no círculo.',
+      onCropComplete: cropped => {
+        saveFisherExtendedProfile(user.uid, { avatarUrl: cropped.dataUrl });
+        renderCommunity();
+        message('profileStatus', '✓ Foto do perfil atualizada e enquadrada com sucesso!');
+        $('myProfileAvatarInput').value = '';
+      },
+      onCancel: () => {
+        $('myProfileAvatarInput').value = '';
+      }
+    });
   });
 }
 
 if ($('addProfileTrophyBtn') && $('myProfileTrophyInput')) {
   $('addProfileTrophyBtn').addEventListener('click', () => $('myProfileTrophyInput').click());
-  $('myProfileTrophyInput').addEventListener('change', async () => {
+  $('myProfileTrophyInput').addEventListener('change', () => {
     const file = $('myProfileTrophyInput').files?.[0];
     const user = auth.currentUser;
     if (!file || !user) return;
-    try {
-      const compressed = await compressTrophyPhoto(file, 1080, 0.82);
-      const currentExt = getFisherExtendedProfile(user.uid, profiles?.[user.uid]);
-      const extraTrophyPhotos = [
-        {
-          id: 'trophy-' + Date.now(),
-          dataUrl: compressed.dataUrl,
-          title: 'Troféu do Pescador',
-          date: today().split('-').reverse().join('/')
-        },
-        ...(currentExt.extraTrophyPhotos || [])
-      ];
-      saveFisherExtendedProfile(user.uid, { extraTrophyPhotos });
-      renderCommunity();
-      message('profileStatus', '✓ Foto adicionada à sua galeria de troféus!');
-    } catch (err) {
-      message('profileStatus', err.message || 'Erro ao adicionar foto na galeria.', true);
-    } finally {
-      $('myProfileTrophyInput').value = '';
-    }
+    openImageCropper({
+      file,
+      shape: 'rect',
+      title: 'Enquadrar Foto para sua Galeria',
+      subtitle: 'Foto completa preservada. Arraste e use o zoom caso queira aproximar o peixe.',
+      onCropComplete: cropped => {
+        const currentExt = getFisherExtendedProfile(user.uid, profiles?.[user.uid]);
+        const extraTrophyPhotos = [
+          {
+            id: 'trophy-' + Date.now(),
+            dataUrl: cropped.dataUrl,
+            title: 'Troféu do Pescador',
+            date: today().split('-').reverse().join('/')
+          },
+          ...(currentExt.extraTrophyPhotos || [])
+        ];
+        saveFisherExtendedProfile(user.uid, { extraTrophyPhotos });
+        renderCommunity();
+        message('profileStatus', '✓ Foto adicionada à sua galeria de troféus!');
+        $('myProfileTrophyInput').value = '';
+      },
+      onCancel: () => {
+        $('myProfileTrophyInput').value = '';
+      }
+    });
   });
 }
 
@@ -1764,6 +2033,41 @@ if ($('setAsProfileDefaultLocBtn')) {
         renderCommunity();
       }
     } catch {}
+  });
+}
+
+const googleBtn = $('googleAuthBtn');
+if (googleBtn) {
+  googleBtn.addEventListener('click', async () => {
+    message('authMessage', 'Conectando ao Google...');
+    googleBtn.disabled = true;
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(auth, provider);
+      const user = result?.user;
+      if (user) {
+        const gName = user.displayName || (user.email ? user.email.split('@')[0] : 'Pescador');
+        await ensureProfile(user, gName);
+        if (user.photoURL) {
+          const curExt = getFisherExtendedProfile(user.uid);
+          if (!curExt?.avatarUrl) {
+            saveFisherExtendedProfile(user.uid, { avatarUrl: user.photoURL });
+          }
+        }
+        renderAccount(user);
+        $('accountDialog').close();
+        message('captureMessage', 'Conta Google conectada com sucesso! Bem-vindo(a), ' + gName + '.');
+      }
+    } catch (error) {
+      if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') {
+        message('authMessage', 'Login com Google cancelado.');
+      } else {
+        message('authMessage', explain(error), true);
+      }
+    } finally {
+      googleBtn.disabled = false;
+    }
   });
 }
 `;

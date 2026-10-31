@@ -1,0 +1,25 @@
+{
+  "zio1A3KMJqhJsp9LNSvuyYzy2jw2": {
+    "uid": "zio1A3KMJqhJsp9LNSvuyYzy2jw2",
+    "email": "test_user_4665524128243257713@testuser.com",
+    "name": "Assinante PRO",
+    "active": false,
+    "planId": "annual",
+    "durationDays": 365,
+    "activatedAt": 1793415167252,
+    "expiresAt": 1824951167252,
+    "paymentId": "186992584584",
+    "revokedAt": 1793415320133
+  },
+  "8Uf9m9O5AKSSnwqToGTIxGB2BQt1": {
+    "uid": "8Uf9m9O5AKSSnwqToGTIxGB2BQt1",
+    "email": "test_user_4665524128243257713@testuser.com",
+    "name": "Assinante PRO",
+    "active": true,
+    "planId": "annual",
+    "durationDays": 365,
+    "activatedAt": 1793416824178,
+    "expiresAt": 1824952824178,
+    "paymentId": "186994779842"
+  }
+}

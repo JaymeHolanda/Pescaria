@@ -717,7 +717,14 @@ test('Vinculação da Localização do Perfil com o Padrão de Pesca da Main Pag
 
 test('Mercado Pago: links oficiais (Mensal 30d e Anual 365d), soma de 1 ano + 1 mês no upgrade e retorno ao Gratuito após expiração', async () => {
   const { readFileSync } = await import('node:fs');
-  const { PRO_PLANS, canUseProSocialFeature, getProRemainingDays, formatProDurationLabel } = await import('../src/preview-b/model.js');
+  const {
+    PRO_PLANS,
+    PRO_PRODUCTION_PAYMENT_URLS,
+    PRO_TEST_PAYMENT_URLS,
+    canUseProSocialFeature,
+    getProRemainingDays,
+    formatProDurationLabel
+  } = await import('../src/preview-b/model.js');
   const {
     setProSubscription,
     getProSubscription,
@@ -737,7 +744,9 @@ test('Mercado Pago: links oficiais (Mensal 30d e Anual 365d), soma de 1 ano + 1 
     removeItem: k => store.delete(k)
   };
 
-  // 1. Confirma links oficiais e duração em dias configurados nos planos
+  // 1. Confirma links oficiais de produção ativos
+  assert.equal(PRO_PRODUCTION_PAYMENT_URLS.monthly, 'https://mpago.la/2VrN9v1');
+  assert.equal(PRO_PRODUCTION_PAYMENT_URLS.annual, 'https://mpago.la/2UDPJo9');
   assert.equal(PRO_PLANS.monthly.paymentUrl, 'https://mpago.la/2VrN9v1');
   assert.equal(PRO_PLANS.monthly.durationDays, 30);
   assert.equal(PRO_PLANS.annual.paymentUrl, 'https://mpago.la/2UDPJo9');
@@ -841,3 +850,423 @@ test('Mercado Pago: links oficiais (Mensal 30d e Anual 365d), soma de 1 ano + 1 
   assert.equal(isUserPro(testUser.uid, testUser.email, day396), false);
   assert.equal(getProSubscription(testUser.uid, testUser.email, day396).active, false);
 });
+
+test('Denúncias de comentários abusivos, suspensão pelo admin, durações customizadas de PRO (3d, 1m, 1a) e filtro do feed', async () => {
+  const { readFileSync } = await import('node:fs');
+  const indexHtml = readFileSync('dist/index.html', 'utf8');
+  const adminHtml = readFileSync('dist/admin.html', 'utf8');
+  const css = readFileSync('dist/versao-b.css', 'utf8');
+
+  // 1. Validação visual e semântica no HTML e CSS
+  assert.match(indexHtml, /Procure amigos de pesca e veja troféus/, 'Feed deve conter o novo título');
+  assert.match(indexHtml, /id="filterLocationResults"/, 'Feed deve conter dropdown de autocomplete no filtro de local');
+  assert.match(indexHtml, /data-lpignore="true"/, 'Filtro de local deve conter proteção contra autofill do navegador');
+  assert.match(indexHtml, /id="reportCommentDialog"/, 'Deve existir modal de denúncia de comentários');
+  assert.match(indexHtml, /id="reportCommentForm"/, 'Deve existir formulário de relato do ocorrido');
+
+  assert.match(adminHtml, /id="adminReportsList"/, 'Painel Admin deve conter listagem de denúncias recebidas');
+  assert.match(adminHtml, /name="vipDuration"/, 'Formulário do Admin deve conter seletor de duração');
+  assert.match(adminHtml, /value="3"/, 'Duração deve ter opção de 3 dias');
+  assert.match(adminHtml, /value="30"/, 'Duração deve ter opção de 30 dias (1 mês)');
+  assert.match(adminHtml, /value="365"/, 'Duração deve ter opção de 365 dias (1 ano)');
+
+  assert.match(css, /\.topbar-right-actions/, 'CSS deve conter ações à direita na topbar');
+  assert.match(css, /\.social-report-comment-btn/, 'CSS deve conter estilo para o botão de denúncia de comentários');
+  assert.match(css, /\.admin-reports-section/, 'CSS deve conter estilo da seção de denúncias no admin');
+
+  // 2. Mock de storage para testes de funções
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k)
+  };
+
+  const {
+    submitCommentReport,
+    loadAdminReportsMap,
+    resolveAdminReport,
+    grantFreeProToUser,
+    banUserAccount,
+    getUserModerationStatus,
+    getFisherExtendedProfile,
+    isUserPro
+  } = await import('../src/preview-b/community-enhancements.js');
+
+  // 3. Teste de denúncia de comentário pelo dono da postagem / pescador
+  const report = submitCommentReport({
+    postId: 'post-101',
+    captureTitle: 'Robalo Flecha 4.2kg',
+    commentId: 'c-999',
+    commentText: 'Pescador fraco, isso aí foi comprado no mercado!',
+    offenderUid: 'user-troll-1',
+    offenderName: 'Troll das Praias',
+    reporterUid: 'user-dono-post',
+    reporterName: 'Carlos Pescador',
+    reason: 'Comentário ofensivo, desrespeitoso e difamatório na minha postagem.'
+  });
+
+  assert.ok(report.id.startsWith('rep-'));
+  assert.equal(report.status, 'pending');
+  assert.equal(report.offenderUid, 'user-troll-1');
+  assert.equal(report.commentId, 'c-999');
+
+  const mapReports = loadAdminReportsMap();
+  assert.ok(mapReports[report.id]);
+  assert.equal(mapReports[report.id].reason, 'Comentário ofensivo, desrespeitoso e difamatório na minha postagem.');
+
+  // Validação: relato muito curto deve lançar erro
+  assert.throws(() => {
+    submitCommentReport({ reason: 'oi' });
+  }, /pelo menos 3 caracteres/);
+
+  // 4. Admin analisa no painel e aplica suspensão de 14 dias no perfil infrator
+  banUserAccount({
+    uid: report.offenderUid,
+    displayName: report.offenderName,
+    durationDays: 14,
+    reason: 'Denúncia de comentário abusivo confirmada pelo administrador'
+  });
+  resolveAdminReport(report.id, 'resolved');
+
+  const trollMod = getUserModerationStatus('user-troll-1');
+  assert.equal(trollMod.isRestricted, true);
+  assert.equal(trollMod.durationDays, 14);
+  assert.equal(loadAdminReportsMap()[report.id].status, 'resolved');
+
+  // 5. Teste de concessão de PRO no Admin com diferentes durações
+  const now = 1793400000000;
+
+  // 5.1 Concessão de 3 dias (degustação)
+  const grant3d = grantFreeProToUser({
+    uid: 'pescador-3d',
+    email: 'teste3d@praia.com',
+    displayName: 'Pescador Três Dias',
+    durationDays: 3
+  });
+  assert.equal(grant3d.durationDays, 3);
+  assert.equal(grant3d.expiresAt >= Date.now() + 3 * 86400000 - 5000, true);
+  const ext3d = getFisherExtendedProfile('pescador-3d');
+  assert.equal(ext3d.isPro, true);
+  assert.equal(ext3d.proDurationDays, 3);
+  assert.ok(ext3d.proExpiresAt);
+
+  // 5.2 Concessão de 1 mês (30 dias)
+  const grant30d = grantFreeProToUser({
+    uid: 'pescador-30d',
+    email: 'teste30d@praia.com',
+    displayName: 'Pescador Um Mês',
+    durationDays: 30
+  });
+  assert.equal(grant30d.durationDays, 30);
+  const ext30d = getFisherExtendedProfile('pescador-30d');
+  assert.equal(ext30d.isPro, true);
+  assert.equal(ext30d.proDurationDays, 30);
+
+  // 5.3 Concessão de 1 ano (365 dias)
+  const grant365d = grantFreeProToUser({
+    uid: 'pescador-365d',
+    email: 'teste365d@praia.com',
+    displayName: 'Pescador Um Ano',
+    durationDays: 365
+  });
+  assert.equal(grant365d.durationDays, 365);
+  const ext365d = getFisherExtendedProfile('pescador-365d');
+  assert.equal(ext365d.isPro, true);
+  assert.equal(ext365d.proDurationDays, 365);
+});
+
+test('Image Cropper (delimitador, zoom e formatos) e Pódio Top 3 com fotos em círculo e bordas de medalhas (ouro, prata e bronze)', async () => {
+  const {
+    sanitizeFirebaseKey,
+    renderRankingPodium
+  } = await import('../src/preview-b/community-enhancements.js');
+  const { readFileSync } = await import('fs');
+
+  // 1. Sanitização de chaves para o Firebase Realtime Database
+  assert.equal(sanitizeFirebaseKey('jaymeholanda.dev@gmail.com'), 'jaymeholanda_dev@gmail_com');
+  assert.equal(sanitizeFirebaseKey('user#1$2/3[4]5.end'), 'user_1_2_3_4_5_end');
+
+  // 2. Presença do Cropper Modal e do Pódio no HTML gerado
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /id="imageCropperDialog"/);
+  assert.match(html, /id="cropperViewport"/);
+  assert.match(html, /id="cropperMask"/);
+  assert.match(html, /id="cropperZoomRange"/);
+  assert.match(html, /min="0\.7"/);
+  assert.match(html, /max="3\.5"/);
+  assert.match(html, /data-cropper-ratio="post"[^>]*>📸 Encaixe no Post/);
+  assert.match(html, /data-cropper-ratio="1:1"[^>]*>1:1 Quadrado<\/button>/);
+  assert.match(html, /id="cropperRotateBtn"/);
+  assert.match(html, /id="cropperApplyBtn"/);
+  assert.match(html, /id="rankingTopPodium"/);
+
+  // 3. Renderização do Pódio Top 3 com Medalhas e Círculos
+  const dummyEl = { hidden: false, innerHTML: '', querySelectorAll: () => [] };
+  globalThis.document = {
+    getElementById: id => (id === 'rankingTopPodium' ? dummyEl : null)
+  };
+
+  const sampleRanking = [
+    { uid: 'u-1', name: 'Jayme Holanda', quantity: 15, species: 4, rank: 1 },
+    { uid: 'u-2', name: 'Henrique Costa', quantity: 10, species: 3, rank: 2 },
+    { uid: 'u-3', name: 'Juliana Mar', quantity: 7, species: 2, rank: 3 },
+    { uid: 'u-4', name: 'Rafael Silva', quantity: 4, species: 1, rank: 4 }
+  ];
+
+  renderRankingPodium(sampleRanking, {}, {});
+  assert.equal(dummyEl.hidden, false);
+  assert.match(dummyEl.innerHTML, /is-gold/);
+  assert.match(dummyEl.innerHTML, /is-silver/);
+  assert.match(dummyEl.innerHTML, /is-bronze/);
+  assert.match(dummyEl.innerHTML, /Jayme Holanda/);
+  assert.match(dummyEl.innerHTML, /Henrique Costa/);
+  assert.match(dummyEl.innerHTML, /Juliana Mar/);
+  assert.match(dummyEl.innerHTML, /podium-avatar-ring/);
+
+  // 4. Se o ranking estiver vazio, esconde o pódio
+  renderRankingPodium([], {}, {});
+  assert.equal(dummyEl.hidden, true);
+});
+
+test('Compartilhamento WhatsApp (mensagem junta com foto e link direto) e auto-redirecionamento para ranking e capturas', async () => {
+  const {
+    handleSharedCaptureNavigation
+  } = await import('../src/preview-b/community-enhancements.js');
+  const { readFileSync } = await import('fs');
+
+  // 1. Presença dos botões dedicados e alertas no HTML
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /id="nativeShareTrophyBtn"/);
+  assert.match(html, /id="copyShareLinkBtn"/);
+  assert.match(html, /id="downloadTrophyBtn"/);
+  assert.match(html, /id="shareStatusAlert"/);
+  assert.match(html, /whatsapp-share-btn/);
+
+  // 2. Simulação de navegação por URL compartilhada (?tab=ranking&capture=cap-123#ranking)
+  let clickedTab = null;
+  let highlightedCard = false;
+  let scrolledIntoView = false;
+
+  const mockCard = {
+    classList: {
+      add: cls => { if (cls === 'highlight-shared-capture') highlightedCard = true; },
+      remove: () => {}
+    },
+    scrollIntoView: () => { scrolledIntoView = true; }
+  };
+
+  const mockRankingTab = {
+    getAttribute: attr => (attr === 'aria-selected' ? 'false' : null),
+    click: () => { clickedTab = 'rankingTab'; }
+  };
+
+  const mockRankingPanel = { hidden: true };
+
+  globalThis.window = {
+    location: {
+      origin: 'https://marecerta.com.br',
+      pathname: '/',
+      search: '?tab=ranking&capture=cap-123',
+      hash: '#ranking'
+    },
+    addEventListener: () => {}
+  };
+
+  globalThis.document = {
+    getElementById: id => {
+      if (id === 'rankingTab') return mockRankingTab;
+      if (id === 'rankingPanel') return mockRankingPanel;
+      if (id === 'capture-card-cap-123') return mockCard;
+      return null;
+    },
+    querySelector: sel => {
+      if (sel && sel.includes('cap-123')) return mockCard;
+      return null;
+    }
+  };
+
+  handleSharedCaptureNavigation();
+
+  assert.equal(clickedTab, 'rankingTab');
+  assert.equal(mockRankingPanel.hidden, false);
+  await new Promise(r => setTimeout(r, 160));
+  assert.equal(scrolledIntoView, true);
+  assert.equal(highlightedCard, true);
+});
+
+test('Edição de post: opção de apagar a imagem e opção de apagar a publicação inteira', async () => {
+  const {
+    setupCaptureEditPhoto,
+    isPendingTrophyPhotoRemoved,
+    setPendingTrophyPhotoRemoved,
+    removeLocalS3Photo,
+    saveLocalS3Photo,
+    loadLocalS3Photos
+  } = await import('../src/preview-b/community-enhancements.js');
+  const { readFileSync } = await import('fs');
+
+  // 1. Presença do botão de apagar foto e botão de apagar publicação no HTML
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /id="removeCapturePhotoBtn"[^>]*>🗑️ Apagar foto da captura<\/button>/);
+  assert.match(html, /id="deleteCaptureInEditBtn"[^>]*>🗑️ Apagar esta publicação<\/button>/);
+
+  // 2. Mock de elementos do formulário de edição
+  let previewHidden = true;
+  let previewSrc = '';
+  let statusText = '';
+  let removeBtnText = '';
+
+  const mockPreviewWrap = {
+    set hidden(val) { previewHidden = val; },
+    get hidden() { return previewHidden; }
+  };
+  const mockPreviewImg = {
+    set src(val) { previewSrc = val; },
+    get src() { return previewSrc; }
+  };
+  const mockStatus = {
+    set textContent(val) { statusText = val; },
+    get textContent() { return statusText; },
+    className: ''
+  };
+  const mockRemoveBtn = {
+    set textContent(val) { removeBtnText = val; },
+    get textContent() { return removeBtnText; }
+  };
+
+  globalThis.document = {
+    getElementById: id => {
+      if (id === 'capturePhotoPreviewWrap') return mockPreviewWrap;
+      if (id === 'capturePhotoPreviewImg') return mockPreviewImg;
+      if (id === 'capturePhotoStatus') return mockStatus;
+      if (id === 'removeCapturePhotoBtn') return mockRemoveBtn;
+      return null;
+    }
+  };
+
+  // 3. Ao entrar na edição de captura com foto existente
+  const testCapture = {
+    uid: 'user-1',
+    species: 'Pampo',
+    photoUrl: 'https://marecerta.com.br/test-trophy.jpg'
+  };
+
+  setupCaptureEditPhoto('test-cap-1', testCapture);
+  assert.equal(previewHidden, false);
+  assert.equal(previewSrc, 'https://marecerta.com.br/test-trophy.jpg');
+  assert.match(removeBtnText, /Apagar foto da captura/);
+  assert.equal(isPendingTrophyPhotoRemoved(), false);
+
+  // 4. Marcação de foto apagada
+  setPendingTrophyPhotoRemoved(true);
+  assert.equal(isPendingTrophyPhotoRemoved(), true);
+
+  // 5. Remoção de foto do storage local
+  saveLocalS3Photo('test-cap-s3', { dataUrl: 'data:image/webp;base64,123' });
+  assert.ok(loadLocalS3Photos()['test-cap-s3']);
+  removeLocalS3Photo('test-cap-s3');
+  assert.equal(loadLocalS3Photos()['test-cap-s3'], undefined);
+});
+
+test('Criação de conta com confirmação de senha e login oficial via Google', async () => {
+  const { readFileSync } = await import('fs');
+
+  // 1. Validar elementos no HTML da aplicação (dist/index.html)
+  const html = readFileSync('dist/index.html', 'utf8');
+
+  // Campo de confirmação de senha no formulário
+  assert.match(html, /<label id="confirmPasswordField" hidden>Confirmar senha/);
+  assert.match(html, /name="confirmPassword"/);
+  assert.match(html, /placeholder="Repita a senha para confirmar"/);
+
+  // Botão e divisor oficial do Google
+  assert.match(html, /class="auth-divider-line"><span>ou continue com<\/span><\/div>/);
+  assert.match(html, /<button id="googleAuthBtn" class="google-auth-btn" type="button">/);
+  assert.match(html, /id="googleAuthBtnText">Entrar com Google<\/span>/);
+  assert.match(html, /class="google-svg-icon"/);
+
+  // 2. Validar lógica no bundle compilado (dist/ranking-b.js)
+  const rankingJs = readFileSync('dist/ranking-b.js', 'utf8');
+
+  // Checagem de que as senhas precisam coincidir no cadastro
+  assert.ok(
+    rankingJs.includes('coincidem') && rankingJs.includes('confirmPassword'),
+    'Deve conter validação e mensagem de erro quando senhas não coincidem'
+  );
+
+  // Integração com GoogleAuthProvider e signInWithPopup do Firebase
+  assert.ok(
+    rankingJs.includes('GoogleAuthProvider') && rankingJs.includes('signInWithPopup'),
+    'Deve importar e chamar GoogleAuthProvider e signInWithPopup'
+  );
+
+  // 3. Validar estilização em dist/versao-b.css
+  const css = readFileSync('dist/versao-b.css', 'utf8');
+  assert.ok(css.includes('.google-auth-btn'), 'CSS deve conter estilo do botão Google');
+  assert.ok(css.includes('.auth-divider-line'), 'CSS deve conter linha divisora do social login');
+  assert.ok(css.includes('.auth-social-wrap'), 'CSS deve conter wrapper de login social');
+});
+
+test('Sininho de notificações com pulse continuous, navegação da galeria para o ranking e cropper preciso', async () => {
+  const { readFileSync } = await import('fs');
+  const {
+    getUnreadNotificationsData,
+    markCaptureCommentsAsRead,
+    getUnreadCommentsCountForCapture,
+    loadReadCommentsMap,
+    saveReadCommentsMap
+  } = await import('../src/preview-b/community-enhancements.js');
+
+  // 1. Validar elementos no HTML da aplicação (dist/index.html)
+  const html = readFileSync('dist/index.html', 'utf8');
+  assert.match(html, /id="notifBellBtn"/, 'HTML deve conter botão do sininho de notificações');
+  assert.match(html, /id="notifBellBadge"/, 'HTML deve conter badge com contador do sininho');
+  assert.match(html, /id="rankingTabBadge"/, 'HTML deve conter badge na aba Ranking & capturas');
+
+  // 2. Validar CSS de notificações e pulse continuous
+  const css = readFileSync('dist/versao-b.css', 'utf8');
+  assert.ok(css.includes('.notif-bell-btn'), 'CSS deve conter estilo do sininho');
+  assert.ok(css.includes('.notif-bell-badge'), 'CSS deve conter estilo do badge');
+  assert.ok(css.includes('.pulse-continuous'), 'CSS deve conter classe de animação contínua');
+  assert.ok(css.includes('@keyframes notifPulseContinuous'), 'CSS deve conter keyframes de pulso contínuo');
+  assert.ok(css.includes('@keyframes notifBellSwing'), 'CSS deve conter animação de balanço do sininho');
+  assert.ok(css.includes('.post-unread-pill'), 'CSS deve conter pill de notificação no post');
+  assert.ok(css.includes('.profile-gallery-item'), 'CSS deve conter estilo da galeria');
+
+  // 3. Testar lógica de mensagens não lidas
+  saveReadCommentsMap({});
+  const mockCaptures = {
+    'cap-jayme-1': {
+      uid: 'uid-jayme-test',
+      authorName: 'Jayme Holanda',
+      species: 'Pampo',
+      weight: 0.5
+    }
+  };
+
+  const initialNotifs = getUnreadNotificationsData(mockCaptures, 'uid-jayme-test');
+  assert.ok(initialNotifs.totalUnread >= 1, 'Deve detectar mensagens não lidas para o pescador');
+  assert.ok(initialNotifs.unreadCaptureIds.includes('cap-jayme-1'), 'Deve listar a captura com mensagens');
+
+  const unreadCount = getUnreadCommentsCountForCapture('cap-jayme-1', 'uid-jayme-test');
+  assert.ok(unreadCount >= 1, 'Contador por captura deve refletir mensagens pendentes');
+
+  // 4. Testar leitura de mensagens da captura
+  markCaptureCommentsAsRead('cap-jayme-1', 'uid-jayme-test');
+  const readAfter = getUnreadCommentsCountForCapture('cap-jayme-1', 'uid-jayme-test');
+  assert.equal(readAfter, 0, 'Após ler mensagens do post, a contagem daquele post deve zerar');
+
+  const notifsAfterRead = getUnreadNotificationsData(mockCaptures, 'uid-jayme-test');
+  assert.equal(notifsAfterRead.unreadPerCapture['cap-jayme-1'] || 0, 0, 'Notificações ativas do post devem cessar');
+
+  // 5. Validar que o cropper no código exporta com a ordem correta de transformações (translate antes de scale)
+  const commEnhanceCode = readFileSync('src/preview-b/community-enhancements.js', 'utf8');
+  const translateIdx = commEnhanceCode.indexOf('ctx.translate(cropperState.translateX * factor');
+  const scaleIdx = commEnhanceCode.indexOf('ctx.scale(cropperState.scale, cropperState.scale)');
+  assert.ok(translateIdx > 0 && scaleIdx > 0, 'Canvas deve conter translate e scale');
+  assert.ok(translateIdx < scaleIdx, 'O translate deve ocorrer ANTES do scale no canvas para não amplificar o arrasto com zoom');
+  assert.ok(commEnhanceCode.includes('destination-in'), 'Deve aplicar máscara circular para fotos de perfil');
+});
+
+

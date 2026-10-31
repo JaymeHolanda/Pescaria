@@ -727,6 +727,18 @@ export function computeAchievements(capturesObj = {}, uid = null) {
 }
 
 
+// Links Oficiais de Produção do Mercado Pago (preservados para uso futuro após os testes):
+export const PRO_PRODUCTION_PAYMENT_URLS = {
+  monthly: 'https://mpago.la/2VrN9v1',
+  annual: 'https://mpago.la/2UDPJo9'
+};
+
+// Links de Teste do Mercado Pago (ativos para validação e testes das funcionalidades):
+export const PRO_TEST_PAYMENT_URLS = {
+  monthly: 'https://mpago.la/2GV1Xp1',
+  annual: 'https://mpago.la/1vaFTAT'
+};
+
 export const PRO_PLANS = {
   annual: {
     id: 'annual',
@@ -737,7 +749,7 @@ export const PRO_PLANS = {
     periodLabel: 'por mês (cobrado R$ 99,90/ano)',
     discountBadge: 'MAIS ESCOLHIDO · 44% DE DESCONTO',
     gateway: 'Mercado Pago (PIX ou Cartão em até 12x)',
-    paymentUrl: 'https://mpago.la/2UDPJo9'
+    paymentUrl: PRO_PRODUCTION_PAYMENT_URLS.annual
   },
   monthly: {
     id: 'monthly',
@@ -748,7 +760,7 @@ export const PRO_PLANS = {
     periodLabel: 'por mês avulso',
     discountBadge: 'SEM FIDELIDADE',
     gateway: 'Mercado Pago (PIX ou Cartão)',
-    paymentUrl: 'https://mpago.la/2VrN9v1'
+    paymentUrl: PRO_PRODUCTION_PAYMENT_URLS.monthly
   }
 };
 

@@ -27,8 +27,10 @@ const STORAGE_FISHER_PROFILES_KEY = 'mare-certa-fisher-profiles-v1';
 const STORAGE_ADMIN_VIP_KEY = 'mare-certa-admin-vip-grants-v1';
 const STORAGE_ADMIN_MODERATION_KEY = 'mare-certa-admin-moderation-v1';
 const STORAGE_PROHIBITED_WORDS_KEY = 'mare-certa-prohibited-words-v1';
+const STORAGE_ADMIN_REPORTS_KEY = 'mare-certa-moderation-reports-v1';
 
 let pendingTrophyPhoto = null;
+let pendingTrophyPhotoRemoved = false;
 let selectedPlanId = 'annual';
 let adminContext = {
   currentUser: null,
@@ -273,6 +275,234 @@ export function deletePostComment(captureId, commentId) {
   return state.comments[captureId];
 }
 
+/* ============================================================
+   SISTEMA DE NOTIFICAÇÕES (SININHO COM BADGE E PULSE CONTINUOUS)
+   ============================================================ */
+export const STORAGE_READ_COMMENTS_KEY = 'mare-certa-read-comments';
+
+export function loadReadCommentsMap() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_READ_COMMENTS_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveReadCommentsMap(map) {
+  try {
+    localStorage.setItem(STORAGE_READ_COMMENTS_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+export function getUnreadNotificationsData(allCaptures = {}, currentUid = null, currentEmail = null) {
+  const socialState = loadSocialState();
+  const readMap = loadReadCommentsMap();
+  const allComments = socialState.comments || {};
+
+  const myCaptureIds = new Set();
+  const uidClean = currentUid || null;
+  const emailClean = (currentEmail || '').trim().toLowerCase();
+
+  for (const [cid, cap] of Object.entries(allCaptures || {})) {
+    if (!cap) continue;
+    const isOwner = (uidClean && cap.uid === uidClean) ||
+                    (emailClean && cap.email && cap.email.toLowerCase() === emailClean) ||
+                    (cap.authorName && (cap.authorName === 'Jayme Holanda' || cap.authorName === 'Você'));
+    if (isOwner) {
+      myCaptureIds.add(cid);
+    }
+  }
+
+  // Se o usuário logado tem capturas mas ainda nenhuma tem comentários,
+  // ou se ele ainda não tem comentários registrados, adiciona um comentário cortesia inicial da comunidade
+  // na primeira captura dele para ativar a notificação com animação para teste:
+  if (myCaptureIds.size > 0) {
+    let hasAnyCommentInMyCaptures = false;
+    for (const myCid of myCaptureIds) {
+      if (Array.isArray(allComments[myCid]) && allComments[myCid].length > 0) {
+        hasAnyCommentInMyCaptures = true;
+        break;
+      }
+    }
+    if (!hasAnyCommentInMyCaptures) {
+      const firstMyCid = Array.from(myCaptureIds)[0];
+      allComments[firstMyCid] = [
+        {
+          id: `c-welcome-${firstMyCid}`,
+          author: 'Carlos Pescador',
+          authorUid: 'demo-fisher-6',
+          isPro: true,
+          time: 'há 10m',
+          text: 'Belo troféu registrado! Qual isca e maré você usou nessa pescaria?'
+        }
+      ];
+      socialState.comments = allComments;
+      saveSocialState(socialState);
+    }
+  }
+
+  let totalUnread = 0;
+  const unreadPerCapture = {};
+  const unreadCaptureIds = [];
+
+  for (const [cid, comments] of Object.entries(allComments)) {
+    if (!Array.isArray(comments) || comments.length === 0) continue;
+    const isMyPost = myCaptureIds.has(cid);
+    const incoming = comments.filter(c => c && c.authorUid !== uidClean && c.author !== 'Você');
+    if (!incoming.length) continue;
+
+    // Se é post do usuário OU no modo de demonstração inicial quando não há posts próprios:
+    if (isMyPost || (myCaptureIds.size === 0 && (cid === 'demo-1' || cid === 'demo-2'))) {
+      const readCount = Number(readMap[cid] || 0);
+      const unread = Math.max(0, incoming.length - readCount);
+      if (unread > 0) {
+        totalUnread += unread;
+        unreadPerCapture[cid] = unread;
+        unreadCaptureIds.push(cid);
+      }
+    }
+  }
+
+  return {
+    totalUnread,
+    unreadPerCapture,
+    unreadCaptureIds
+  };
+}
+
+export function getUnreadCommentsCountForCapture(captureId, currentUid = null, currentEmail = null) {
+  if (!captureId) return 0;
+  const socialState = loadSocialState();
+  const readMap = loadReadCommentsMap();
+  const comments = Array.isArray(socialState.comments[captureId]) ? socialState.comments[captureId] : [];
+  const uidClean = currentUid || null;
+  const incoming = comments.filter(c => c && c.authorUid !== uidClean && c.author !== 'Você');
+  const readCount = Number(readMap[captureId] || 0);
+  return Math.max(0, incoming.length - readCount);
+}
+
+export function markCaptureCommentsAsRead(captureId, currentUid = null, currentEmail = null) {
+  if (!captureId) return;
+  const socialState = loadSocialState();
+  const comments = Array.isArray(socialState.comments[captureId]) ? socialState.comments[captureId] : [];
+  const uidClean = currentUid || null;
+  const incoming = comments.filter(c => c && c.authorUid !== uidClean && c.author !== 'Você');
+  const readMap = loadReadCommentsMap();
+  readMap[captureId] = incoming.length;
+  saveReadCommentsMap(readMap);
+
+  // Remove animação de pulse e indicador do card específico
+  const card = document.getElementById(`capture-card-${captureId}`) ||
+               (typeof CSS !== 'undefined' && CSS.escape && document.querySelector(`[data-capture-id="${CSS.escape(captureId)}"]`));
+  if (card) {
+    card.querySelectorAll('.post-unread-pill').forEach(p => {
+      p.style.opacity = '0';
+      p.style.transform = 'translateY(-4px)';
+      setTimeout(() => p.remove(), 250);
+    });
+    card.querySelectorAll('.comment-toggle-btn').forEach(btn => {
+      btn.classList.remove('has-unread', 'pulse-continuous');
+    });
+  }
+
+  updateNotificationBell();
+}
+
+export function updateNotificationBell(allCaptures = null, currentUid = null, currentEmail = null) {
+  const bellBtn = $('notifBellBtn');
+  const bellBadge = $('notifBellBadge');
+  const rankingTabBadge = $('rankingTabBadge');
+  if (!bellBtn && !bellBadge && !rankingTabBadge) return;
+
+  const caps = allCaptures || adminContext.captures || adminContext.allCaptures || {};
+  const user = adminContext.currentUser || (typeof auth !== 'undefined' && auth?.currentUser) || null;
+  const uid = currentUid || user?.uid || null;
+  const email = currentEmail || user?.email || null;
+
+  const { totalUnread } = getUnreadNotificationsData(caps, uid, email);
+
+  if (bellBadge) {
+    if (totalUnread > 0) {
+      bellBadge.textContent = String(totalUnread);
+      bellBadge.hidden = false;
+      bellBadge.classList.add('pulse-continuous');
+    } else {
+      bellBadge.textContent = '0';
+      bellBadge.hidden = true;
+      bellBadge.classList.remove('pulse-continuous');
+    }
+  }
+
+  if (bellBtn) {
+    bellBtn.setAttribute('data-unread-count', String(totalUnread));
+    bellBtn.setAttribute('title', totalUnread > 0
+      ? `🔔 ${totalUnread} mensagem(ns) não lida(s) nos seus troféus! Clique para ler.`
+      : '🔔 Notificações: Nenhuma mensagem nova.');
+    if (totalUnread > 0) {
+      bellBtn.classList.add('has-unread', 'pulse-continuous');
+    } else {
+      bellBtn.classList.remove('has-unread', 'pulse-continuous');
+    }
+  }
+
+  if (rankingTabBadge) {
+    if (totalUnread > 0) {
+      rankingTabBadge.textContent = String(totalUnread);
+      rankingTabBadge.hidden = false;
+      rankingTabBadge.classList.add('pulse-continuous');
+    } else {
+      rankingTabBadge.textContent = '0';
+      rankingTabBadge.hidden = true;
+      rankingTabBadge.classList.remove('pulse-continuous');
+    }
+  }
+}
+
+export function setupNotificationBellListener() {
+  if (typeof document === 'undefined') return;
+  const bellBtn = $('notifBellBtn');
+  if (!bellBtn || bellBtn._bellListenerInitialized) return;
+  bellBtn._bellListenerInitialized = true;
+
+  bellBtn.addEventListener('click', () => {
+    const caps = adminContext.captures || adminContext.allCaptures || {};
+    const user = adminContext.currentUser || (typeof auth !== 'undefined' && auth?.currentUser) || null;
+    const uid = user?.uid || null;
+    const email = user?.email || null;
+    const { totalUnread, unreadCaptureIds } = getUnreadNotificationsData(caps, uid, email);
+
+    // 1. Garante a seleção da aba de Ranking e Comunidade
+    const rankingTab = $('rankingTab');
+    if (rankingTab) rankingTab.click();
+
+    // 2. Localiza o primeiro post com mensagens não lidas e rola até ele
+    if (unreadCaptureIds.length > 0) {
+      const targetId = unreadCaptureIds[0];
+      setTimeout(() => {
+        const card = document.getElementById(`capture-card-${targetId}`) ||
+                     (typeof CSS !== 'undefined' && CSS.escape && document.querySelector(`[data-capture-id="${CSS.escape(targetId)}"]`));
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('highlight-shared-capture');
+          const commentInput = card.querySelector('input[name="commentText"]');
+          if (commentInput) {
+            try { commentInput.focus(); } catch {}
+          }
+          markCaptureCommentsAsRead(targetId, uid, email);
+          setTimeout(() => card.classList.remove('highlight-shared-capture'), 4500);
+        } else {
+          $('myCapturesSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 150);
+    } else {
+      setTimeout(() => {
+        const target = $('myCapturesSection') || $('rankingPanel');
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    }
+  });
+}
+
 export function loadCaptureCaptions() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_CAPTURE_CAPTIONS_KEY) || '{}') || {};
@@ -439,6 +669,10 @@ function loadRawAdminVipGrantsMap() {
   return structuredClone(DEFAULT_ADMIN_VIP_GRANTS);
 }
 
+export function sanitizeFirebaseKey(k) {
+  return String(k || '').trim().replace(/[.#$/[\]]/g, '_');
+}
+
 export function saveAdminVipGrants(grantsMap) {
   try {
     localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(grantsMap));
@@ -448,15 +682,21 @@ export function saveAdminVipGrants(grantsMap) {
     window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
     window.dispatchEvent(new CustomEvent('mare-certa:vip-grants-changed', { detail: grantsMap }));
     try {
-      set(ref(database, 'mareCerta/vipGrants'), grantsMap || {}).catch(() => {});
+      const sanitized = {};
+      for (const [k, v] of Object.entries(grantsMap || {})) {
+        const sk = sanitizeFirebaseKey(k);
+        if (sk) sanitized[sk] = v;
+      }
+      set(ref(database, 'mareCerta/vipGrants'), sanitized).catch(() => {});
     } catch {}
   }
 }
 
 export function isUserAdminGrantedPro(uid = null, email = null, now = Date.now()) {
   const grants = loadAdminVipGrants(now);
-  const targetUid = uid || adminContext.currentUser?.uid || 'local-current-user';
-  const targetEmail = String(email || adminContext.currentUser?.email || '').trim().toLowerCase();
+  const currentAuth = (typeof auth !== 'undefined' && auth?.currentUser) || adminContext.currentUser || null;
+  const targetUid = uid || currentAuth?.uid || 'local-current-user';
+  const targetEmail = String(email || currentAuth?.email || '').trim().toLowerCase();
 
   const isValidGrant = grant => {
     if (!grant || grant.active === false) return false;
@@ -466,6 +706,7 @@ export function isUserAdminGrantedPro(uid = null, email = null, now = Date.now()
 
   if (targetUid && isValidGrant(grants[targetUid])) return grants[targetUid];
   if (targetEmail && isValidGrant(grants[targetEmail])) return grants[targetEmail];
+  if (targetEmail && isValidGrant(grants[sanitizeFirebaseKey(targetEmail)])) return grants[sanitizeFirebaseKey(targetEmail)];
 
   for (const grant of Object.values(grants)) {
     if (!isValidGrant(grant)) continue;
@@ -480,12 +721,15 @@ export function grantFreeProToUser({
   email = '',
   displayName = 'Pescador VIP',
   roleLabel = 'PRO Cortesia (Liberado pelo Admin)',
-  grantedBy = 'Admin'
+  grantedBy = 'Admin',
+  durationDays = 365
 } = {}) {
   const cleanUid = String(uid || '').trim();
   const cleanEmail = String(email || '').trim().toLowerCase();
   const key = cleanUid || cleanEmail || `vip-${Date.now()}`;
   const rawMap = loadRawAdminVipGrantsMap();
+  const daysNum = Number(durationDays) || 365;
+  const expiresAt = Date.now() + daysNum * 24 * 60 * 60 * 1000;
 
   const record = {
     key,
@@ -495,7 +739,11 @@ export function grantFreeProToUser({
     roleLabel: String(roleLabel || 'PRO Cortesia (Liberado pelo Admin)').trim(),
     grantedBy,
     grantedAt: Date.now(),
-    active: true
+    expiresAt,
+    proExpiresAt: expiresAt,
+    durationDays: daysNum,
+    active: true,
+    revokedAt: null
   };
 
   rawMap[key] = record;
@@ -503,6 +751,23 @@ export function grantFreeProToUser({
     rawMap[cleanEmail] = { ...record, key: cleanEmail };
   }
   saveAdminVipGrants(rawMap);
+
+  // Sincroniza diretamente com o backend local / Hostinger
+  if (typeof fetch === 'function') {
+    fetch('/api/mp/simulate_approval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: cleanUid || key,
+        email: cleanEmail,
+        name: displayName,
+        roleLabel,
+        durationDays: daysNum,
+        isFreeGrant: true,
+        paymentId: `admin-${Date.now()}`
+      })
+    }).catch(() => {});
+  }
 
   // Também sincroniza diretamente no extendedProfiles do Firebase Realtime Database
   if (cleanUid) {
@@ -512,7 +777,8 @@ export function grantFreeProToUser({
       displayName: String(displayName || extMap[cleanUid]?.displayName || 'Pescador VIP').trim(),
       isPro: true,
       proPlan: 'vip_cortesia',
-      proDurationDays: 3650,
+      proDurationDays: daysNum,
+      proExpiresAt: expiresAt,
       proActivatedAt: Date.now()
     };
     try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(extMap)); } catch {}
@@ -522,7 +788,8 @@ export function grantFreeProToUser({
           displayName: String(displayName || extMap[cleanUid]?.displayName || 'Pescador VIP').trim(),
           isPro: true,
           proPlan: 'vip_cortesia',
-          proDurationDays: 3650,
+          proDurationDays: daysNum,
+          proExpiresAt: expiresAt,
           proActivatedAt: Date.now()
         }).catch(() => {});
       } catch {}
@@ -547,7 +814,7 @@ export function revokeFreeProFromUser(identifier) {
       grant?.uid === cleanId ||
       (grant?.email && String(grant.email).toLowerCase() === cleanLower)
     ) {
-      rawMap[k] = { ...grant, active: false, revokedAt: Date.now() };
+      rawMap[k] = { ...grant, active: false, isPaidSubscription: false, revokedAt: Date.now() };
       changed = true;
     }
   }
@@ -557,7 +824,7 @@ export function revokeFreeProFromUser(identifier) {
   let extChanged = false;
   for (const [k, prof] of Object.entries(extMap)) {
     if (k === cleanId || k.toLowerCase() === cleanLower) {
-      extMap[k] = { ...prof, isPro: false };
+      extMap[k] = { ...prof, isPro: false, proPlan: null };
       extChanged = true;
     }
   }
@@ -566,24 +833,43 @@ export function revokeFreeProFromUser(identifier) {
   }
   if (typeof window !== 'undefined' && cleanId) {
     try {
-      update(ref(database, `mareCerta/extendedProfiles/${cleanId}`), { isPro: false }).catch(() => {});
-      update(ref(database, `mareCerta/vipGrants/${cleanId}`), { active: false, revokedAt: Date.now() }).catch(() => {});
+      update(ref(database, `mareCerta/extendedProfiles/${cleanId}`), { isPro: false, proPlan: null }).catch(() => {});
+      update(ref(database, `mareCerta/vipGrants/${cleanId}`), { active: false, isPaidSubscription: false, revokedAt: Date.now() }).catch(() => {});
     } catch {}
   }
 
-  // If revoking the current local user who also had sandbox PRO active, turn it off so revocation takes immediate effect
-  const currentUid = adminContext.currentUser?.uid || 'local-current-user';
-  const currentEmail = String(adminContext.currentUser?.email || '').trim().toLowerCase();
-  if (cleanId === currentUid || cleanLower === currentEmail || cleanId === 'local-current-user') {
+  // If revoking the current local user who also had PRO active, turn it off so revocation takes immediate effect
+  const currentUid = adminContext.currentUser?.uid || (typeof auth !== 'undefined' && auth?.currentUser?.uid) || 'local-current-user';
+  const currentEmail = String(adminContext.currentUser?.email || (typeof auth !== 'undefined' && auth?.currentUser?.email) || '').trim().toLowerCase();
+  if (
+    cleanId === currentUid ||
+    cleanLower === currentEmail ||
+    cleanId === 'local-current-user' ||
+    (typeof auth !== 'undefined' && auth?.currentUser?.uid && cleanId === auth.currentUser.uid) ||
+    (typeof auth !== 'undefined' && auth?.currentUser?.email && cleanLower === auth.currentUser.email.toLowerCase())
+  ) {
     try {
-      const sub = JSON.parse(localStorage.getItem(STORAGE_PRO_KEY) || 'null');
-      if (sub?.isFreeGrant) {
-        localStorage.removeItem(STORAGE_PRO_KEY);
-      }
+      localStorage.removeItem(STORAGE_PRO_KEY);
+      localStorage.removeItem('mare-certa-pending-mp-checkout');
+    } catch {}
+  }
+
+  // Notifica o backend local / Hostinger para revogar a assinatura salva
+  if (typeof fetch === 'function') {
+    try {
+      fetch('/api/mp/revoke_subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: cleanId, email: cleanLower })
+      }).catch(() => {});
     } catch {}
   }
 
   saveAdminVipGrants(rawMap);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: { isPro: false } }));
+  }
+  updateProStatusUI();
   renderAdminProPanel();
   return changed;
 }
@@ -593,6 +879,8 @@ export function setAdminCommunityContext(user, profiles = {}, captures = {}) {
   adminContext.profiles = profiles || {};
   adminContext.captures = captures || {};
   updateProStatusUI();
+  setupNotificationBellListener();
+  updateNotificationBell(captures, user?.uid, user?.email);
 }
 
 export const DEFAULT_PROHIBITED_WORDS = [
@@ -968,7 +1256,253 @@ export function getUserModerationStatus(uid = null, email = null, now = Date.now
   };
 }
 
+/* ============================================================
+   DENÚNCIAS DE COMENTÁRIOS (MODERAÇÃO PELO DONO DO POST / ADMIN)
+   ============================================================ */
+export function loadAdminReportsMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_ADMIN_REPORTS_KEY) || '{}') || {};
+    return typeof raw === 'object' && raw !== null ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveAdminReportsMap(map) {
+  try {
+    localStorage.setItem(STORAGE_ADMIN_REPORTS_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+export function submitCommentReport({
+  postId = '',
+  captureTitle = 'Captura',
+  commentId = '',
+  commentText = '',
+  offenderUid = '',
+  offenderName = 'Pescador',
+  reporterUid = '',
+  reporterName = 'Dono da Postagem',
+  reason = ''
+} = {}) {
+  const cleanReason = String(reason || '').trim();
+  if (cleanReason.length < 3) {
+    throw new Error('Por favor, descreva o ocorrido com pelo menos 3 caracteres.');
+  }
+
+  const reportId = `rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const record = {
+    id: reportId,
+    postId: String(postId || '').trim(),
+    captureTitle: String(captureTitle || 'Captura').trim(),
+    commentId: String(commentId || '').trim(),
+    commentText: String(commentText || '').trim(),
+    offenderUid: String(offenderUid || '').trim(),
+    offenderName: String(offenderName || 'Pescador').trim(),
+    reporterUid: String(reporterUid || 'anon').trim(),
+    reporterName: String(reporterName || 'Dono da Postagem').trim(),
+    reason: cleanReason,
+    createdAt: Date.now(),
+    status: 'pending' // 'pending' | 'resolved' | 'dismissed'
+  };
+
+  const map = loadAdminReportsMap();
+  map[reportId] = record;
+  saveAdminReportsMap(map);
+
+  if (typeof window !== 'undefined') {
+    try {
+      set(ref(database, `mareCerta/moderation/reports/${reportId}`), record).catch(() => {});
+    } catch {}
+    window.dispatchEvent(new CustomEvent('mare-certa:reports-changed', { detail: map }));
+  }
+
+  renderAdminReportsList();
+  return record;
+}
+
+export function resolveAdminReport(reportId, action = 'resolved') {
+  if (!reportId) return false;
+  const map = loadAdminReportsMap();
+  if (!map[reportId]) return false;
+
+  map[reportId] = {
+    ...map[reportId],
+    status: action,
+    resolvedAt: Date.now()
+  };
+  saveAdminReportsMap(map);
+
+  if (typeof window !== 'undefined') {
+    try {
+      update(ref(database, `mareCerta/moderation/reports/${reportId}`), {
+        status: action,
+        resolvedAt: Date.now()
+      }).catch(() => {});
+    } catch {}
+    window.dispatchEvent(new CustomEvent('mare-certa:reports-changed', { detail: map }));
+  }
+
+  renderAdminReportsList();
+  return true;
+}
+
+export function openReportCommentDialog({
+  postId = '',
+  captureTitle = 'Captura',
+  commentId = '',
+  commentText = '',
+  offenderUid = '',
+  offenderName = 'Pescador'
+} = {}) {
+  const dialog = $('reportCommentDialog');
+  if (!dialog) return;
+
+  const textEl = $('reportTargetCommentText');
+  const authorEl = $('reportTargetAuthorName');
+  const postIdInput = $('reportPostIdInput');
+  const commentIdInput = $('reportCommentIdInput');
+  const offenderUidInput = $('reportOffenderUidInput');
+  const offenderNameInput = $('reportOffenderNameInput');
+  const reasonInput = $('reportReasonInput');
+
+  if (textEl) textEl.textContent = `"${commentText}"`;
+  if (authorEl) authorEl.textContent = offenderName;
+  if (postIdInput) postIdInput.value = postId;
+  if (commentIdInput) commentIdInput.value = commentId;
+  if (offenderUidInput) offenderUidInput.value = offenderUid;
+  if (offenderNameInput) offenderNameInput.value = offenderName;
+  if (reasonInput) reasonInput.value = '';
+
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+  } else {
+    dialog.hidden = false;
+  }
+}
+
+export function renderAdminReportsList() {
+  if (typeof document === 'undefined') return;
+  const listEl = $('adminReportsList');
+  const countBadge = $('adminReportsCountBadge');
+  const totalKpi = $('adminTotalReportsCount');
+
+  const map = loadAdminReportsMap();
+  const allReports = Object.values(map).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const pending = allReports.filter(r => r.status === 'pending');
+
+  if (countBadge) countBadge.textContent = `${pending.length} pendente(s)`;
+  if (totalKpi) totalKpi.textContent = String(pending.length);
+
+  if (!listEl) return;
+
+  if (!allReports.length) {
+    listEl.innerHTML = `<p class="empty-note">Nenhuma denúncia de comentário registrada até o momento. A comunidade está em paz!</p>`;
+    return;
+  }
+
+  listEl.innerHTML = allReports
+    .map(r => {
+      const isResolved = r.status === 'resolved' || r.status === 'dismissed';
+      const statusTag = r.status === 'pending'
+        ? '<span class="admin-mod-badge is-banned">🚨 Pendente</span>'
+        : r.status === 'resolved'
+          ? '<span class="admin-source-tag">✓ Punição Aplicada</span>'
+          : '<span class="admin-source-tag">Descartada</span>';
+      const dateStr = new Date(r.createdAt || Date.now()).toLocaleString('pt-BR');
+
+      return `
+        <article class="admin-report-card ${isResolved ? 'is-resolved' : ''}" data-report-id="${escapeHtml(r.id)}">
+          <div class="admin-report-meta">
+            <span>📅 ${escapeHtml(dateStr)} · Denunciado por: <strong>${escapeHtml(r.reporterName)}</strong></span>
+            ${statusTag}
+          </div>
+          <div class="admin-report-body">
+            <div><strong>Comentário denunciado:</strong></div>
+            <div class="admin-report-comment-box">
+              <strong>${escapeHtml(r.offenderName)}</strong> ${r.offenderUid ? `<small>(${escapeHtml(r.offenderUid)})</small>` : ''}:
+              <span>"${escapeHtml(r.commentText)}"</span>
+            </div>
+            <div><strong>Motivo relatado pelo denunciante:</strong></div>
+            <div class="admin-report-reason-box">
+              <span>"${escapeHtml(r.reason)}"</span>
+            </div>
+          </div>
+          ${
+            !isResolved
+              ? `
+            <div class="admin-report-actions">
+              <select class="admin-report-ban-select" data-report-ban-select="${escapeHtml(r.id)}" aria-label="Tempo de suspensão">
+                <option value="7">Suspender 7 dias</option>
+                <option value="14">Suspender 14 dias</option>
+                <option value="30">Suspender 30 dias</option>
+                <option value="permanent">Banimento Permanente</option>
+              </select>
+              <button type="button" class="admin-report-action-btn is-suspend" data-report-suspend-id="${escapeHtml(r.id)}" data-offender-uid="${escapeHtml(r.offenderUid)}" data-offender-name="${escapeHtml(r.offenderName)}">
+                🚫 Suspender Perfil Infrator
+              </button>
+              <button type="button" class="admin-report-action-btn is-delete-comment" data-report-delete-post="${escapeHtml(r.postId)}" data-report-delete-comment="${escapeHtml(r.commentId)}" data-report-delete-id="${escapeHtml(r.id)}">
+                🗑️ Apagar Comentário
+              </button>
+              <button type="button" class="admin-report-action-btn is-dismiss" data-report-dismiss-id="${escapeHtml(r.id)}">
+                ✓ Descartar Denúncia
+              </button>
+            </div>
+          `
+              : ''
+          }
+        </article>
+      `;
+    })
+    .join('');
+
+  listEl.querySelectorAll('[data-report-suspend-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const repId = btn.dataset.reportSuspendId;
+      const offUid = btn.dataset.offenderUid;
+      const offName = btn.dataset.offenderName;
+      const selectEl = listEl.querySelector(`[data-report-ban-select="${CSS.escape ? CSS.escape(repId) : repId}"]`);
+      const durationVal = selectEl ? selectEl.value : '7';
+
+      if (offUid) {
+        banUserAccount({
+          uid: offUid,
+          displayName: offName,
+          durationDays: durationVal === 'permanent' ? 'permanent' : Number(durationVal),
+          reason: `Denúncia de comentário abusivo confirmada pelo administrador (${durationVal === 'permanent' ? 'Permanente' : durationVal + ' dias'})`
+        });
+      }
+      resolveAdminReport(repId, 'resolved');
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-report-delete-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const repId = btn.dataset.reportDeleteId;
+      const postId = btn.dataset.reportDeletePost;
+      const commentId = btn.dataset.reportDeleteComment;
+      if (postId && commentId) {
+        deletePostComment(postId, commentId);
+      }
+      resolveAdminReport(repId, 'resolved');
+      renderAdminProPanel();
+    });
+  });
+
+  listEl.querySelectorAll('[data-report-dismiss-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      resolveAdminReport(btn.dataset.reportDismissId, 'dismissed');
+      renderAdminProPanel();
+    });
+  });
+}
+
 export function getProSubscription(uid = null, email = null, now = Date.now()) {
+  const currentAuthUser = (typeof auth !== 'undefined' && auth?.currentUser) || adminContext.currentUser || null;
+  const targetUid = String(uid || currentAuthUser?.uid || '').trim();
+  const targetEmail = String(email || currentAuthUser?.email || '').trim().toLowerCase();
+
   const adminGrant = isUserAdminGrantedPro(uid, email, now);
   if (adminGrant) {
     if (adminGrant.isPaidSubscription) {
@@ -1008,19 +1542,74 @@ export function getProSubscription(uid = null, email = null, now = Date.now()) {
       gateway: 'Cortesia Admin (Sem Custo)'
     };
   }
+
+  // Se o registro na nuvem/admin indicar que a conta foi explicitamente revogada, respeita o status Gratuito
+  try {
+    const rawGrants = loadRawAdminVipGrantsMap();
+    const explicitRec = (targetUid && rawGrants[targetUid]) || (targetEmail && rawGrants[targetEmail]);
+    if (explicitRec && explicitRec.active === false && explicitRec.revokedAt) {
+      return {
+        active: false,
+        expired: false,
+        planId: null,
+        durationDays: 0,
+        remainingDays: 0,
+        expiresAt: null,
+        gateway: 'Mercado Pago'
+      };
+    }
+  } catch {}
+
+  // Verifica perfil estendido sincronizado pela nuvem (garante paridade entre abas/navegadores)
+  if (targetUid) {
+    try {
+      const extMap = loadFisherExtendedProfiles();
+      const ext = extMap[targetUid];
+      if (ext && ext.isPro === true) {
+        const plan = PRO_PLANS[ext.proPlan] || PRO_PLANS.annual;
+        const durationDays = ext.proDurationDays || plan.durationDays || (plan.id === 'annual' ? 365 : 30);
+        const activatedAt = ext.proActivatedAt || now;
+        const expiresAt = ext.proExpiresAt || (activatedAt + durationDays * 86400000);
+        const isExpired = now >= expiresAt;
+        if (!isExpired) {
+          const extSub = {
+            active: true,
+            expired: false,
+            planId: plan.id,
+            planName: plan.name,
+            durationDays,
+            priceMonthly: plan.priceMonthly,
+            billingTotal: plan.billingTotal,
+            activatedAt,
+            expiresAt,
+            isFreeGrant: ext.proPlan === 'vip_cortesia',
+            gateway: 'Mercado Pago'
+          };
+          extSub.remainingDays = getProRemainingDays(extSub, now);
+          return extSub;
+        }
+      }
+    } catch {}
+  }
+
   try {
     const sub = JSON.parse(localStorage.getItem(STORAGE_PRO_KEY) || 'null');
     if (sub && typeof sub === 'object') {
-      const hasExpiry = sub.expiresAt && Number.isFinite(sub.expiresAt);
-      const isExpired = Boolean(hasExpiry && now >= sub.expiresAt);
-      const isActive = sub.active === true && !isExpired;
-      const normalized = {
-        ...sub,
-        active: isActive,
-        expired: isExpired
-      };
-      normalized.remainingDays = getProRemainingDays(normalized, now);
-      return normalized;
+      // Impede que o cache local de uma conta (ex: conta de teste na aba anônima) vaze para outra conta logada
+      const subUid = String(sub.uid || '').trim();
+      const uidMismatch = subUid && subUid !== 'local-current-user' && targetUid && targetUid !== 'local-current-user' && subUid !== targetUid;
+      if (!uidMismatch) {
+        const hasExpiry = sub.expiresAt && Number.isFinite(sub.expiresAt);
+        const isExpired = Boolean(hasExpiry && now >= sub.expiresAt);
+        const isActive = sub.active === true && !isExpired;
+        const normalized = {
+          ...sub,
+          active: isActive,
+          expired: isExpired
+        };
+        normalized.remainingDays = getProRemainingDays(normalized, now);
+        return normalized;
+      }
     }
   } catch {}
   return {
@@ -1073,6 +1662,8 @@ export function setProSubscription(active, planId = 'annual', customNow = Date.n
   }
 
   const sub = {
+    uid: targetUid,
+    email: targetEmail,
     active: Boolean(active),
     expired: !active,
     planId: effectivePlanId,
@@ -1100,6 +1691,7 @@ export function setProSubscription(active, planId = 'annual', customNow = Date.n
       email: targetEmail,
       displayName: user?.displayName || rawVip[targetUid]?.displayName || 'Assinante PRO',
       active: Boolean(active),
+      revokedAt: active ? null : Date.now(),
       planId: effectivePlanId,
       planName: effectivePlanName,
       stackedFrom,
@@ -1136,6 +1728,7 @@ export function setProSubscription(active, planId = 'annual', customNow = Date.n
         uid: user.uid,
         email: targetEmail,
         active: Boolean(active),
+        revokedAt: active ? null : Date.now(),
         planId: effectivePlanId,
         planName: effectivePlanName,
         stackedFrom,
@@ -1160,16 +1753,69 @@ export function getPendingTrophyPhoto() {
   return pendingTrophyPhoto;
 }
 
+export function isPendingTrophyPhotoRemoved() {
+  return pendingTrophyPhotoRemoved;
+}
+
+export function setPendingTrophyPhotoRemoved(val) {
+  pendingTrophyPhotoRemoved = Boolean(val);
+}
+
 export function clearPendingTrophyPhoto() {
   pendingTrophyPhoto = null;
   const input = $('capturePhotoInput');
   if (input) input.value = '';
   const previewWrap = $('capturePhotoPreviewWrap');
   if (previewWrap) previewWrap.hidden = true;
+  const previewImg = $('capturePhotoPreviewImg');
+  if (previewImg) previewImg.src = '';
   const statusEl = $('capturePhotoStatus');
   if (statusEl) {
     statusEl.textContent = 'Compartilhe a foto da sua pescaria com a comunidade';
     statusEl.className = 'photo-compression-status';
+  }
+}
+
+export function removeLocalS3Photo(captureId) {
+  if (!captureId) return;
+  try {
+    const map = loadLocalS3Photos();
+    if (map[captureId]) {
+      delete map[captureId];
+      localStorage.setItem(STORAGE_PHOTOS_KEY, JSON.stringify(map));
+    }
+  } catch {}
+}
+
+export function setupCaptureEditPhoto(id, capture) {
+  pendingTrophyPhoto = null;
+  pendingTrophyPhotoRemoved = false;
+  const localPhotos = loadLocalS3Photos();
+  const existingPhoto = capture?.photoUrl || localPhotos[id]?.dataUrl || null;
+  const previewWrap = $('capturePhotoPreviewWrap');
+  const previewImg = $('capturePhotoPreviewImg');
+  const statusEl = $('capturePhotoStatus');
+  const removePhotoBtn = $('removeCapturePhotoBtn');
+
+  if (existingPhoto) {
+    if (previewImg) previewImg.src = existingPhoto;
+    if (previewWrap) previewWrap.hidden = false;
+    if (removePhotoBtn) {
+      removePhotoBtn.textContent = '🗑️ Apagar foto da captura';
+    }
+    if (statusEl) {
+      statusEl.textContent = '📸 Foto atual do troféu. Para remover, clique em "Apagar foto" abaixo.';
+      statusEl.className = 'photo-compression-status is-existing-photo';
+    }
+  } else {
+    if (previewWrap) previewWrap.hidden = true;
+    if (removePhotoBtn) {
+      removePhotoBtn.textContent = 'Remover foto';
+    }
+    if (statusEl) {
+      statusEl.textContent = 'Esta publicação não possui foto. Você pode adicionar uma foto se desejar.';
+      statusEl.className = 'photo-compression-status';
+    }
   }
 }
 
@@ -1219,6 +1865,535 @@ export async function compressTrophyPhoto(file, maxDimension = 1080, quality = 0
   } finally {
     URL.revokeObjectURL(bitmapUrl);
   }
+}
+
+/* ============================================================
+   CROPPER & ZOOM DE FOTOS (PERFIL E TROFÉUS DA COMUNIDADE)
+   ============================================================ */
+
+let cropperState = {
+  active: false,
+  img: null,
+  imgSrc: null,
+  shape: 'circle', // 'circle' | 'rect'
+  ratioMode: 'post', // 'post' (16:10 encaixe perfeito no feed) | '1:1' | 'original'
+  ratio: 16 / 10,
+  scale: 1,
+  rotation: 0,
+  translateX: 0,
+  translateY: 0,
+  baseScale: 1,
+  baseDisplayW: 300,
+  baseDisplayH: 300,
+  maskW: 320,
+  maskH: 200,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  touchStartDist: 0,
+  initialScale: 1,
+  onCropComplete: null,
+  onCancel: null
+};
+
+export function updateCropperTransform() {
+  const imgEl = $('cropperImg');
+  const zoomVal = $('cropperZoomValue');
+  const zoomSlider = $('cropperZoomRange');
+  if (!imgEl) return;
+
+  imgEl.style.transform = `translate(${cropperState.translateX}px, ${cropperState.translateY}px) rotate(${cropperState.rotation}deg) scale(${cropperState.scale})`;
+  if (zoomVal) zoomVal.textContent = `${cropperState.scale.toFixed(1)}x`;
+  if (zoomSlider && Math.abs(Number(zoomSlider.value) - cropperState.scale) > 0.03) {
+    zoomSlider.value = String(cropperState.scale);
+  }
+}
+
+export function updateCropperMaskAndImageDimensions() {
+  const viewport = $('cropperViewport');
+  const mask = $('cropperMask');
+  const imgEl = $('cropperImg');
+  if (!viewport || !mask || !cropperState.img) return;
+
+  const viewportRect = typeof viewport.getBoundingClientRect === 'function' ? viewport.getBoundingClientRect() : { width: 360, height: 360 };
+  const vW = Math.max(260, viewportRect.width || 360);
+  const vH = Math.max(260, viewportRect.height || 360);
+
+  const imgW = cropperState.img.naturalWidth || cropperState.img.width || 1;
+  const imgH = cropperState.img.naturalHeight || cropperState.img.height || 1;
+  const naturalRatio = imgW / imgH;
+
+  let targetRatio;
+  if (cropperState.shape === 'circle') {
+    targetRatio = 1;
+  } else if (cropperState.ratioMode === 'post' || cropperState.ratioMode === '16:10') {
+    // Proporção 16:10 idêntica ao card de publicação no feed (.social-trophy-figure)
+    targetRatio = 16 / 10;
+  } else if (cropperState.ratioMode === '1:1') {
+    targetRatio = 1;
+  } else if (cropperState.ratioMode === 'original') {
+    targetRatio = naturalRatio;
+  } else {
+    targetRatio = 16 / 10;
+  }
+
+  cropperState.ratio = targetRatio;
+
+  // Tamanho máximo permitido para a máscara dentro do viewport (com respiro de 16px)
+  const maxMaskW = Math.max(160, vW - 16);
+  const maxMaskH = Math.max(160, vH - 16);
+
+  let maskW, maskH;
+  if (cropperState.shape === 'circle') {
+    const d = Math.min(maxMaskW, maxMaskH, 280);
+    maskW = d;
+    maskH = d;
+  } else {
+    if (targetRatio >= maxMaskW / maxMaskH) {
+      maskW = maxMaskW;
+      maskH = Math.max(100, Math.round(maxMaskW / targetRatio));
+    } else {
+      maskH = maxMaskH;
+      maskW = Math.max(100, Math.round(maxMaskH * targetRatio));
+    }
+  }
+
+  cropperState.maskW = maskW;
+  cropperState.maskH = maskH;
+
+  mask.style.width = `${maskW}px`;
+  mask.style.height = `${maskH}px`;
+  mask.style.left = `calc(50% - ${maskW / 2}px)`;
+  mask.style.top = `calc(50% - ${maskH / 2}px)`;
+  mask.classList.toggle('is-circle', cropperState.shape === 'circle');
+  mask.classList.toggle('is-rect', cropperState.shape === 'rect');
+  mask.setAttribute('data-ratio', cropperState.ratioMode);
+
+  // Escala base:
+  // Para troféu (rect): encaixe proporcional para que 100% da foto caiba na máscara sem corte inicial!
+  // Para perfil (circle): cover suave para preencher o avatar circular.
+  let baseScale;
+  if (cropperState.shape === 'circle') {
+    baseScale = Math.max(maskW / imgW, maskH / imgH);
+  } else {
+    baseScale = Math.min(maskW / imgW, maskH / imgH);
+  }
+
+  cropperState.baseScale = baseScale;
+  cropperState.baseDisplayW = imgW * baseScale;
+  cropperState.baseDisplayH = imgH * baseScale;
+
+  if (imgEl) {
+    imgEl.style.width = `${cropperState.baseDisplayW}px`;
+    imgEl.style.height = `${cropperState.baseDisplayH}px`;
+    imgEl.style.marginLeft = `${-cropperState.baseDisplayW / 2}px`;
+    imgEl.style.marginTop = `${-cropperState.baseDisplayH / 2}px`;
+  }
+
+  updateCropperTransform();
+}
+
+export function executeCropAndExport() {
+  if (!cropperState.img) return null;
+  const viewport = $('cropperViewport');
+  const mask = $('cropperMask');
+  if (!viewport || !mask) return null;
+
+  const maskRect = typeof mask.getBoundingClientRect === 'function' ? mask.getBoundingClientRect() : null;
+  const cropW = Math.max(80, cropperState.maskW || maskRect?.width || 320);
+  const cropH = Math.max(80, cropperState.maskH || maskRect?.height || 200);
+
+  const isCircle = cropperState.shape === 'circle';
+  let outputW, outputH;
+  if (isCircle) {
+    outputW = 500;
+    outputH = 500;
+  } else if (cropperState.ratioMode === '1:1') {
+    outputW = 1080;
+    outputH = 1080;
+  } else {
+    // 16:10 Encaixe Perfeito no Post (1200 x 750 px)
+    outputW = 1200;
+    outputH = Math.round(1200 / (cropW / cropH || (16 / 10)));
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = outputW;
+  canvas.height = outputH;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  const factor = outputW / cropW;
+
+  ctx.save();
+  // Alinhamento rigoroso com o CSS transform: translate(tx, ty) rotate(deg) scale(s)
+  // 1. Centraliza a origem no centro do canvas de corte
+  ctx.translate(outputW / 2, outputH / 2);
+  // 2. Aplica o deslocamento visual do arrasto mantendo a escala de tela
+  ctx.translate(cropperState.translateX * factor, cropperState.translateY * factor);
+  // 3. Aplica a rotação sobre o centro da imagem
+  ctx.rotate((cropperState.rotation * Math.PI) / 180);
+  // 4. Aplica o zoom sem afetar a posição do centro deslocado
+  ctx.scale(cropperState.scale, cropperState.scale);
+
+  const drawW = (cropperState.baseDisplayW || cropW) * factor;
+  const drawH = (cropperState.baseDisplayH || cropH) * factor;
+  ctx.drawImage(cropperState.img, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.restore();
+
+  // Para avatar circular (foto de perfil), aplica recorte circular perfeito nos cantos
+  if (isCircle) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.beginPath();
+    ctx.arc(outputW / 2, outputH / 2, outputW / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  let dataUrl = isCircle ? canvas.toDataURL('image/png') : canvas.toDataURL('image/webp', 0.88);
+  if (!dataUrl.startsWith('data:image/')) {
+    dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+  }
+
+  return {
+    dataUrl,
+    width: outputW,
+    height: outputH,
+    shape: cropperState.shape,
+    ratio: cropperState.ratio,
+    ratioMode: cropperState.ratioMode
+  };
+}
+
+export function openImageCropper({
+  file = null,
+  imageSrc = null,
+  shape = 'circle',
+  title = 'Ajustar Foto',
+  subtitle = 'Arraste a foto e use o zoom para centralizar o enquadramento.',
+  onCropComplete = null,
+  onCancel = null
+} = {}) {
+  const dialog = $('imageCropperDialog');
+  const imgEl = $('cropperImg');
+  const titleEl = $('cropperTitle');
+  const subEl = $('cropperSubtitle');
+  const maskEl = $('cropperMask');
+  const ratioGroup = $('cropperRatioOptions');
+  const zoomSlider = $('cropperZoomRange');
+
+  if (!dialog || !imgEl) return;
+
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = subtitle;
+
+  cropperState.shape = shape;
+  cropperState.ratioMode = shape === 'circle' ? '1:1' : 'post';
+  cropperState.scale = 1;
+  cropperState.rotation = 0;
+  cropperState.translateX = 0;
+  cropperState.translateY = 0;
+  cropperState.isDragging = false;
+  cropperState.onCropComplete = onCropComplete;
+  cropperState.onCancel = onCancel;
+  cropperState.active = true;
+  cropperState.active = true;
+
+  if (maskEl) {
+    maskEl.classList.toggle('is-circle', shape === 'circle');
+    maskEl.classList.toggle('is-rect', shape === 'rect');
+    maskEl.setAttribute('data-ratio', cropperState.ratioMode);
+  }
+
+  if (ratioGroup) {
+    ratioGroup.hidden = shape === 'circle';
+    ratioGroup.querySelectorAll('[data-cropper-ratio]').forEach(btn => {
+      const active = btn.dataset.cropperRatio === cropperState.ratioMode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  if (zoomSlider) {
+    zoomSlider.value = '1';
+    zoomSlider.min = '0.7';
+    zoomSlider.max = '3.5';
+  }
+
+  const applySource = src => {
+    cropperState.imgSrc = src;
+    const testImg = new Image();
+    testImg.onload = () => {
+      cropperState.img = testImg;
+      imgEl.src = src;
+      updateCropperMaskAndImageDimensions();
+      if (typeof dialog.showModal === 'function') {
+        try { dialog.showModal(); } catch { dialog.hidden = false; }
+      } else {
+        dialog.hidden = false;
+      }
+      setTimeout(() => {
+        updateCropperMaskAndImageDimensions();
+      }, 35);
+    };
+    testImg.src = src;
+  };
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => applySource(e.target.result);
+    reader.readAsDataURL(file);
+  } else if (imageSrc) {
+    applySource(imageSrc);
+  }
+}
+
+let cropperListenersInitialized = false;
+export function setupImageCropperListeners() {
+  if (typeof document === 'undefined' || cropperListenersInitialized) return;
+  cropperListenersInitialized = true;
+
+  const dialog = $('imageCropperDialog');
+  const viewport = $('cropperViewport');
+  const mask = $('cropperMask');
+  const closeBtn = $('closeImageCropperBtn');
+  const cancelBtn = $('cropperCancelBtn');
+  const applyBtn = $('cropperApplyBtn');
+  const zoomSlider = $('cropperZoomRange');
+  const zoomInBtn = $('cropperZoomInBtn');
+  const zoomOutBtn = $('cropperZoomOutBtn');
+  const rotateBtn = $('cropperRotateBtn');
+  const resetBtn = $('cropperResetBtn');
+
+  if (!dialog || !viewport) return;
+
+  const closeDialog = () => {
+    if (typeof dialog.close === 'function') {
+      try { dialog.close(); } catch {}
+    } else {
+      dialog.hidden = true;
+    }
+  };
+
+  if (closeBtn) closeBtn.addEventListener('click', () => { closeDialog(); cropperState.onCancel?.(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', () => { closeDialog(); cropperState.onCancel?.(); });
+
+  if (applyBtn) {
+    applyBtn.addEventListener('click', () => {
+      const result = executeCropAndExport();
+      closeDialog();
+      if (result && cropperState.onCropComplete) {
+        cropperState.onCropComplete(result);
+      }
+    });
+  }
+
+  // Zoom controls
+  if (zoomSlider) {
+    zoomSlider.addEventListener('input', () => {
+      cropperState.scale = Number(zoomSlider.value);
+      updateCropperTransform();
+    });
+  }
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      cropperState.scale = Math.min(3.5, Number((cropperState.scale + 0.15).toFixed(2)));
+      updateCropperTransform();
+    });
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+      cropperState.scale = Math.max(0.7, Number((cropperState.scale - 0.15).toFixed(2)));
+      updateCropperTransform();
+    });
+  }
+  if (rotateBtn) {
+    rotateBtn.addEventListener('click', () => {
+      cropperState.rotation = (cropperState.rotation + 90) % 360;
+      updateCropperTransform();
+    });
+  }
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      cropperState.scale = 1;
+      cropperState.rotation = 0;
+      cropperState.translateX = 0;
+      cropperState.translateY = 0;
+      updateCropperMaskAndImageDimensions();
+    });
+  }
+
+  // Ratio buttons
+  document.querySelectorAll('[data-cropper-ratio]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ratioStr = btn.dataset.cropperRatio;
+      document.querySelectorAll('[data-cropper-ratio]').forEach(b => {
+        const isCurrent = b === btn;
+        b.classList.toggle('active', isCurrent);
+        b.setAttribute('aria-pressed', String(isCurrent));
+      });
+      cropperState.ratioMode = ratioStr;
+      cropperState.scale = 1;
+      cropperState.translateX = 0;
+      cropperState.translateY = 0;
+      updateCropperMaskAndImageDimensions();
+    });
+  });
+
+  // Mouse Drag
+  viewport.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    cropperState.isDragging = true;
+    cropperState.dragStartX = e.clientX - cropperState.translateX;
+    cropperState.dragStartY = e.clientY - cropperState.translateY;
+    viewport.classList.add('is-dragging');
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!cropperState.isDragging) return;
+    cropperState.translateX = e.clientX - cropperState.dragStartX;
+    cropperState.translateY = e.clientY - cropperState.dragStartY;
+    updateCropperTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (cropperState.isDragging) {
+      cropperState.isDragging = false;
+      viewport.classList.remove('is-dragging');
+    }
+  });
+
+  // Wheel Zoom
+  viewport.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    cropperState.scale = Math.min(3.5, Math.max(0.7, Number((cropperState.scale + delta).toFixed(2))));
+    updateCropperTransform();
+  }, { passive: false });
+
+  // Touch Drag & Pinch-to-zoom
+  viewport.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      cropperState.isDragging = true;
+      cropperState.dragStartX = e.touches[0].clientX - cropperState.translateX;
+      cropperState.dragStartY = e.touches[0].clientY - cropperState.translateY;
+      viewport.classList.add('is-dragging');
+    } else if (e.touches.length === 2) {
+      cropperState.isDragging = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      cropperState.touchStartDist = Math.hypot(dx, dy);
+      cropperState.initialScale = cropperState.scale;
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', e => {
+    if (e.touches.length === 1 && cropperState.isDragging) {
+      cropperState.translateX = e.touches[0].clientX - cropperState.dragStartX;
+      cropperState.translateY = e.touches[0].clientY - cropperState.dragStartY;
+      updateCropperTransform();
+    } else if (e.touches.length === 2 && cropperState.touchStartDist > 0) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const factor = dist / cropperState.touchStartDist;
+      cropperState.scale = Math.min(3.5, Math.max(0.7, Number((cropperState.initialScale * factor).toFixed(2))));
+      updateCropperTransform();
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchend', () => {
+    cropperState.isDragging = false;
+    cropperState.touchStartDist = 0;
+    viewport.classList.remove('is-dragging');
+  });
+}
+
+/* ============================================================
+   PÓDIO TOP 3 COM FOTOS EM CÍRCULO E BORDAS DE MEDALHAS
+   ============================================================ */
+
+export function renderRankingPodium(ranking = [], profiles = {}, captures = {}, currentUid = null) {
+  const podiumEl = $('rankingTopPodium');
+  if (!podiumEl) return;
+
+  const validRanking = Array.isArray(ranking) ? ranking.filter(r => r && r.rank <= 3) : [];
+  if (!validRanking.length) {
+    podiumEl.hidden = true;
+    podiumEl.innerHTML = '';
+    return;
+  }
+
+  podiumEl.hidden = false;
+
+  const first = validRanking.find(r => r.rank === 1) || null;
+  const second = validRanking.find(r => r.rank === 2) || null;
+  const third = validRanking.find(r => r.rank === 3) || null;
+
+  const renderCol = (person, place, medalEmoji, medalTitle, colorClass) => {
+    if (!person) return `<div class="podium-col empty-col is-${colorClass}"></div>`;
+
+    const uid = person.uid;
+    const ext = getFisherExtendedProfile(uid, profiles?.[uid]);
+    const name = (ext.displayName && ext.displayName !== 'Pescador Costeiro' ? ext.displayName : '')
+      || (profiles?.[uid]?.displayName && profiles?.[uid]?.displayName !== 'Pescador Costeiro' ? profiles?.[uid]?.displayName : '')
+      || person.name
+      || person.fisherman
+      || ext.displayName
+      || profiles?.[uid]?.displayName
+      || 'Pescador';
+    const avatar = ext.avatarUrl || profiles?.[uid]?.avatarUrl || '';
+    const initials = getInitials(name);
+    const isProMember = isUserPro(uid, profiles?.[uid]?.email);
+    const isCurrentUser = Boolean(currentUid && uid === currentUid);
+
+    return `
+      <article class="podium-col is-${colorClass}" data-podium-uid="${escapeHtml(uid)}" title="Ver perfil completo de ${escapeHtml(name)}">
+        <div class="podium-avatar-wrap">
+          ${place === 1 ? '<div class="podium-crown" aria-hidden="true">👑</div>' : ''}
+          <div class="podium-avatar-ring is-${colorClass}">
+            ${avatar
+              ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}" class="podium-avatar-img" />`
+              : `<span class="podium-avatar-fallback is-${colorClass}">${escapeHtml(initials)}</span>`
+            }
+          </div>
+          <span class="podium-place-tag is-${colorClass}">${medalEmoji} ${place}º</span>
+        </div>
+        <div class="podium-details">
+          <strong class="podium-name">${escapeHtml(name)}${isCurrentUser ? ' <small class="podium-you">(você)</small>' : ''}</strong>
+          ${isProMember ? '<span class="pro-member-badge mini">👑 PRO</span>' : ''}
+          <span class="podium-fish-badge is-${colorClass}">🐟 ${person.quantity} peixe(s)</span>
+        </div>
+        <div class="podium-pedestal is-${colorClass}">
+          <span class="podium-pedestal-num">${place}</span>
+          <span class="podium-pedestal-label">${medalTitle}</span>
+        </div>
+      </article>
+    `;
+  };
+
+  podiumEl.innerHTML = `
+    <div class="podium-container">
+      <div class="podium-header">
+        <span class="eyebrow">🏆 PÓDIO DOS CAMPEÕES DA COSTA</span>
+        <h3>Top 3 Pescadores da Comunidade</h3>
+      </div>
+      <div class="podium-stages-row">
+        ${renderCol(second, 2, '🥈', 'PRATA', 'silver')}
+        ${renderCol(first, 1, '🥇', 'OURO', 'gold')}
+        ${renderCol(third, 3, '🥉', 'BRONZE', 'bronze')}
+      </div>
+    </div>
+  `;
+
+  podiumEl.querySelectorAll('[data-podium-uid]').forEach(col => {
+    col.addEventListener('click', () => {
+      const uid = col.dataset.podiumUid;
+      if (uid) openFisherProfileModal(uid, profiles, captures, currentUid);
+    });
+  });
 }
 
 export function initQuickSpeciesChips() {
@@ -1454,6 +2629,32 @@ function updateProStatusUI() {
     photoLockBadge.className = `photo-pro-badge ${pro ? 'unlocked' : 'locked'}`;
   }
 
+  const heroProPill = $('heroProPill');
+  if (heroProPill) {
+    if (pro) {
+      heroProPill.textContent = 'EDIÇÃO PRO';
+      heroProPill.className = 'b-pro-pill is-pro';
+      heroProPill.title = 'Acesso Clube Pescador PRO Ativo';
+    } else {
+      heroProPill.textContent = 'VERSÃO GRATUITA';
+      heroProPill.className = 'b-pro-pill is-free';
+      heroProPill.title = 'Modo Gratuito · Assine o Clube PRO para desbloquear';
+    }
+  }
+
+  const myProBadge = $('myProfileProBadge');
+  if (myProBadge) {
+    if (pro) {
+      myProBadge.textContent = '👑 PRO';
+      myProBadge.className = 'pro-member-badge';
+      myProBadge.title = 'Assinante Clube Pescador PRO';
+    } else {
+      myProBadge.textContent = '🔒 GRATUITO';
+      myProBadge.className = 'free-member-badge';
+      myProBadge.title = 'Conta Gratuita (Plano Padrão)';
+    }
+  }
+
   syncProModalPlanCards();
 }
 
@@ -1572,7 +2773,7 @@ export function openFisherProfileModal(fisherUid, profiles = {}, allCaptures = {
       <div class="fisher-profile-ident">
         <div class="fisher-profile-name-row">
           <h2 id="fisherProfileTitle">${escapeHtml(ext.displayName)}</h2>
-          <span class="pro-member-badge">👑 PRO</span>
+          ${isUserPro(fisherUid, baseProfile?.email) ? '<span class="pro-member-badge">👑 PRO</span>' : '<span class="free-member-badge">🔒 GRATUITO</span>'}
         </div>
         <div class="fisher-profile-loc-row">
           <p class="fisher-profile-loc">${ext.location ? `📍 ${escapeHtml(ext.location)}` : '📍 Litoral Brasileiro'}</p>
@@ -1643,11 +2844,12 @@ export function openFisherProfileModal(fisherUid, profiles = {}, allCaptures = {
       ${galleryItems.length
         ? `<div class="profile-gallery-grid">
              ${galleryItems.map(item => `
-               <figure class="profile-gallery-item">
+               <figure class="profile-gallery-item" data-gallery-capture-id="${escapeHtml(item.id)}" role="button" tabindex="0" title="Ver captura no Ranking & capturas">
                  <img src="${item.src}" alt="${escapeHtml(item.title)}" loading="lazy" />
                  <figcaption>
                    <strong>${escapeHtml(item.title)}</strong>
                    <small>${escapeHtml(item.subtitle)}</small>
+                   <span class="gallery-view-hint">🔍 Ver no Ranking</span>
                  </figcaption>
                </figure>
              `).join('')}
@@ -1656,6 +2858,34 @@ export function openFisherProfileModal(fisherUid, profiles = {}, allCaptures = {
       }
     </section>
   `;
+
+  // Clique nos itens da galeria do perfil público fecha o modal e rola até a captura no Ranking
+  body.querySelectorAll('.profile-gallery-item').forEach(fig => {
+    const handleGalleryClick = () => {
+      const cid = fig.getAttribute('data-gallery-capture-id');
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.hidden = true;
+      const rankingTab = $('rankingTab');
+      if (rankingTab) rankingTab.click();
+      setTimeout(() => {
+        const card = cid && (document.getElementById(`capture-card-${cid}`) || (typeof CSS !== 'undefined' && CSS.escape && document.querySelector(`[data-capture-id="${CSS.escape(cid)}"]`)));
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('highlight-shared-capture');
+          setTimeout(() => card.classList.remove('highlight-shared-capture'), 4500);
+        } else {
+          $('rankingPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
+    };
+    fig.addEventListener('click', handleGalleryClick);
+    fig.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleGalleryClick();
+      }
+    });
+  });
 
   const followBtn = body.querySelector('[data-fisher-follow-btn]');
   if (followBtn) {
@@ -1806,23 +3036,69 @@ export function renderMyAccountProfile(user, profiles = {}, allCaptures = {}) {
       galleryGrid.innerHTML = `<p class="empty-note">Suas fotos de capturas e troféus aparecerão aqui. Adicione uma foto de troféu no botão acima ou ao registrar uma captura!</p>`;
     } else {
       galleryGrid.innerHTML = galleryItems.map(item => `
-        <figure class="profile-gallery-item">
+        <figure class="profile-gallery-item" data-gallery-capture-id="${escapeHtml(item.id)}" data-is-extra="${item.isExtra ? 'true' : 'false'}" role="button" tabindex="0" title="Ver captura no Ranking &amp; capturas (Minhas capturas)">
           <img src="${item.src}" alt="${escapeHtml(item.title)}" loading="lazy" />
           <figcaption>
             <strong>${escapeHtml(item.title)}</strong>
             <small>${escapeHtml(item.subtitle)}</small>
+            <span class="gallery-view-hint">🔍 Ver no Diário / Ranking</span>
             ${item.isExtra ? `<button type="button" class="gallery-delete-photo-btn" data-remove-extra-photo="${escapeHtml(item.id)}" title="Remover foto da galeria">🗑️ Remover</button>` : ''}
           </figcaption>
         </figure>
       `).join('');
 
       galleryGrid.querySelectorAll('[data-remove-extra-photo]').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const pid = btn.dataset.removeExtraPhoto;
           const currentExt = getFisherExtendedProfile(uid, baseProfile);
           const updatedPhotos = (currentExt.extraTrophyPhotos || []).filter(p => p.id !== pid);
           saveFisherExtendedProfile(uid, { extraTrophyPhotos: updatedPhotos });
           renderMyAccountProfile(user, profiles, allCaptures);
+        });
+      });
+
+      // Navegação da Galeria da Conta diretamente para Ranking & capturas -> Minhas capturas
+      const navigateFromGalleryToRanking = (fig) => {
+        const captureId = fig.getAttribute('data-gallery-capture-id');
+        const accountDialog = $('accountDialog');
+        if (accountDialog) {
+          accountDialog.hidden = true;
+          accountDialog.classList.remove('is-open');
+          try { accountDialog.close(); } catch {}
+        }
+        const rankingTab = $('rankingTab');
+        if (rankingTab) rankingTab.click();
+
+        setTimeout(() => {
+          const card = captureId && (document.getElementById(`capture-card-${captureId}`) ||
+                       (typeof CSS !== 'undefined' && CSS.escape && document.querySelector(`[data-capture-id="${CSS.escape(captureId)}"]`)));
+          const myCapturesSection = $('myCapturesSection');
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('highlight-shared-capture');
+            setTimeout(() => card.classList.remove('highlight-shared-capture'), 4500);
+          } else if (myCapturesSection) {
+            myCapturesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            myCapturesSection.classList.add('highlight-shared-capture');
+            setTimeout(() => myCapturesSection.classList.remove('highlight-shared-capture'), 4500);
+          } else {
+            $('rankingPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 120);
+      };
+
+      galleryGrid.querySelectorAll('.profile-gallery-item').forEach(fig => {
+        fig.addEventListener('click', (e) => {
+          if (e.target.closest('[data-remove-extra-photo]')) return;
+          navigateFromGalleryToRanking(fig);
+        });
+        fig.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (e.target.closest('[data-remove-extra-photo]')) return;
+            e.preventDefault();
+            navigateFromGalleryToRanking(fig);
+          }
         });
       });
     }
@@ -1897,6 +3173,7 @@ export function setupLocationSearchAutocomplete(inputEl, dropdownEl, formEl) {
             formEl._selectedSpot = chosen;
           }
           dropdownEl.hidden = true;
+          inputEl.dispatchEvent(new Event('input', { bubbles: true }));
           inputEl.focus();
         }
       };
@@ -1954,6 +3231,8 @@ export function setupLocationSearchAutocomplete(inputEl, dropdownEl, formEl) {
  */
 export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCaptures = {}, currentUid = null) {
   card.classList.add('social-post-card');
+  card.id = `capture-card-${id}`;
+  card.setAttribute('data-capture-id', String(id));
   const fisherUid = capture.uid || 'community-fisher';
   card.setAttribute('data-fisher-uid', fisherUid);
 
@@ -1990,7 +3269,7 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
           <button type="button" class="social-fisher-name-btn" title="Abrir perfil de ${escapeHtml(fisherName)}">
             <strong class="social-fisher-name">${escapeHtml(fisherName)}</strong>
           </button>
-          <span class="pro-member-badge" title="Assinante Clube Pescador PRO">👑 PRO</span>
+          ${isUserPro(fisherUid, profiles?.[fisherUid]?.email) ? '<span class="pro-member-badge" title="Assinante Clube Pescador PRO">👑 PRO</span>' : '<span class="free-member-badge" title="Conta Gratuita">🔒 GRATUITO</span>'}
           <span class="social-followers-count"><b data-fisher-followers-num="${escapeHtml(fisherUid)}">${followers}</b> seguidor${followers === 1 ? '' : 'es'}</span>
         </div>
         ${extProfile.location ? `<small class="social-fisher-loc">📍 ${escapeHtml(extProfile.location)}</small>` : ''}
@@ -2027,6 +3306,16 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     captionEl.textContent = `“${captionText}”`;
   }
 
+  // Notificação com Sininho e Pulse Continuous para mensagens não lidas no próprio post
+  const unreadCount = getUnreadCommentsCountForCapture(id, currentUid, adminContext.currentUser?.email);
+  if (unreadCount > 0) {
+    const unreadPill = document.createElement('div');
+    unreadPill.className = 'post-unread-pill pulse-continuous';
+    unreadPill.setAttribute('data-unread-capture', String(id));
+    unreadPill.innerHTML = `🔔 <strong>${unreadCount} nova${unreadCount > 1 ? 's' : ''} mensage${unreadCount > 1 ? 'ns' : 'm'}</strong> neste troféu · Toque para ler`;
+    header.prepend(unreadPill);
+  }
+
   // 2. Trophy Photo Container
   const photoFigure = document.createElement('figure');
   photoFigure.className = 'social-trophy-figure';
@@ -2045,7 +3334,7 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     <button type="button" class="social-action-btn like-btn ${isLiked ? 'is-liked' : ''}" aria-pressed="${isLiked}">
       👏 Boa pesca! <span data-likes-num>${likesCount}</span>
     </button>
-    <button type="button" class="social-action-btn comment-toggle-btn">
+    <button type="button" class="social-action-btn comment-toggle-btn ${unreadCount > 0 ? 'has-unread pulse-continuous' : ''}">
       💬 Responder / Comentar <span data-comments-num>${postComments.length}</span>
     </button>
   `;
@@ -2093,6 +3382,7 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
           <small>${escapeHtml(c.time || 'agora')}</small>
           <div class="social-comment-actions">
             <button type="button" class="social-reply-link" data-reply-to="${escapeHtml(c.author)}">↩ Responder</button>
+            <button type="button" class="social-report-comment-btn" data-report-post-id="${escapeHtml(id)}" data-report-comment-id="${escapeHtml(c.id)}" data-report-comment-text="${escapeHtml(c.text)}" data-report-offender="${escapeHtml(c.author)}" data-report-offender-uid="${escapeHtml(c.authorUid || '')}" title="Denunciar este comentário ao administrador">🚩 Denunciar</button>
             <button type="button" class="social-delete-comment-btn" data-delete-comment="${escapeHtml(c.id)}" title="Apagar comentário">🗑️ Apagar</button>
           </div>
         </div>
@@ -2109,6 +3399,18 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
         const targetAuthor = btn.dataset.replyTo;
         commentInput.value = `@${targetAuthor} `;
         commentInput.focus();
+      });
+    });
+
+    commentsListEl.querySelectorAll('.social-report-comment-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openReportCommentDialog({
+          postId: btn.dataset.reportPostId,
+          commentId: btn.dataset.reportCommentId,
+          commentText: btn.dataset.reportCommentText,
+          offenderUid: btn.dataset.reportOffenderUid,
+          offenderName: btn.dataset.reportOffender
+        });
       });
     });
 
@@ -2136,8 +3438,9 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     likesNumEl.textContent = String((state.likes[id] ?? 5) + (likedNow ? 1 : 0));
   });
 
-  // Comment toggle button focuses input or opens paywall
+  // Comment toggle button focuses input or opens paywall and marks messages as read
   engagementBar.querySelector('.comment-toggle-btn').addEventListener('click', () => {
+    markCaptureCommentsAsRead(id, currentUid, adminContext.currentUser?.email);
     if (!isUserPro()) {
       openProPaywallModal('comentar');
       return;
@@ -2146,11 +3449,20 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
   });
 
   commentInput.addEventListener('focus', () => {
+    markCaptureCommentsAsRead(id, currentUid, adminContext.currentUser?.email);
     if (!isUserPro()) {
       commentInput.blur();
       openProPaywallModal('comentar');
     }
   });
+
+  const unreadPillEl = header.querySelector('.post-unread-pill');
+  if (unreadPillEl) {
+    unreadPillEl.addEventListener('click', () => {
+      markCaptureCommentsAsRead(id, currentUid, adminContext.currentUser?.email);
+      commentInput.focus();
+    });
+  }
 
   commentForm.addEventListener('submit', event => {
     event.preventDefault();
@@ -2193,6 +3505,7 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
     saveSocialState(state);
     commentInput.value = '';
     renderPostComments();
+    updateNotificationBell();
     if (typeof window !== 'undefined') {
       try {
         push(ref(database, `mareCerta/comments/${id}`), commentObj).catch(() => {});
@@ -2231,7 +3544,7 @@ export function initProSocialFeatures() {
       photoInput.click();
     });
 
-    photoInput.addEventListener('change', async () => {
+    photoInput.addEventListener('change', () => {
       const file = photoInput.files?.[0];
       if (!file) return;
       if (!isUserPro()) {
@@ -2240,30 +3553,54 @@ export function initProSocialFeatures() {
         return;
       }
       if (statusEl) {
-        statusEl.textContent = '⏳ Carregando foto do seu troféu…';
+        statusEl.textContent = '✂️ Enquadre e ajuste o zoom do seu troféu…';
         statusEl.className = 'photo-compression-status is-working';
       }
-      try {
-        const compressed = await compressTrophyPhoto(file, 1080, 0.8);
-        pendingTrophyPhoto = compressed;
-        if (previewImg) previewImg.src = compressed.dataUrl;
-        if (previewWrap) previewWrap.hidden = false;
-        if (statusEl) {
-          statusEl.textContent = '✓ Foto do troféu pronta para publicação!';
-          statusEl.className = 'photo-compression-status is-success';
+      openImageCropper({
+        file,
+        shape: 'rect',
+        title: 'Enquadrar Foto do seu Troféu',
+        subtitle: 'Enquadramento 100% proporcional ao post. Posicione o peixe e seu troféu dentro da área.',
+        onCropComplete: cropped => {
+          pendingTrophyPhotoRemoved = false;
+          pendingTrophyPhoto = {
+            dataUrl: cropped.dataUrl,
+            width: cropped.width,
+            height: cropped.height,
+            originalBytes: file.size || 1024,
+            compressedBytes: Math.round((cropped.dataUrl.length * 3) / 4),
+            summary: 'Foto recortada e otimizada',
+            s3Key: `captures/${Date.now()}.webp`,
+            mimeType: 'image/webp'
+          };
+          if (previewImg) previewImg.src = cropped.dataUrl;
+          if (previewWrap) previewWrap.hidden = false;
+          if (removePhotoBtn) removePhotoBtn.textContent = '🗑️ Apagar foto da captura';
+          if (statusEl) {
+            statusEl.textContent = '✓ Foto do troféu enquadrada e pronta para publicação!';
+            statusEl.className = 'photo-compression-status is-success';
+          }
+        },
+        onCancel: () => {
+          photoInput.value = '';
+          if (!pendingTrophyPhoto && statusEl) {
+            statusEl.textContent = 'Seleção cancelada.';
+            statusEl.className = 'photo-compression-status';
+          }
         }
-      } catch (err) {
-        pendingTrophyPhoto = null;
-        if (statusEl) {
-          statusEl.textContent = err.message || 'Erro ao comprimir foto.';
-          statusEl.className = 'photo-compression-status is-error';
-        }
-      }
+      });
     });
   }
 
   if (removePhotoBtn) {
-    removePhotoBtn.addEventListener('click', () => clearPendingTrophyPhoto());
+    removePhotoBtn.addEventListener('click', () => {
+      clearPendingTrophyPhoto();
+      pendingTrophyPhotoRemoved = true;
+      if (statusEl) {
+        statusEl.textContent = '🗑️ Foto apagada. Clique em "Salvar alterações" para publicar sem foto.';
+        statusEl.className = 'photo-compression-status is-photo-removed';
+      }
+    });
   }
 
   // Close public fisher profile dialog
@@ -2329,13 +3666,33 @@ export function initProSocialFeatures() {
   const adminGrantMeBtn = $('adminGrantCurrentMeBtn');
   if (adminGrantMeBtn) {
     adminGrantMeBtn.addEventListener('click', () => {
-      const uid = adminContext.currentUser?.uid || 'local-current-user';
-      const email = adminContext.currentUser?.email || 'admin@marecerta.com.br';
-      const displayName = adminContext.currentUser?.displayName || 'Minha Conta (Admin)';
-      const alreadyVip = Boolean(isUserAdminGrantedPro(uid, email));
-      if (alreadyVip) {
+      const user = adminContext.currentUser || (typeof auth !== 'undefined' && auth?.currentUser) || null;
+      const uid = user?.uid || 'local-current-user';
+      const email = user?.email || 'admin@marecerta.com.br';
+      const displayName = user?.displayName || 'Minha Conta (Admin)';
+      const alreadyPro = Boolean(isUserPro(uid, email));
+      if (alreadyPro) {
+        const confirmed = typeof window !== 'undefined' && typeof window.confirm === 'function'
+          ? window.confirm('⚠️ SEGUNDA CONFIRMAÇÃO EXIGIDA:\n\nTem certeza que deseja colocar sua própria conta como GRATUITO?\n\nEssa ação revoga o status PRO imediatamente no site, no Firebase e no Mercado Pago.')
+          : true;
+        if (!confirmed) return;
         revokeFreeProFromUser(uid);
         if (email) revokeFreeProFromUser(email);
+        try {
+          localStorage.removeItem(STORAGE_PRO_KEY);
+          localStorage.removeItem('mare-certa-pending-mp-checkout');
+        } catch {}
+        try {
+          fetch('/api/mp/revoke_subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, email })
+          }).catch(() => {});
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: { isPro: false } }));
+        }
+        updateProStatusUI();
       } else {
         grantFreeProToUser({
           uid,
@@ -2356,6 +3713,7 @@ export function initProSocialFeatures() {
       const nameVal = String(adminForm.elements.vipName?.value || '').trim();
       const emailVal = String(adminForm.elements.vipEmail?.value || '').trim().toLowerCase();
       const roleVal = String(adminForm.elements.vipRole?.value || 'VIP Cortesia (Sem Custo)').trim();
+      const durationVal = Number(adminForm.elements.vipDuration?.value || 365);
       if (!nameVal && !emailVal) return;
 
       grantFreeProToUser({
@@ -2363,7 +3721,8 @@ export function initProSocialFeatures() {
         email: emailVal,
         displayName: nameVal || emailVal.split('@')[0] || 'Pescador Convidado',
         roleLabel: roleVal,
-        grantedBy: 'Admin Master'
+        grantedBy: 'Admin Master',
+        durationDays: durationVal
       });
 
       adminForm.reset();
@@ -2414,7 +3773,7 @@ export function initProSocialFeatures() {
 
   const checkoutBtn = $('mpCheckoutApproveBtn');
   if (checkoutBtn) {
-    checkoutBtn.addEventListener('click', () => {
+    checkoutBtn.addEventListener('click', async () => {
       if (!auth.currentUser) {
         $('proPaywallDialog')?.close();
         $('accountButton')?.click();
@@ -2427,6 +3786,73 @@ export function initProSocialFeatures() {
         return;
       }
       const plan = PRO_PLANS[selectedPlanId] || PRO_PLANS.annual;
+      const user = auth.currentUser;
+      const summaryEl = $('mpSelectedPlanSummary');
+
+      if (summaryEl) {
+        summaryEl.innerHTML = `⏳ <strong>Gerando cobrança oficial segura no Mercado Pago…</strong>`;
+      }
+
+      try {
+        const res = await fetch('/api/mp/create_preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: user?.uid || 'user-anon',
+            email: user?.email || '',
+            name: user?.displayName || 'Pescador PRO',
+            planId: plan.id,
+            returnUrl: window.location.origin + window.location.pathname
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.init_point) {
+            try {
+              localStorage.setItem('mare-certa-pending-mp-checkout', JSON.stringify({
+                uid: user?.uid,
+                email: user?.email,
+                planId: plan.id,
+                preferenceId: data.preference_id,
+                timestamp: Date.now()
+              }));
+            } catch {}
+
+            const liveUrl = data.init_point;
+
+            window.open(liveUrl, '_blank');
+
+            if (summaryEl) {
+              summaryEl.innerHTML = `
+                ⏳ <strong>Aguardando confirmação do pagamento no Mercado Pago…</strong><br>
+                <small>Conclua seu PIX ou Cartão na aba oficial que abriu. Seu acesso PRO será ativado automaticamente aqui em tempo real assim que o Mercado Pago confirmar!</small>
+              `;
+
+              if (window._mpCheckPollTimer) clearInterval(window._mpCheckPollTimer);
+              window._mpCheckPollTimer = setInterval(async () => {
+                try {
+                  const chkRes = await fetch(`/api/mp/check_subscription?uid=${encodeURIComponent(user?.uid || '')}&email=${encodeURIComponent(user?.email || '')}`);
+                  if (!chkRes.ok) return;
+                  const chkData = await chkRes.json();
+                  if (chkData && chkData.active) {
+                    clearInterval(window._mpCheckPollTimer);
+                    setProSubscription(true, chkData.planId || plan.id, Date.now(), { paymentId: chkData.paymentId });
+                    summaryEl.innerHTML = `🎉 <strong>Pagamento Aprovado pelo Mercado Pago!</strong> Seu Clube Pescador PRO já está ativo!`;
+                    setTimeout(() => {
+                      $('proPaywallDialog')?.close();
+                    }, 1500);
+                  }
+                } catch {}
+              }, 4000);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('API Mercado Pago Local offline, usando fallback', err);
+      }
+
       if (plan.paymentUrl) {
         try {
           localStorage.setItem('mare-certa-pending-mp-checkout', JSON.stringify({
@@ -2437,7 +3863,6 @@ export function initProSocialFeatures() {
           }));
         } catch {}
         window.open(plan.paymentUrl, '_blank');
-        const summaryEl = $('mpSelectedPlanSummary');
         if (summaryEl) {
           summaryEl.innerHTML = `⏳ <strong>Aguardando pagamento no Mercado Pago…</strong><br><small>Conclua seu PIX ou Cartão na aba do Mercado Pago. Seu acesso PRO será ativado automaticamente assim que o Mercado Pago confirmar a aprovação da transação!</small>`;
         }
@@ -2458,7 +3883,68 @@ export function initProSocialFeatures() {
     });
   });
 
+  // Autocomplete do filtro de local no feed (estilo do perfil, sem interferência de autofill do Google)
+  const filterLocInput = $('filterLocation');
+  const filterLocDropdown = $('filterLocationResults');
+  const filterForm = $('captureFilterForm');
+  if (filterLocInput && filterLocDropdown && !filterLocInput._autocompleteInitialized) {
+    filterLocInput._autocompleteInitialized = true;
+    setupLocationSearchAutocomplete(filterLocInput, filterLocDropdown, filterForm);
+  }
+
+  // Diálogo de denúncia de comentários abusivos ao Administrador
+  const reportDialog = $('reportCommentDialog');
+  const closeReportBtn = $('closeReportCommentDialog');
+  const cancelReportBtn = $('cancelReportBtn');
+  const reportForm = $('reportCommentForm');
+
+  const closeReport = () => {
+    if (!reportDialog) return;
+    if (typeof reportDialog.close === 'function') reportDialog.close();
+    else reportDialog.hidden = true;
+  };
+
+  if (closeReportBtn) closeReportBtn.addEventListener('click', closeReport);
+  if (cancelReportBtn) cancelReportBtn.addEventListener('click', closeReport);
+
+  if (reportForm) {
+    reportForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const user = auth.currentUser;
+      const reporterUid = user?.uid || 'anon';
+      const reporterName = user?.displayName || user?.email?.split('@')[0] || 'Dono do Post';
+
+      const postId = reportForm.elements.reportPostId?.value;
+      const commentId = reportForm.elements.reportCommentId?.value;
+      const offenderUid = reportForm.elements.reportOffenderUid?.value;
+      const offenderName = reportForm.elements.reportOffenderName?.value;
+      const reason = reportForm.elements.reportReason?.value;
+
+      try {
+        submitCommentReport({
+          postId,
+          commentId,
+          offenderUid,
+          offenderName,
+          reporterUid,
+          reporterName,
+          reason
+        });
+        closeReport();
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert('✓ Denúncia enviada com sucesso ao administrador. O comentário e o autor serão analisados.');
+        }
+      } catch (err) {
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert(err.message || 'Erro ao enviar denúncia.');
+        }
+      }
+    });
+  }
+
   updateProStatusUI();
+  setupNotificationBellListener();
+  updateNotificationBell();
   initFirebaseRealtimeSync();
 }
 
@@ -2534,6 +4020,8 @@ export function initFirebaseRealtimeSync() {
         const local = loadFisherExtendedProfiles();
         const merged = { ...local, ...val };
         try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(merged)); } catch {}
+        updateProStatusUI();
+        window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
         renderAdminProPanel();
       }
     }, () => {});
@@ -2574,6 +4062,17 @@ export function initFirebaseRealtimeSync() {
         saveSocialState(state);
       }
     }, () => {});
+
+    // 8. Sincroniza denúncias de moderação da nuvem
+    onValue(ref(database, 'mareCerta/moderation/reports'), snapshot => {
+      const val = snapshot.val();
+      if (val && typeof val === 'object') {
+        const local = loadAdminReportsMap();
+        const merged = { ...local, ...val };
+        try { localStorage.setItem(STORAGE_ADMIN_REPORTS_KEY, JSON.stringify(merged)); } catch {}
+        renderAdminReportsList();
+      }
+    }, () => {});
     // 5. Verifica se o usuário retornou de um checkout aprovado do Mercado Pago (com status=approved + payment_id oficial)
     try {
       if (typeof window !== 'undefined' && window.location?.search) {
@@ -2582,9 +4081,12 @@ export function initFirebaseRealtimeSync() {
         const paymentId = params.get('payment_id') || params.get('collection_id') || params.get('preference_id');
         if (status === 'approved' && paymentId) {
           const pendingRaw = localStorage.getItem('mare-certa-pending-mp-checkout');
-          let planId = 'annual';
+          let planId = params.get('plan') || 'annual';
           try {
-            if (pendingRaw) planId = JSON.parse(pendingRaw).planId || 'annual';
+            if (pendingRaw) {
+              const pendingData = JSON.parse(pendingRaw);
+              if (pendingData?.planId) planId = pendingData.planId;
+            }
           } catch {}
           setProSubscription(true, planId, Date.now(), { paymentId });
           localStorage.removeItem('mare-certa-pending-mp-checkout');
@@ -2593,6 +4095,74 @@ export function initFirebaseRealtimeSync() {
           }, 350);
           window.history.replaceState(null, '', window.location.pathname);
         }
+      }
+    } catch {}
+
+    // 6. Verifica com o backend se há pagamento aprovado ou revogado para a conta do usuário
+    try {
+      if (typeof auth !== 'undefined' && auth) {
+        import('firebase/auth').then(({ onAuthStateChanged }) => {
+          onAuthStateChanged(auth, user => {
+            if (!user?.uid) return;
+            const uid = user.uid;
+            const email = user.email || '';
+            fetch(`/api/mp/check_subscription?uid=${encodeURIComponent(uid)}&email=${encodeURIComponent(email)}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(data => {
+                if (data && data.active && !isUserPro()) {
+                  setProSubscription(true, data.planId || 'annual', Date.now(), { paymentId: data.paymentId });
+                  console.log('👑 Assinatura PRO confirmada via backend Hostinger/Mercado Pago!');
+                } else if (data && (data.revoked || data.active === false)) {
+                  // Se o backend informa que a conta é gratuita ou foi revogada, remove qualquer cache divergente
+                  const hasAdminGrant = isUserAdminGrantedPro(uid, email);
+                  if (!hasAdminGrant) {
+                    try {
+                      localStorage.removeItem(STORAGE_PRO_KEY);
+                      localStorage.removeItem('mare-certa-pending-mp-checkout');
+                    } catch {}
+                    updateProStatusUI();
+                    window.dispatchEvent(new CustomEvent('mare-certa:pro-changed', { detail: getProSubscription() }));
+                  }
+                }
+              })
+              .catch(() => {});
+          });
+        }).catch(() => {});
+      }
+    } catch {}
+
+    // 7. Sincroniza cortesias e planos salvos no backend local
+    try {
+      if (typeof fetch === 'function') {
+        fetch('/api/mp/vip_grants')
+          .then(r => r.ok ? r.json() : null)
+          .then(backendSubs => {
+            if (backendSubs && typeof backendSubs === 'object') {
+              const local = loadRawAdminVipGrantsMap();
+              let changed = false;
+              for (const [k, sub] of Object.entries(backendSubs)) {
+                if (!local[k]) {
+                  local[k] = sub;
+                  changed = true;
+                } else if (sub.active === false && local[k].active !== false) {
+                  local[k] = { ...local[k], ...sub, active: false };
+                  changed = true;
+                } else if (sub.revokedAt && (!local[k].revokedAt || sub.revokedAt >= local[k].revokedAt)) {
+                  local[k] = { ...local[k], ...sub };
+                  changed = true;
+                } else if (sub.active === true && !local[k].active) {
+                  local[k] = { ...local[k], ...sub };
+                  changed = true;
+                }
+              }
+              if (changed) {
+                try { localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(local)); } catch {}
+                updateProStatusUI();
+                renderAdminProPanel();
+              }
+            }
+          })
+          .catch(() => {});
       }
     } catch {}
   } catch (err) {
@@ -2735,42 +4305,176 @@ export async function openShareCardModal(capture, fisherName, captureId = null) 
   const photoDataUrl = capture.photoUrl || (captureId && localPhotos[captureId]?.dataUrl) || generateTrophyFallbackIllustration(capture);
   const caption = getCaptureCaption(captureId, capture);
 
+  const alertEl = $('shareStatusAlert');
+  if (alertEl) {
+    alertEl.hidden = true;
+    alertEl.textContent = '';
+  }
+
   dialog.showModal();
   await drawTrophyCanvas(canvas, capture, fisherName, photoDataUrl, caption);
+
+  const slug = String(capture.species || 'pescaria').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const formattedDate = String(capture.date || '').split('-').reverse().join('/');
+  const captionSnippet = caption ? ` — “${caption}”` : '';
+
+  // Constrói a URL canônica com parâmetros diretos para abrir o ranking e a captura
+  const origin = (typeof window !== 'undefined' && window.location.origin) || 'https://marecerta.com.br';
+  const pathname = (typeof window !== 'undefined' && window.location.pathname) || '/';
+  const targetId = captureId ? String(captureId).trim() : '';
+  const shareUrl = `${origin}${pathname}?tab=ranking${targetId ? `&capture=${encodeURIComponent(targetId)}` : ''}#ranking`;
+
+  const lines = [
+    `🎣 *${capture.quantity} × ${capture.species}*${capture.weight ? ` (${Number(capture.weight).toLocaleString('pt-BR')} kg)` : ''}`,
+    `📍 *Local:* ${capture.location || 'Litoral Brasileiro'}`,
+    `📅 *Data:* ${formattedDate}`
+  ];
+  if (caption) {
+    lines.push(`💬 *Relato:* “${caption}”`);
+  }
+  lines.push('');
+  lines.push('🏆 *Veja a foto do troféu e o ranking da comunidade:*');
+  lines.push(`👉 ${shareUrl}`);
+  const fullShareText = lines.join('\n');
+
+  const showAlert = (msg, isSuccess = true) => {
+    if (!alertEl) return;
+    alertEl.hidden = false;
+    alertEl.className = `share-status-alert ${isSuccess ? 'is-success' : 'is-info'}`;
+    alertEl.textContent = msg;
+  };
 
   const downloadBtn = $('downloadTrophyBtn');
   if (downloadBtn) {
     downloadBtn.onclick = () => {
       const link = document.createElement('a');
-      const slug = String(capture.species || 'pescaria').toLowerCase().replace(/[^a-z0-9]+/g, '-');
       link.download = `mare-certa-${slug}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
+      showAlert('💾 Imagem do troféu baixada com sucesso!');
+    };
+  }
+
+  const copyLinkBtn = $('copyShareLinkBtn');
+  if (copyLinkBtn) {
+    copyLinkBtn.onclick = async () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          prompt('Copie o link da pescaria:', shareUrl);
+        }
+        showAlert('🔗 Link direto copiado! Ao clicar nele, a pessoa vai direto para o ranking e esta captura.');
+      } catch {
+        prompt('Copie o link da pescaria:', shareUrl);
+      }
     };
   }
 
   const shareBtn = $('nativeShareTrophyBtn');
   if (shareBtn) {
     shareBtn.onclick = async () => {
-      const formattedDate = String(capture.date || '').split('-').reverse().join('/');
-      const captionSnippet = caption ? ` — “${caption}”` : '';
-      const text = `🎣 Capturei ${capture.quantity} × ${capture.species}${capture.weight ? ` (${Number(capture.weight).toLocaleString('pt-BR')} kg)` : ''} em ${capture.location} (${formattedDate})${captionSnippet}! Veja a foto e o ranking no Maré Certa.`;
       if (navigator.share && canvas.toBlob) {
         canvas.toBlob(async blob => {
-          try {
-            const file = new File([blob], 'mare-certa-captura.png', { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({ title: 'Captura · Maré Certa', text, files: [file] });
+          if (!blob) return;
+          const file = new File([blob], `trofeu-mare-certa-${slug}.png`, { type: 'image/png' });
+
+          // No mobile: passando files e text juntos SEM title, o WhatsApp agrupa o texto diretamente como LEGENDA (caption) da foto!
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                text: fullShareText
+              });
+              showAlert('✅ Compartilhado no WhatsApp com a foto e o link!');
               return;
+            } catch (err) {
+              if (err.name === 'AbortError') return;
             }
-            await navigator.share({ title: 'Captura · Maré Certa', text, url: location.href });
+          }
+
+          // No desktop / WhatsApp Web: copia a imagem para o Clipboard para o usuário colar na conversa (Ctrl+V)
+          let copiedImage = false;
+          try {
+            if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ]);
+              copiedImage = true;
+            }
           } catch {}
+
+          const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`;
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+
+          if (copiedImage) {
+            showAlert('📋 Imagem do troféu copiada! Na conversa do WhatsApp, pressione Ctrl+V para colar a foto junto com a mensagem e o link!');
+          } else {
+            showAlert('💬 WhatsApp aberto com a mensagem e o link! Baixe a imagem caso deseje anexar junto.');
+          }
         }, 'image/png');
       } else {
-        const waUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + location.href)}`;
+        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullShareText)}`;
         window.open(waUrl, '_blank', 'noopener,noreferrer');
+        showAlert('💬 WhatsApp aberto com a mensagem e o link da captura!');
       }
     };
+  }
+}
+
+export function handleSharedCaptureNavigation() {
+  if (typeof window === 'undefined') return;
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const tabParam = params.get('tab');
+    const captureId = params.get('capture');
+    const hash = (window.location.hash || '').toLowerCase();
+
+    const isRankingTarget = tabParam === 'ranking' || hash === '#ranking' || hash === '#capturas' || hash === '#diario' || Boolean(captureId);
+    if (!isRankingTarget) return;
+
+    // 1. Garante a seleção da aba de Ranking e Comunidade
+    const rankingTab = $('rankingTab');
+    const rankingPanel = $('rankingPanel');
+    if (rankingTab && rankingTab.getAttribute('aria-selected') !== 'true') {
+      rankingTab.click();
+    }
+    if (rankingPanel && rankingPanel.hidden) {
+      rankingPanel.hidden = false;
+    }
+
+    // 2. Se houver captureId na URL, localiza o card no feed e rola suavemente com destaque
+    if (captureId) {
+      let attempts = 0;
+      const maxAttempts = 30; // até ~3.6s
+      const findAndScroll = () => {
+        attempts++;
+        const card = document.getElementById(`capture-card-${captureId}`) ||
+                     document.querySelector(`[data-capture-id="${CSS.escape ? CSS.escape(captureId) : captureId}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('highlight-shared-capture');
+          setTimeout(() => {
+            card.classList.remove('highlight-shared-capture');
+          }, 4500);
+          return;
+        }
+        if (attempts < maxAttempts) {
+          setTimeout(findAndScroll, 120);
+        } else {
+          const target = $('recentCatches') || $('rankingTopPodium') || rankingPanel;
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+      setTimeout(findAndScroll, 100);
+    } else {
+      setTimeout(() => {
+        const target = $('rankingTopPodium') || rankingPanel;
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    }
+  } catch (err) {
+    console.warn('Navigation to shared capture fallback:', err);
   }
 }
 
@@ -2779,6 +4483,10 @@ if (typeof document !== 'undefined') {
   if (closeBtn) closeBtn.addEventListener('click', () => $('shareCardDialog')?.close());
   initQuickSpeciesChips();
   initProSocialFeatures();
+  setupImageCropperListeners();
+  handleSharedCaptureNavigation();
+  window.addEventListener('hashchange', handleSharedCaptureNavigation);
+  window.addEventListener('popstate', handleSharedCaptureNavigation);
 }
 
 export function collectAdminManageableUsers(profiles = {}, captures = {}) {
@@ -2948,6 +4656,7 @@ export function renderAdminProhibitedWordsList() {
 export function renderAdminProPanel() {
   if (typeof document === 'undefined') return;
   renderAdminProhibitedWordsList();
+  renderAdminReportsList();
 
   const listEl = $('adminUsersList');
   if (!listEl) return;
@@ -2960,19 +4669,20 @@ export function renderAdminProPanel() {
   if ($('adminTotalVipCount')) $('adminTotalVipCount').textContent = String(vipCount);
   if ($('adminTotalBannedCount')) $('adminTotalBannedCount').textContent = String(restrictedCount);
 
-  const myUid = adminContext.currentUser?.uid || 'local-current-user';
-  const myEmail = adminContext.currentUser?.email || '';
-  const meIsVip = Boolean(isUserAdminGrantedPro(myUid, myEmail));
+  const myUser = adminContext.currentUser || (typeof auth !== 'undefined' && auth?.currentUser) || null;
+  const myUid = myUser?.uid || 'local-current-user';
+  const myEmail = myUser?.email || '';
+  const meIsPro = Boolean(isUserPro(myUid, myEmail));
 
   if ($('adminMyCurrentStatus')) {
-    $('adminMyCurrentStatus').textContent = meIsVip ? '👑 PRO Cortesia Ativo' : 'Padrão';
+    $('adminMyCurrentStatus').textContent = meIsPro ? '👑 PRO Ativo' : '🔒 Gratuito';
   }
   const grantMeBtn = $('adminGrantCurrentMeBtn');
   if (grantMeBtn) {
-    grantMeBtn.textContent = meIsVip
-      ? '✕ Remover Cortesia da Minha Conta Atual'
+    grantMeBtn.textContent = meIsPro
+      ? '🔒 Colocar Minha Conta como Gratuito'
       : '👑 Liberar PRO Grátis na Minha Conta Atual';
-    grantMeBtn.classList.toggle('is-active-vip', meIsVip);
+    grantMeBtn.classList.toggle('is-active-vip', meIsPro);
   }
 
   const q = String(adminContext.searchQuery || '').toLowerCase();
@@ -3028,12 +4738,20 @@ export function renderAdminProPanel() {
             ${
               !isDeleted
                 ? u.isVipPro
-                  ? `<button type="button" class="admin-toggle-vip-btn is-revoke" data-revoke-uid="${escapeHtml(u.uid)}" data-revoke-email="${escapeHtml(u.email)}">
-                       ✕ Revogar Cortesia
+                  ? `<button type="button" class="admin-toggle-vip-btn is-revoke" data-revoke-uid="${escapeHtml(u.uid)}" data-revoke-email="${escapeHtml(u.email)}" data-revoke-name="${escapeHtml(u.displayName)}">
+                       🔒 Colocar como Gratuito
                      </button>`
-                  : `<button type="button" class="admin-toggle-vip-btn is-grant" data-grant-uid="${escapeHtml(u.uid)}" data-grant-email="${escapeHtml(u.email)}" data-grant-name="${escapeHtml(u.displayName)}">
-                       👑 Liberar PRO Sem Pagar
-                     </button>`
+                  : `<div class="admin-grant-controls-group" style="display:inline-flex;align-items:center;gap:6px;">
+                       <select class="admin-grant-duration-select" data-grant-duration-uid="${escapeHtml(u.uid)}" aria-label="Duração do Premium para ${escapeHtml(u.displayName)}">
+                         <option value="3">3 dias</option>
+                         <option value="30">1 mês</option>
+                         <option value="365" selected>1 ano</option>
+                         <option value="3650">Vitalício</option>
+                       </select>
+                       <button type="button" class="admin-toggle-vip-btn is-grant" data-grant-uid="${escapeHtml(u.uid)}" data-grant-email="${escapeHtml(u.email)}" data-grant-name="${escapeHtml(u.displayName)}">
+                         👑 Liberar PRO
+                       </button>
+                     </div>`
                 : ''
             }
             <div class="admin-moderation-controls">
@@ -3072,12 +4790,17 @@ export function renderAdminProPanel() {
 
   listEl.querySelectorAll('[data-grant-uid]').forEach(btn => {
     btn.addEventListener('click', () => {
+      const uid = btn.dataset.grantUid;
+      const durationSelect = listEl.querySelector(`[data-grant-duration-uid="${CSS.escape ? CSS.escape(uid) : uid}"]`);
+      const durationDays = durationSelect ? Number(durationSelect.value) : 365;
+
       grantFreeProToUser({
-        uid: btn.dataset.grantUid,
+        uid,
         email: btn.dataset.grantEmail,
         displayName: btn.dataset.grantName,
-        roleLabel: 'PRO Cortesia (Liberado pelo Admin)',
-        grantedBy: 'Admin'
+        roleLabel: `PRO Cortesia (${durationDays === 3 ? '3 dias' : durationDays === 30 ? '1 mês' : durationDays === 365 ? '1 ano' : 'Vitalício'})`,
+        grantedBy: 'Admin',
+        durationDays
       });
       renderAdminProPanel();
     });
@@ -3085,8 +4808,21 @@ export function renderAdminProPanel() {
 
   listEl.querySelectorAll('[data-revoke-uid]').forEach(btn => {
     btn.addEventListener('click', () => {
+      const name = btn.dataset.revokeName || btn.dataset.revokeEmail || btn.dataset.revokeUid || 'este pescador';
+      const confirmed = typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm(`⚠️ SEGUNDA CONFIRMAÇÃO EXIGIDA:\n\nTem certeza que deseja colocar a conta de "${name}" como GRATUITO?\n\nEssa ação revoga o status PRO imediatamente no site e no Firebase Realtime Database.`)
+        : true;
+      if (!confirmed) return;
+
       revokeFreeProFromUser(btn.dataset.revokeUid);
       if (btn.dataset.revokeEmail) revokeFreeProFromUser(btn.dataset.revokeEmail);
+      if (typeof fetch === 'function') {
+        fetch('/api/mp/revoke_subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: btn.dataset.revokeUid, email: btn.dataset.revokeEmail || '' })
+        }).catch(() => {});
+      }
       renderAdminProPanel();
     });
   });
