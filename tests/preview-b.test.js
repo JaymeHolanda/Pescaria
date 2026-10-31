@@ -1281,4 +1281,33 @@ test('Sininho de notificações com pulse continuous, navegação da galeria par
   assert.ok(commEnhanceCode.includes('destination-in'), 'Deve aplicar máscara circular para fotos de perfil');
 });
 
+test('Painel Admin: atualização automática a cada 15 segundos, botão manual e sincronização com Firebase mareCerta/profiles', async () => {
+  const { readFileSync } = await import('node:fs');
+  const adminHtml = readFileSync('dist/admin.html', 'utf8');
+
+  // 1. Verifica presença dos elementos da barra de sincronização no painel administrativo isolado
+  assert.match(adminHtml, /class="admin-sync-bar"/, 'Deve conter a barra de sincronização');
+  assert.match(adminHtml, /id="adminSyncStatusText"/, 'Deve exibir o status da sincronização');
+  assert.match(adminHtml, /id="adminSyncCountdown"/, 'Deve conter a contagem regressiva de 15s');
+  assert.match(adminHtml, /id="adminRefreshNowBtn"/, 'Deve conter o botão manual Atualizar agora');
+  assert.match(adminHtml, /id="adminAutoRefreshCheck"/, 'Deve conter o toggle para atualizar a cada 15s');
+
+  // 2. Verifica funções exportadas no módulo community-enhancements.js
+  const commModule = await import('../src/preview-b/community-enhancements.js');
+  assert.equal(typeof commModule.refreshAdminDataFromFirebase, 'function');
+  assert.equal(typeof commModule.setupAdminAutoRefresh, 'function');
+
+  // 3. Verifica escuta de mareCerta/profiles e mareCerta/captures no código-fonte
+  const commEnhanceCode = readFileSync('src/preview-b/community-enhancements.js', 'utf8');
+  assert.match(commEnhanceCode, /mareCerta\/profiles/, 'Deve escutar perfis sob a raiz mareCerta/profiles');
+  assert.match(commEnhanceCode, /mareCerta\/captures/, 'Deve escutar capturas sob a raiz mareCerta/captures');
+
+  // 4. Verifica estilos CSS da barra de sincronização
+  const stylesCss = readFileSync('src/preview-b/styles.css', 'utf8');
+  assert.match(stylesCss, /\.admin-sync-bar/, 'CSS deve conter estilo da barra de sincronização');
+  assert.match(stylesCss, /\.admin-refresh-btn/, 'CSS deve conter estilo do botão de atualização manual');
+  assert.match(stylesCss, /@keyframes adminSpin/, 'CSS deve conter animação de rotação para feedback visual');
+});
+
+
 

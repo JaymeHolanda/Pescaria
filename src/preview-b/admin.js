@@ -1,5 +1,11 @@
 // Página isolada do Painel Admin (dist/admin.html).
-import { renderAdminProPanel, setAdminCommunityContext, initFirebaseRealtimeSync } from './community-enhancements.js';
+import {
+  renderAdminProPanel,
+  setAdminCommunityContext,
+  initFirebaseRealtimeSync,
+  setupAdminAutoRefresh,
+  refreshAdminDataFromFirebase
+} from './community-enhancements.js';
 
 export const ADMIN_CREDENTIALS = { user: 'admin', pass: 'marecerta@2026' };
 const SESSION_KEY = 'mare-certa-admin-session-v1';
@@ -17,6 +23,8 @@ function showPanel(loggedIn) {
     initFirebaseRealtimeSync();
     setAdminCommunityContext({ uid: 'admin-master', email: 'admin@marecerta.com.br', displayName: 'Administrador' }, {}, {});
     renderAdminProPanel();
+    setupAdminAutoRefresh();
+    refreshAdminDataFromFirebase();
   }
 }
 

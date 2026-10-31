@@ -1146,6 +1146,23 @@ const shareAndPaywallDialogsHtml = `\n      <dialog id="fisherProfileDialog" cla
           <p class="legal-dialog-meta">Conceda ou revogue o acesso <strong>Clube Pescador PRO (Cortesia / VIP)</strong> para pescadores parceiros, amigos, embaixadores ou membros da comunidade sem necessidade de pagamento no Mercado Pago.</p>
         </div>
 
+        <div class="admin-sync-bar" role="region" aria-label="Sincronização em tempo real">
+          <div class="admin-sync-info">
+            <span class="admin-sync-dot" aria-hidden="true"></span>
+            <span id="adminSyncStatusText">Sincronização em tempo real ativa</span>
+            <span id="adminSyncCountdown" class="admin-sync-countdown">· Atualizando em 15s</span>
+          </div>
+          <div class="admin-sync-actions">
+            <button id="adminRefreshNowBtn" class="admin-refresh-btn" type="button" title="Buscar novas contas e capturas no Firebase agora">
+              <span class="refresh-icon" aria-hidden="true">🔄</span> <span>Atualizar agora</span>
+            </button>
+            <label class="admin-auto-refresh-toggle" title="Ativar ou pausar atualização automática a cada 15 segundos">
+              <input type="checkbox" id="adminAutoRefreshCheck" checked />
+              <span>A cada 15s</span>
+            </label>
+          </div>
+        </div>
+
         <div class="admin-kpi-strip">
           <div class="admin-kpi-box">
             <strong id="adminTotalUsersCount">0</strong>
@@ -1545,6 +1562,36 @@ import {
   setPendingTrophyPhotoRemoved,
   removeLocalS3Photo
 } from './preview-b/community-enhancements.js';`
+);
+ranking = replace(
+  ranking,
+  `async function ensureProfile(user, requestedName) {
+  const path = ref(database, \`mareCerta/profiles/\${user.uid}\`);
+  // Login and the auth observer can run together. Preserve createdAt atomically.
+  await runTransaction(path, existing => profileRecord(existing, requestedName, user.displayName, serverTimestamp()), { applyLocally: false });
+  profileReady = true;
+  renderAccount(user);
+  message('profileStatus', 'Perfil salvo no ranking.');
+}`,
+  `async function ensureProfile(user, requestedName) {
+  const path = ref(database, \`mareCerta/profiles/\${user.uid}\`);
+  const finalName = requestedName || user.displayName || 'Pescador';
+  const finalEmail = user.email || '';
+  await runTransaction(path, existing => ({
+    displayName: finalName,
+    email: finalEmail || existing?.email || '',
+    createdAt: existing?.createdAt ?? serverTimestamp()
+  }), { applyLocally: false });
+  try {
+    saveFisherExtendedProfile(user.uid, {
+      displayName: finalName,
+      email: finalEmail
+    });
+  } catch {}
+  profileReady = true;
+  renderAccount(user);
+  message('profileStatus', 'Perfil salvo no ranking.');
+}`
 );
 ranking = replace(
   ranking,

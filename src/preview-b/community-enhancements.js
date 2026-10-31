@@ -13,7 +13,7 @@ import {
 } from './model.js';
 
 export { resolveLocationByQuery, searchCoastalLocations, COASTAL_ALIASES, PRESET_SPOTS, getProRemainingDays, formatProDurationLabel };
-import { ref, set, update, push, remove, onValue } from 'firebase/database';
+import { ref, set, update, push, remove, onValue, get } from 'firebase/database';
 import { ref as storageRef, uploadString, getDownloadURL } from 'firebase/storage';
 import { database, storage, auth } from '../firebase.js';
 
@@ -3998,23 +3998,27 @@ export function initFirebaseRealtimeSync() {
       }
     }, () => {});
 
-    // 5. Sincroniza perfis cadastrados do Firebase Auth
-    onValue(ref(database, 'profiles'), snapshot => {
+    // 5. Sincroniza perfis cadastrados do Firebase Auth (mareCerta/profiles e profiles)
+    const handleProfilesSnapshot = snapshot => {
       const val = snapshot.val();
       if (val && typeof val === 'object') {
-        adminContext.profiles = val;
+        adminContext.profiles = { ...adminContext.profiles, ...val };
         renderAdminProPanel();
       }
-    }, () => {});
+    };
+    onValue(ref(database, 'mareCerta/profiles'), handleProfilesSnapshot, () => {});
+    onValue(ref(database, 'profiles'), handleProfilesSnapshot, () => {});
 
-    // 6. Sincroniza capturas do Diário/Ranking da comunidade
-    onValue(ref(database, 'captures'), snapshot => {
+    // 6. Sincroniza capturas do Diário/Ranking da comunidade (mareCerta/captures e captures)
+    const handleCapturesSnapshot = snapshot => {
       const val = snapshot.val();
       if (val && typeof val === 'object') {
-        adminContext.captures = val;
+        adminContext.captures = { ...adminContext.captures, ...val };
         renderAdminProPanel();
       }
-    }, () => {});
+    };
+    onValue(ref(database, 'mareCerta/captures'), handleCapturesSnapshot, () => {});
+    onValue(ref(database, 'captures'), handleCapturesSnapshot, () => {});
 
     // 7. Sincroniza comentários sociais da nuvem
     onValue(ref(database, 'mareCerta/comments'), snapshot => {
@@ -4845,6 +4849,171 @@ export function renderAdminProPanel() {
 export function openAdminProModal() {
   const dialog = $('adminProDialog');
   if (!dialog) return;
+  setupAdminAutoRefresh();
+  refreshAdminDataFromFirebase();
   renderAdminProPanel();
   if (!dialog.open) dialog.showModal();
+}
+
+/* ============================================================
+   SINCRONIZAÇÃO EM TEMPO REAL E AUTO-REFRESH DO PAINEL ADMIN (15s)
+   ============================================================ */
+
+export async function refreshAdminDataFromFirebase() {
+  const statusText = $('adminSyncStatusText');
+  const refreshBtn = $('adminRefreshNowBtn');
+  if (refreshBtn) refreshBtn.classList.add('is-refreshing');
+  if (statusText) statusText.textContent = 'Buscando dados no Firebase…';
+
+  try {
+    // 1. Busca perfis cadastrados do Firebase
+    let freshProfiles = {};
+    try {
+      const snapMare = await get(ref(database, 'mareCerta/profiles'));
+      if (snapMare && typeof snapMare.exists === 'function' && snapMare.exists()) {
+        freshProfiles = { ...freshProfiles, ...snapMare.val() };
+      }
+    } catch {}
+    try {
+      const snapLegacy = await get(ref(database, 'profiles'));
+      if (snapLegacy && typeof snapLegacy.exists === 'function' && snapLegacy.exists()) {
+        freshProfiles = { ...freshProfiles, ...snapLegacy.val() };
+      }
+    } catch {}
+    adminContext.profiles = { ...adminContext.profiles, ...freshProfiles };
+
+    // 2. Busca capturas
+    let freshCaptures = {};
+    try {
+      const snapCaps = await get(ref(database, 'mareCerta/captures'));
+      if (snapCaps && typeof snapCaps.exists === 'function' && snapCaps.exists()) {
+        freshCaptures = { ...freshCaptures, ...snapCaps.val() };
+      }
+    } catch {}
+    try {
+      const snapLegacyCaps = await get(ref(database, 'captures'));
+      if (snapLegacyCaps && typeof snapLegacyCaps.exists === 'function' && snapLegacyCaps.exists()) {
+        freshCaptures = { ...freshCaptures, ...snapLegacyCaps.val() };
+      }
+    } catch {}
+    adminContext.captures = { ...adminContext.captures, ...freshCaptures };
+
+    // 3. Busca extendedProfiles
+    try {
+      const snapExt = await get(ref(database, 'mareCerta/extendedProfiles'));
+      if (snapExt && typeof snapExt.exists === 'function' && snapExt.exists()) {
+        const extVal = snapExt.val();
+        const local = loadFisherExtendedProfiles();
+        const merged = { ...local, ...extVal };
+        try { localStorage.setItem(STORAGE_FISHER_PROFILES_KEY, JSON.stringify(merged)); } catch {}
+      }
+    } catch {}
+
+    // 4. Busca vipGrants
+    try {
+      const snapVip = await get(ref(database, 'mareCerta/vipGrants'));
+      if (snapVip && typeof snapVip.exists === 'function' && snapVip.exists()) {
+        const vipVal = snapVip.val();
+        const local = loadRawAdminVipGrantsMap();
+        const merged = { ...local, ...vipVal };
+        try { localStorage.setItem(STORAGE_ADMIN_VIP_KEY, JSON.stringify(merged)); } catch {}
+      }
+    } catch {}
+
+    // 5. Busca moderação / banimentos
+    try {
+      const snapMod = await get(ref(database, 'mareCerta/moderation/users'));
+      if (snapMod && typeof snapMod.exists === 'function' && snapMod.exists()) {
+        const modVal = snapMod.val();
+        const local = loadAdminModerationMap();
+        const merged = { ...local, ...modVal };
+        try { localStorage.setItem(STORAGE_ADMIN_MODERATION_KEY, JSON.stringify(merged)); } catch {}
+      }
+    } catch {}
+
+    // 6. Busca denúncias
+    try {
+      const snapRep = await get(ref(database, 'mareCerta/moderation/reports'));
+      if (snapRep && typeof snapRep.exists === 'function' && snapRep.exists()) {
+        const repVal = snapRep.val();
+        const local = loadAdminReportsMap();
+        const merged = { ...local, ...repVal };
+        try { localStorage.setItem(STORAGE_ADMIN_REPORTS_KEY, JSON.stringify(merged)); } catch {}
+      }
+    } catch {}
+
+    renderAdminProPanel();
+    renderAdminReportsList();
+    renderAdminProhibitedWordsList();
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('pt-BR');
+    if (statusText) statusText.textContent = `Atualizado com sucesso (${timeStr}) ✓`;
+  } catch (err) {
+    console.warn('Erro ao atualizar dados do admin via Firebase:', err);
+    if (statusText) statusText.textContent = 'Erro ao sincronizar com o Firebase. Usando cache local.';
+  } finally {
+    if (refreshBtn) refreshBtn.classList.remove('is-refreshing');
+  }
+}
+
+let adminCountdownSeconds = 15;
+let adminAutoRefreshInterval = null;
+
+export function setupAdminAutoRefresh() {
+  if (typeof document === 'undefined') return;
+
+  const refreshBtn = $('adminRefreshNowBtn');
+  const autoCheck = $('adminAutoRefreshCheck');
+  const countdownEl = $('adminSyncCountdown');
+  const statusText = $('adminSyncStatusText');
+
+  if (!refreshBtn && !autoCheck) return;
+
+  const resetCountdown = () => {
+    adminCountdownSeconds = 15;
+    if (countdownEl) countdownEl.textContent = `· Atualizando em ${adminCountdownSeconds}s`;
+  };
+
+  const triggerRefresh = async () => {
+    resetCountdown();
+    await refreshAdminDataFromFirebase();
+  };
+
+  if (refreshBtn && !refreshBtn._listenerAttached) {
+    refreshBtn._listenerAttached = true;
+    refreshBtn.addEventListener('click', () => {
+      triggerRefresh();
+    });
+  }
+
+  // Timer com contagem regressiva de 15 segundos
+  if (adminAutoRefreshInterval) clearInterval(adminAutoRefreshInterval);
+  adminCountdownSeconds = 15;
+  adminAutoRefreshInterval = setInterval(() => {
+    const isChecked = autoCheck ? autoCheck.checked : true;
+    if (!isChecked) {
+      if (countdownEl) countdownEl.textContent = '· Atualização pausada';
+      return;
+    }
+
+    adminCountdownSeconds--;
+    if (adminCountdownSeconds <= 0) {
+      triggerRefresh();
+    } else {
+      if (countdownEl) countdownEl.textContent = `· Atualizando em ${adminCountdownSeconds}s`;
+    }
+  }, 1000);
+
+  if (autoCheck && !autoCheck._listenerAttached) {
+    autoCheck._listenerAttached = true;
+    autoCheck.addEventListener('change', () => {
+      if (autoCheck.checked) {
+        triggerRefresh();
+      } else {
+        if (countdownEl) countdownEl.textContent = '· Atualização pausada';
+        if (statusText) statusText.textContent = 'Auto-atualização pausada';
+      }
+    });
+  }
 }

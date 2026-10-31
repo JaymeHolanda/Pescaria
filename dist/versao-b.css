@@ -5793,4 +5793,125 @@ a.profile-social-pill:hover {
   text-decoration: underline;
 }
 
+/* ============================================================
+   ADMIN SYNC BAR & AUTO-REFRESH (TEMPO REAL & INTERVALO 15s)
+   ============================================================ */
+.admin-sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(3, 14, 22, 0.72);
+  border: 1px solid rgba(77, 225, 193, 0.22);
+  border-radius: 12px;
+  margin: 14px 0 18px;
+  backdrop-filter: blur(8px);
+}
+
+.admin-sync-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #a4cbd4;
+}
+
+.admin-sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4de1c1;
+  box-shadow: 0 0 8px rgba(77, 225, 193, 0.75);
+  animation: adminDotPulse 2s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes adminDotPulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12px #4de1c1; }
+}
+
+.admin-sync-countdown {
+  color: #6d909a;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(77, 225, 193, 0.16), rgba(12, 42, 58, 0.85));
+  border: 1px solid rgba(77, 225, 193, 0.38);
+  border-radius: 8px;
+  color: #4de1c1;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.admin-refresh-btn:hover {
+  background: linear-gradient(135deg, rgba(77, 225, 193, 0.28), rgba(12, 42, 58, 0.95));
+  border-color: #4de1c1;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(77, 225, 193, 0.2);
+}
+
+.admin-refresh-btn:active {
+  transform: translateY(0);
+}
+
+.admin-refresh-btn:disabled,
+.admin-refresh-btn.is-refreshing {
+  opacity: 0.7;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.admin-refresh-btn .refresh-icon {
+  display: inline-block;
+  font-size: 0.9rem;
+  transition: transform 0.2s ease;
+}
+
+.admin-refresh-btn.is-refreshing .refresh-icon {
+  animation: adminSpin 0.75s infinite linear;
+}
+
+@keyframes adminSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.admin-auto-refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #b7d7e0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-auto-refresh-toggle input[type="checkbox"] {
+  accent-color: #4de1c1;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+
 
