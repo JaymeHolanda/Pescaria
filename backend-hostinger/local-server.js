@@ -7,6 +7,7 @@ import http from 'node:http';
 import { URL } from 'node:url';
 import fs from 'node:fs';
 import path from 'node:path';
+import { handleS3BackendRoutes } from './s3-uploader.js';
 
 export const MP_ACCESS_TOKEN = 'APP_USR-3736774688506968-103020-a50140e5ee32e6aa9500e4011dde7027-3806448974';
 export const MP_PUBLIC_KEY = 'APP_USR-ac76adfb-81e9-4440-96ff-1949cb948fc8';
@@ -203,6 +204,10 @@ export function handleMpBackendRoutes(req, res) {
     res.statusCode = 200;
     res.end();
     return true;
+  }
+
+  if (pathname.startsWith('/api/s3/')) {
+    return handleS3BackendRoutes(req, res);
   }
 
   // 1. Criar Preferência Oficial Mercado Pago

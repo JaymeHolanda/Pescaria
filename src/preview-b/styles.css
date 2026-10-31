@@ -6000,10 +6000,12 @@ a.profile-social-pill:hover {
 }
 
 .social-comment-actions {
-  margin-left: auto !important;
-  display: inline-flex !important;
+  display: flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 8px !important;
+  padding-left: 30px !important;
+  margin-top: 3px !important;
+  margin-left: 0 !important;
   flex-shrink: 0 !important;
 }
 

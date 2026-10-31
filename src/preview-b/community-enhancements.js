@@ -620,6 +620,43 @@ export function saveLocalS3Photo(captureId, photoRecord) {
   } catch {}
 }
 
+export async function uploadImageToS3(photoDataUrl, folder = 'trophies', filename = null) {
+  if (!photoDataUrl || typeof photoDataUrl !== 'string' || !photoDataUrl.startsWith('data:')) return null;
+  try {
+    const res = await fetch('/api/s3/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dataUrl: photoDataUrl,
+        folder,
+        filename: filename || `${folder}-${Date.now()}.webp`
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.ok && data.url) {
+        return data.url;
+      }
+    }
+  } catch (err) {
+    console.warn('Upload S3 via backend local/Hostinger falhou, tentando fallback:', err);
+  }
+  return null;
+}
+
+export async function uploadCommunityImage(photoDataUrl, folder = 'trophies', id = null) {
+  if (!photoDataUrl || typeof photoDataUrl !== 'string' || !photoDataUrl.startsWith('data:')) return null;
+  // 1. Tenta upload prioritário para o bucket AWS S3 (pescaimages)
+  try {
+    const cleanId = id ? String(id).replace(/[^a-zA-Z0-9_-]/g, '') : Date.now();
+    const s3Url = await uploadImageToS3(photoDataUrl, folder, `${folder}-${cleanId}.webp`);
+    if (s3Url) return s3Url;
+  } catch {}
+
+  // 2. Se falhar ou estiver sem backend, utiliza o Firebase Storage como fallback seguro
+  return uploadTrophyPhotoToFirebaseStorage(id, photoDataUrl);
+}
+
 export async function uploadTrophyPhotoToFirebaseStorage(captureId, photoDataUrl) {
   if (!photoDataUrl || typeof photoDataUrl !== 'string' || !photoDataUrl.startsWith('data:')) return null;
   try {
@@ -3375,13 +3412,13 @@ export function enhanceSocialCaptureCard(card, id, capture, profiles = {}, allCa
             ${c.isPro ? '<span class="pro-mini-tag">👑 PRO</span>' : ''}
             <small class="social-comment-time">· ${escapeHtml(c.time || 'agora')}</small>
           </div>
-          <div class="social-comment-actions">
-            ${!isMyComment ? `<button type="button" class="social-reply-link" data-reply-to="${escapeHtml(authorLabel)}">Responder</button>` : ''}
-            ${!isMyComment ? `<button type="button" class="social-report-comment-btn" data-report-post-id="${escapeHtml(id)}" data-report-comment-id="${escapeHtml(c.id)}" data-report-comment-text="${escapeHtml(c.text)}" data-report-offender="${escapeHtml(authorLabel)}" data-report-offender-uid="${escapeHtml(c.authorUid || '')}" title="Denunciar este comentário ao administrador">Denunciar</button>` : ''}
-            ${isMyComment ? `<button type="button" class="social-delete-comment-btn" data-delete-comment="${escapeHtml(c.id)}" title="Apagar comentário">Apagar</button>` : ''}
-          </div>
         </div>
         <p class="social-comment-body">${escapeHtml(c.text)}</p>
+        <div class="social-comment-actions">
+          ${!isMyComment ? `<button type="button" class="social-reply-link" data-reply-to="${escapeHtml(authorLabel)}">Responder</button>` : ''}
+          ${!isMyComment ? `<button type="button" class="social-report-comment-btn" data-report-post-id="${escapeHtml(id)}" data-report-comment-id="${escapeHtml(c.id)}" data-report-comment-text="${escapeHtml(c.text)}" data-report-offender="${escapeHtml(authorLabel)}" data-report-offender-uid="${escapeHtml(c.authorUid || '')}" title="Denunciar este comentário ao administrador">Denunciar</button>` : ''}
+          ${isMyComment ? `<button type="button" class="social-delete-comment-btn" data-delete-comment="${escapeHtml(c.id)}" title="Apagar comentário">Apagar</button>` : ''}
+        </div>
       </article>`;
     }).join('');
 

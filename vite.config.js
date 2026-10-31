@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { handleMpBackendRoutes } from './backend-hostinger/local-server.js';
+import { handleS3BackendRoutes } from './backend-hostinger/s3-uploader.js';
 
 export default {
   plugins: [
@@ -19,6 +20,10 @@ export default {
           }
           if (urlPath.startsWith('/api/mp/')) {
             const handled = handleMpBackendRoutes(req, res);
+            if (handled) return;
+          }
+          if (urlPath.startsWith('/api/s3/')) {
+            const handled = handleS3BackendRoutes(req, res);
             if (handled) return;
           }
           next();

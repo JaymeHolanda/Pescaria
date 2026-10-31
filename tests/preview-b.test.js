@@ -1309,5 +1309,30 @@ test('Painel Admin: atualização automática a cada 15 segundos, botão manual 
   assert.match(stylesCss, /@keyframes adminSpin/, 'CSS deve conter animação de rotação para feedback visual');
 });
 
+test('Design Patterns de comentários: ações abaixo do texto do comentário e infraestrutura de upload AWS S3 protegida', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+
+  // 1. Verifica ordem no HTML gerado dos comentários: social-comment-body deve vir ANTES de social-comment-actions
+  const commEnhanceCode = readFileSync('src/preview-b/community-enhancements.js', 'utf8');
+  const bodyIdx = commEnhanceCode.indexOf('<p class="social-comment-body">${escapeHtml(c.text)}</p>');
+  const actionsIdx = commEnhanceCode.indexOf('<div class="social-comment-actions">', bodyIdx);
+  assert.ok(bodyIdx > 0 && actionsIdx > bodyIdx, 'O texto do comentário deve vir antes das ações de responder/denunciar/apagar');
+
+  // 2. Verifica que .env.example existe e que o módulo s3-uploader.js existe
+  assert.ok(existsSync('.env.example'), '.env.example deve existir como modelo');
+  assert.ok(existsSync('backend-hostinger/s3-uploader.js'), 'backend-hostinger/s3-uploader.js deve existir');
+  assert.ok(existsSync('backend-hostinger/upload_s3.php'), 'backend-hostinger/upload_s3.php deve existir');
+
+  // 3. Verifica funções exportadas no módulo community-enhancements.js
+  const commModule = await import('../src/preview-b/community-enhancements.js');
+  assert.equal(typeof commModule.uploadImageToS3, 'function');
+  assert.equal(typeof commModule.uploadCommunityImage, 'function');
+
+  // 4. Garante que .env.example não contém credenciais reais
+  const envExample = readFileSync('.env.example', 'utf8');
+  assert.match(envExample, /AWS_ACCESS_KEY_ID=sua_access_key_aqui/);
+  assert.doesNotMatch(envExample, /AKIASNXINGS2GKFRTUGR/);
+});
+
 
 

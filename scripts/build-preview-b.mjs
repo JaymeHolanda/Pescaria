@@ -1548,6 +1548,8 @@ import {
   validateTextAgainstModeration,
   getUserModerationStatus,
   uploadTrophyPhotoToFirebaseStorage,
+  uploadImageToS3,
+  uploadCommunityImage,
   applyLocationToMainPage,
   resolveLocationByQuery,
   openImageCropper,
@@ -1718,7 +1720,7 @@ ranking = replace(
         const pendingPhotoEdit = getPendingTrophyPhoto();
         if (pendingPhotoEdit) {
           saveLocalS3Photo(edit.id, pendingPhotoEdit);
-          uploadTrophyPhotoToFirebaseStorage(edit.id, pendingPhotoEdit.dataUrl).then(url => {
+          uploadCommunityImage(pendingPhotoEdit.dataUrl, 'trophies', edit.id).then(url => {
             const finalPhotoUrl = url || pendingPhotoEdit.dataUrl;
             if (finalPhotoUrl) update(ref(database, 'mareCerta/captures/' + edit.id), { photoUrl: finalPhotoUrl }).catch(() => {});
           }).catch(() => {
@@ -1772,7 +1774,7 @@ ranking = replace(
       const pendingPhoto = getPendingTrophyPhoto();
       if (pendingPhoto && pushedRef?.key) {
         saveLocalS3Photo(pushedRef.key, pendingPhoto);
-        uploadTrophyPhotoToFirebaseStorage(pushedRef.key, pendingPhoto.dataUrl).then(url => {
+        uploadCommunityImage(pendingPhoto.dataUrl, 'trophies', pushedRef.key).then(url => {
           const finalPhotoUrl = url || pendingPhoto.dataUrl;
           if (finalPhotoUrl) update(ref(database, 'mareCerta/captures/' + pushedRef.key), { photoUrl: finalPhotoUrl }).catch(() => {});
         }).catch(() => {
@@ -1914,6 +1916,12 @@ if ($('myProfileAvatarBtn') && $('myProfileAvatarInput')) {
         saveFisherExtendedProfile(user.uid, { avatarUrl: cropped.dataUrl });
         renderCommunity();
         message('profileStatus', '✓ Foto do perfil atualizada e enquadrada com sucesso!');
+        uploadCommunityImage(cropped.dataUrl, 'profiles', 'avatar-' + user.uid).then(s3Url => {
+          if (s3Url) {
+            saveFisherExtendedProfile(user.uid, { avatarUrl: s3Url });
+            renderCommunity();
+          }
+        }).catch(() => {});
         $('myProfileAvatarInput').value = '';
       },
       onCancel: () => {
@@ -1935,19 +1943,28 @@ if ($('addProfileTrophyBtn') && $('myProfileTrophyInput')) {
       title: 'Enquadrar Foto para sua Galeria',
       subtitle: 'Foto completa preservada. Arraste e use o zoom caso queira aproximar o peixe.',
       onCropComplete: cropped => {
+        const photoId = 'trophy-' + Date.now();
         const currentExt = getFisherExtendedProfile(user.uid, profiles?.[user.uid]);
         const extraTrophyPhotos = [
           {
-            id: 'trophy-' + Date.now(),
+            id: photoId,
             dataUrl: cropped.dataUrl,
             title: 'Troféu do Pescador',
             date: today().split('-').reverse().join('/')
           },
-          ...(currentExt.extraTrophyPhotos || [])
+          ...(currentExt?.extraTrophyPhotos || [])
         ];
         saveFisherExtendedProfile(user.uid, { extraTrophyPhotos });
         renderCommunity();
         message('profileStatus', '✓ Foto adicionada à sua galeria de troféus!');
+        uploadCommunityImage(cropped.dataUrl, 'gallery', photoId).then(s3Url => {
+          if (s3Url) {
+            const cur = getFisherExtendedProfile(user.uid, profiles?.[user.uid]);
+            const updated = (cur?.extraTrophyPhotos || []).map(p => p.id === photoId ? { ...p, dataUrl: s3Url } : p);
+            saveFisherExtendedProfile(user.uid, { extraTrophyPhotos: updated });
+            renderCommunity();
+          }
+        }).catch(() => {});
         $('myProfileTrophyInput').value = '';
       },
       onCancel: () => {
